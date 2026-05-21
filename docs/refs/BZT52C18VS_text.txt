@@ -1,0 +1,3278 @@
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+Small Signal Zener Diodes
+FEATURES
+• Silicon planar Zener diodes
+
+Available
+
+• The Zener voltages are graded according to
+the international E24 standard
+• AEC-Q101 qualified available
+
+DESIGN SUPPORT TOOLS
+
+• ESD capability according to AEC-Q101:
+Human body model > 8 kV
+Machine model > 800 V
+
+click logo to get started
+
+• Base P/N-E3 - RoHS-compliant, commercial
+grade
+
+Models
+
+• Base P/N-HE3 - RoHS-compliant, AEC-Q101 qualified
+
+Available
+
+• Material categorization: for definitions of compliance
+please see www.vishay.com/doc?99912
+
+PRIMARY CHARACTERISTICS
+PARAMETER
+
+VALUE
+
+VZ range nom.
+
+2.4 to 75
+
+V
+
+Test current IZT
+
+2.5; 5
+
+mA
+
+VZ specification
+
+Pulse current
+
+Circuit configuration
+
+UNIT
+
+Single
+
+ORDERING INFORMATION
+DEVICE NAME
+
+ORDERING CODE
+
+TAPED UNITS PER REEL
+
+MINIMUM ORDER QUANTITY
+
+3000 (8 mm tape on 7" reel)
+
+15 000/box
+
+10 000 (8 mm tape on 13" reel)
+
+10 000/box
+
+BZT52C2V4-E3-08 to BZT52C75-E3-08
+BZT52B2V4-E3-08 to BZT52B75-E3-08
+BZT52C2V4-HE3-08 to BZT52C75-HE3-08
+BZT52-series
+
+BZT52B2V4-HE3-08 to BZT52B75-HE3-08
+BZT52C2V4-E3-18 to BZT52C75-E3-18
+BZT52B2V4-E3-18 to BZT52B75-E3-18
+BZT52C2V4-HE3-18 to BZT52C75-HE3-18
+BZT52B2V4-HE3-18 to BZT52B75-HE3-18
+
+PACKAGE
+PACKAGE NAME
+
+WEIGHT
+
+MOLDING COMPOUND
+FLAMMABILITY RATING
+
+MOISTURE SENSITIVITY
+LEVEL
+
+SOLDERING CONDITIONS
+
+SOD-123
+
+10.3 mg
+
+UL 94 V-0
+
+MSL level 1
+(according J-STD-020)
+
+260 °C/10 s at terminals
+
+ABSOLUTE MAXIMUM RATINGS (Tamb = 25 °C, unless otherwise specified)
+PARAMETER
+
+Power dissipation
+
+Zener current
+Thermal resistance junction to ambient air
+
+TEST CONDITION
+
+SYMBOL
+
+VALUE
+
+UNIT
+
+Diode on ceramic substrate 0.7 mm;
+5 mm2 pad areas
+
+Ptot
+
+500
+
+mW
+
+Diode on ceramic substrate 0.7 mm;
+2.5 mm2 pad areas
+
+Ptot
+
+410
+
+mW
+
+RthJA
+
+300
+
+K/W
+
+See table “Electrical Characteristics “
+Valid provided that electrodes are kept at
+ambient temperature
+
+Junction temperature
+
+Tj
+
+150
+
+°C
+
+Storage temperature range
+
+Tstg
+
+-65 to +150
+
+°C
+
+Operating temperature range
+
+Top
+
+-55 to +150
+
+°C
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+1
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+ELECTRICAL CHARACTERISTICS (Tamb = 25 °C, unless otherwise specified)
+ZENER VOLTAGE
+RANGE (1)
+PART
+NUMBER
+
+MARKING
+CODE
+
+VZ at IZT1
+
+TEST
+CURRENT
+
+REVERSE
+VOLTAGE
+
+DYNAMIC
+RESISTANCE
+
+IZT1
+
+VR at IR
+
+ZZ at
+IZT1
+
+V
+
+IZT2
+
+mA
+
+V
+
+nA
+
+ZZK at
+IZT2
+
+
+TEMP.
+COEFFICIENT
+
+ADMISSABLE ZENER
+CURRENT (4)
+
+VZ
+
+IZ at
+IZ at
+Tamb = 45 °C Tamb = 25 °C
+
+10-4/°C
+
+mA
+
+MIN. NOM. MAX.
+BZT52C2V4
+
+W1
+
+2.2
+
+2.4
+
+2.6
+
+5
+
+1
+
+-
+
+-
+
+85
+
+600
+
+-9 to -4
+
+-
+
+-
+
+BZT52C2V7
+
+W2
+
+2.5
+
+2.7
+
+2.9
+
+5
+
+1
+
+-
+
+-
+
+75 (< 83)
+
+< 500
+
+-9 to -4
+
+113
+
+134
+
+BZT52C3V0
+
+W3
+
+2.8
+
+3.0
+
+3.2
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-9 to -3
+
+98
+
+118
+
+BZT52C3V3
+
+W4
+
+3.1
+
+3.3
+
+3.5
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-8 to -3
+
+92
+
+109
+
+BZT52C3V6
+
+W5
+
+3.4
+
+3.6
+
+3.8
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-8 to -3
+
+85
+
+100
+
+BZT52C3V9
+
+W6
+
+3.7
+
+3.9
+
+4.1
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-7 to -3
+
+77
+
+92
+
+BZT52C4V3
+
+W7
+
+4
+
+4.3
+
+4.6
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-6 to -1
+
+71
+
+84
+
+BZT52C4V7
+
+W8
+
+4.4
+
+4.7
+
+5
+
+5
+
+1
+
+-
+
+-
+
+70 (< 78)
+
+< 500
+
+-5 to +2
+
+64
+
+76
+
+BZT52C5V1
+
+W9
+
+4.8
+
+5.1
+
+5.4
+
+5
+
+1
+
+> 0.8
+
+100
+
+30 (< 60)
+
+< 480
+
+-3 to +4
+
+56
+
+67
+
+BZT52C5V6
+
+WA
+
+5.2
+
+5.6
+
+6
+
+5
+
+1
+
+>1
+
+100
+
+10 (< 40)
+
+< 400
+
+-2 to +6
+
+50
+
+59
+
+BZT52C6V2
+
+WB
+
+5.8
+
+6.2
+
+6.6
+
+5
+
+1
+
+>2
+
+100
+
+4.8 (< 10)
+
+< 200
+
+-1 to +7
+
+45
+
+54
+
+BZT52C6V8
+
+WC
+
+6.4
+
+6.8
+
+7.2
+
+5
+
+1
+
+>3
+
+100
+
+4.5 (< 8)
+
+< 150
+
++2 to +7
+
+41
+
+49
+
+BZT52C7V5
+
+WD
+
+7
+
+7.5
+
+7.9
+
+5
+
+1
+
+>5
+
+100
+
+4 (< 7)
+
+< 50
+
++3 to +7
+
+37
+
+44
+
+BZT52C8V2
+
+WE
+
+7.7
+
+8.2
+
+8.7
+
+5
+
+1
+
+>6
+
+100
+
+4.5 (< 7)
+
+< 50
+
++4 to +7
+
+34
+
+40
+
+BZT52C9V1
+
+WF
+
+8.5
+
+9.1
+
+9.6
+
+5
+
+1
+
+>7
+
+100
+
+4.8 (< 10)
+
+< 50
+
++5 to +8
+
+30
+
+36
+
+BZT52C10
+
+WG
+
+9.4
+
+10
+
+10.6
+
+5
+
+1
+
+> 7.5
+
+100
+
+5.2 (< 15)
+
+< 70
+
++5 to +8
+
+28
+
+33
+
+BZT52C11
+
+WH
+
+10.4
+
+11
+
+11.6
+
+5
+
+1
+
+> 8.5
+
+100
+
+6 (< 20)
+
+< 70
+
++5 to +9
+
+25
+
+30
+
+BZT52C12
+
+WI
+
+11.4
+
+12
+
+12.7
+
+5
+
+1
+
+>9
+
+100
+
+7 (< 20)
+
+< 90
+
++6 to +9
+
+23
+
+28
+
+BZT52C13
+
+WK
+
+12.4
+
+13
+
+14.1
+
+5
+
+1
+
+> 10
+
+100
+
+9 (< 25)
+
+< 110
+
++7 to +9
+
+21
+
+25
+
+BZT52C15
+
+WL
+
+13.8
+
+15
+
+15.6
+
+5
+
+1
+
+> 11
+
+100
+
+11 (< 30)
+
+< 110
+
++7 to +9
+
+19
+
+23
+
+BZT52C16
+
+WM
+
+15.3
+
+16
+
+17.1
+
+5
+
+1
+
+> 12
+
+100
+
+13 (< 40)
+
+< 170
+
++8 to +9.5
+
+17
+
+20
+
+BZT52C18
+
+WN
+
+16.8
+
+18
+
+19.1
+
+5
+
+1
+
+> 14
+
+100
+
+18 (< 50)
+
+< 170
+
++8 to +9.5
+
+15
+
+18
+
+BZT52C20
+
+WO
+
+18.8
+
+20
+
+21.2
+
+5
+
+1
+
+> 15
+
+100
+
+20 (< 50)
+
+< 220
+
++8 to +10
+
+14
+
+17
+
+BZT52C22
+
+WP
+
+20.8
+
+22
+
+23.3
+
+5
+
+1
+
+> 17
+
+100
+
+25 (< 55)
+
+< 220
+
++8 to +10
+
+13
+
+16
+
+BZT52C24
+
+WR
+
+22.8
+
+24
+
+25.6
+
+5
+
+1
+
+> 18
+
+100
+
+28 (< 80)
+
+< 220
+
++8 to +10
+
+11
+
+13
+
+BZT52C27
+
+WS
+
+25.1
+
+27
+
+28.9
+
+5
+
+1
+
+> 20
+
+100
+
+30 (< 80)
+
+< 250
+
++8 to +10
+
+10
+
+12
+
+BZT52C30
+
+WT
+
+28
+
+30
+
+32
+
+5
+
+1
+
+> 22.5 100
+
+35 (< 80)
+
+< 250
+
++8 to +10
+
+9
+
+10
+
+BZT52C33
+
+WU
+
+31
+
+33
+
+35
+
+5
+
+1
+
+> 25
+
+100
+
+40 (< 80)
+
+< 250
+
++8 to +10
+
+8
+
+9
+
+BZT52C36
+
+WW
+
+34
+
+36
+
+38
+
+5
+
+1
+
+> 27
+
+100
+
+40 (< 90)
+
+< 250
+
++8 to +10
+
+8
+
+9
+
+BZT52C39
+
+WX
+
+37
+
+39
+
+41
+
+5
+
+1
+
+> 29
+
+100
+
+50 (< 90)
+
+< 300
+
++10 to +12
+
+7
+
+8
+
+BZT52C43
+
+WY
+
+40
+
+43
+
+46
+
+5
+
+1
+
+> 32
+
+100 60 (< 100)
+
+< 700
+
++10 to +12
+
+6
+
+7
+
+BZT52C47
+
+WZ
+
+44
+
+47
+
+50
+
+5
+
+1
+
+> 35
+
+100 70 (< 100)
+
+< 750
+
++10 to +12
+
+5
+
+6
+
+BZT52C51
+
+X1
+
+48
+
+51
+
+54
+
+5
+
+1
+
+> 38
+
+100 70 (< 100)
+
+< 750
+
++10 to +12
+
+5
+
+6
+
+BZT52C56
+
+X2
+
+52
+
+56
+
+60
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 135 (2)
+
+< 1000 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+< 1000 (3)
+
+typ. +10 (2)
+
+BZT52C62
+
+X3
+
+58
+
+62
+
+66
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 150 (2)
+
+-
+
+-
+
+BZT52C68
+
+X4
+
+64
+
+68
+
+72
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 200 (2)
+
+< 1000 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+BZT52C75
+X5
+70
+75
+79
+2.5 0.5
+Notes
+• IZT1 = 5 mA, IZT2 = 1 mA
+(1) Measured with pulses t = 5 ms
+p
+(2) I
+ZT1 = 2.5 mA
+(3) I
+ZT2 = 0.5 mA
+(4) Valid provided that electrodes are kept at ambient temperature
+
+-
+
+< 250 (2)
+
+< 1500 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+2
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+ELECTRICAL CHARACTERISTICS (Tamb = 25 °C, unless otherwise specified)
+ZENER VOLTAGE
+RANGE (1)
+PART
+NUMBER
+
+MARKING
+CODE
+
+VZ at IZT1
+
+TEST
+CURRENT
+
+REVERSE
+VOLTAGE
+
+IZT1
+
+VR at IR
+
+V
+
+IZT2
+
+mA
+
+V
+
+nA
+
+DYNAMIC
+RESISTANCE
+ZZ at IZT1
+
+ZZK at
+IZT2
+
+
+
+TEMP.
+ADMISSABLE ZENER
+COEFFICIENT
+CURRENT (4)
+VZ
+
+IZ at
+IZ at
+Tamb = 45 °C Tamb = 25 °C
+
+10-4/°C
+
+mA
+
+MIN. NOM. MAX.
+BZT52B2V4
+
+W1
+
+2.35
+
+2.4
+
+2.45
+
+5
+
+1
+
+-
+
+-
+
+85
+
+600
+
+-9 to -4
+
+-
+
+-
+
+BZT52B2V7
+
+W2
+
+2.65
+
+2.7
+
+2.75
+
+5
+
+1
+
+-
+
+-
+
+75 (< 83)
+
+< 500
+
+-9 to -4
+
+113
+
+134
+
+BZT52B3V0
+
+W3
+
+2.94
+
+3.0
+
+3.06
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-9 to -3
+
+98
+
+118
+
+BZT52B3V3
+
+W4
+
+3.23
+
+3.3
+
+3.37
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-8 to -3
+
+92
+
+109
+
+BZT52B3V6
+
+W5
+
+3.53
+
+3.6
+
+3.67
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-8 to -3
+
+85
+
+100
+
+BZT52B3V9
+
+W6
+
+3.82
+
+3.9
+
+3.98
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-7 to -3
+
+77
+
+92
+
+BZT52B4V3
+
+W7
+
+4.21
+
+4.3
+
+4.39
+
+5
+
+1
+
+-
+
+-
+
+80 (< 95)
+
+< 500
+
+-6 to -1
+
+71
+
+84
+
+BZT52B4V7
+
+W8
+
+4.61
+
+4.7
+
+4.79
+
+5
+
+1
+
+-
+
+-
+
+70 (< 78)
+
+< 500
+
+-5 to +2
+
+64
+
+76
+
+BZT52B5V1
+
+W9
+
+5
+
+5.1
+
+5.2
+
+5
+
+1
+
+> 0.8
+
+100
+
+30 (< 60)
+
+< 480
+
+-3 to +4
+
+56
+
+67
+
+BZT52B5V6
+
+WA
+
+5.49
+
+5.6
+
+5.71
+
+5
+
+1
+
+>1
+
+100
+
+10 (< 40)
+
+< 400
+
+-2 to +6
+
+50
+
+59
+
+BZT52B6V2
+
+WB
+
+6.08
+
+6.2
+
+6.32
+
+5
+
+1
+
+>2
+
+100
+
+4.8 (< 10)
+
+< 200
+
+-1 to +7
+
+45
+
+54
+
+BZT52B6V8
+
+WC
+
+6.66
+
+6.8
+
+6.94
+
+5
+
+1
+
+>3
+
+100
+
+4.5 (< 8)
+
+< 150
+
++2 to +7
+
+41
+
+49
+
+BZT52B7V5
+
+WD
+
+7.35
+
+7.5
+
+7.65
+
+5
+
+1
+
+>5
+
+100
+
+4 (< 7)
+
+< 50
+
++3 to +7
+
+37
+
+44
+
+BZT52B8V2
+
+WE
+
+8.04
+
+8.2
+
+8.36
+
+5
+
+1
+
+>6
+
+100
+
+4.5 (< 7)
+
+< 50
+
++4 to +7
+
+34
+
+40
+
+BZT52B9V1
+
+WF
+
+8.92
+
+9.1
+
+9.28
+
+5
+
+1
+
+>7
+
+100
+
+4.8 (< 10)
+
+< 50
+
++5 to +8
+
+30
+
+36
+
+BZT52B10
+
+WG
+
+9.8
+
+10
+
+10.2
+
+5
+
+1
+
+> 7.5
+
+100
+
+5.2 (< 15)
+
+< 70
+
++5 to +8
+
+28
+
+33
+
+BZT52B11
+
+WH
+
+10.8
+
+11
+
+11.2
+
+5
+
+1
+
+> 8.5
+
+100
+
+6 (< 20)
+
+< 70
+
++5 to +9
+
+25
+
+30
+
+BZT52B12
+
+WI
+
+11.8
+
+12
+
+12.2
+
+5
+
+1
+
+>9
+
+100
+
+7 (< 20)
+
+< 90
+
++6 to +9
+
+23
+
+28
+
+BZT52B13
+
+WK
+
+12.7
+
+13
+
+13.3
+
+5
+
+1
+
+> 10
+
+100
+
+9 (< 25)
+
+< 110
+
++7 to +9
+
+21
+
+25
+
+BZT52B15
+
+WL
+
+14.7
+
+15
+
+15.3
+
+5
+
+1
+
+> 11
+
+100
+
+11 (< 30)
+
+< 110
+
++7 to +9
+
+19
+
+23
+
+BZT52B16
+
+WM
+
+15.7
+
+16
+
+16.3
+
+5
+
+1
+
+> 12
+
+100
+
+13 (< 40)
+
+< 170
+
++8 to +9.5
+
+17
+
+20
+
+BZT52B18
+
+WN
+
+17.6
+
+18
+
+18.4
+
+5
+
+1
+
+> 14
+
+100
+
+18 (< 50)
+
+< 170
+
++8 to +9.5
+
+15
+
+18
+
+BZT52B20
+
+WO
+
+19.6
+
+20
+
+20.4
+
+5
+
+1
+
+> 15
+
+100
+
+20 (< 50)
+
+< 220
+
++8 to +10
+
+14
+
+17
+
+BZT52B22
+
+WP
+
+21.6
+
+22
+
+22.4
+
+5
+
+1
+
+> 17
+
+100
+
+25 (< 55)
+
+< 220
+
++8 to +10
+
+13
+
+16
+
+BZT52B24
+
+WR
+
+23.5
+
+24
+
+24.5
+
+5
+
+1
+
+> 18
+
+100
+
+28 (< 80)
+
+< 220
+
++8 to +10
+
+11
+
+13
+
+BZT52B27
+
+WS
+
+26.5
+
+27
+
+27.5
+
+5
+
+1
+
+> 20
+
+100
+
+30 (< 80)
+
+< 250
+
++8 to +10
+
+10
+
+12
+
+BZT52B30
+
+WT
+
+29.4
+
+30
+
+30.6
+
+5
+
+1
+
+> 22.5
+
+100
+
+35 (< 80)
+
+< 250
+
++8 to +10
+
+9
+
+10
+
+BZT52B33
+
+WU
+
+32.3
+
+33
+
+33.7
+
+5
+
+1
+
+> 25
+
+100
+
+40 (< 80)
+
+< 250
+
++8 to +10
+
+8
+
+9
+
+BZT52B36
+
+WW
+
+35.3
+
+36
+
+36.7
+
+5
+
+1
+
+> 27
+
+100
+
+40 (< 90)
+
+< 250
+
++8 to +10
+
+8
+
+9
+
+BZT52B39
+
+WX
+
+38.2
+
+39
+
+39.8
+
+5
+
+1
+
+> 29
+
+100
+
+50 (< 90)
+
+< 300
+
++10 to +12
+
+7
+
+8
+
+BZT52B43
+
+WY
+
+42.1
+
+43
+
+43.9
+
+5
+
+1
+
+> 32
+
+100
+
+60 (< 100)
+
+< 700
+
++10 to +12
+
+6
+
+7
+
+BZT52B47
+
+WZ
+
+46.1
+
+47
+
+47.9
+
+5
+
+1
+
+> 35
+
+100
+
+70 (< 100)
+
+< 750
+
++10 to +12
+
+5
+
+6
+
+BZT52B51
+
+X1
+
+50
+
+51
+
+52
+
+5
+
+1
+
+> 38
+
+100
+
+70 (< 100)
+
+< 750
+
++10 to +12
+
+5
+
+6
+
+BZT52B56
+
+X2
+
+54.9
+
+56
+
+57.1
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 135 (2)
+
+< 1000 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+< 1000 (3)
+
+typ. +10 (2)
+
+BZT52B62
+
+X3
+
+60.8
+
+62
+
+63.2
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 150 (2)
+
+-
+
+-
+
+BZT52B68
+
+X4
+
+66.6
+
+68
+
+69.4
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 200 (2)
+
+< 1000 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+BZT52B75
+
+X5
+
+73.5
+
+75
+
+76.5
+
+2.5
+
+0.5
+
+-
+
+-
+
+< 250 (2)
+
+< 1500 (3)
+
+typ. +10 (2)
+
+-
+
+-
+
+Notes
+• IZT1 = 5 mA, IZT2 = 1 mA
+(1) Measured with pulses t = 5 ms
+p
+(2) I
+ZT1 = 2.5 mA
+(3) I
+ZT2 = 0.5 mA
+(4) Valid provided that electrodes are kept at ambient temperature
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+3
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+TYPICAL CHARACTERISTICS (Tamb = 25 °C, unless otherwise specified)
+Ω
+100
+
+mA
+103
+
+TJ = 25 °C
+
+102
+
+IF
+
+5
+4
+
+10
+1
+
+3
+
+rzj
+
+TJ = 100 °C
+
+33
+
+2
+
+27
+22
+
+10
+
+10-1
+
+18
+
+TJ = 25 °C
+
+10-2
+
+15
+
+5
+4
+
+10-3
+
+12
+
+3
+
+10
+2
+
+10-4
+
+6.8/8.2
+6.2
+
+1
+
+-5
+
+10
+
+0
+
+0.2
+
+0.4
+
+0.6
+
+0.8
+
+1V
+
+VF
+
+18114
+
+0.1
+
+2
+
+1
+
+5
+
+2
+
+5
+
+18119
+
+10
+IZ
+
+2
+
+5
+
+100 mA
+
+Fig. 4 - Dynamic Resistance vs. Zener Current
+
+Fig. 1 - Forward characteristics
+
+mW
+500
+
+Ω
+103
+Tj = 25 °C
+
+7
+5
+4
+
+400
+
+Rzj
+
+Ptot
+
+3
+2
+
+300
+
+47 + 51
+43
+39
+36
+
+102
+7
+
+200
+
+5
+4
+3
+
+100
+
+2
+
+10
+0.1
+
+0
+0
+
+100
+
+200 °C
+
+Fig. 2 - Admissible Power Dissipation vs. Ambient Temperature
+
+3
+
+4 5
+
+TJ = 25 °C
+
+Rzth
+
+5
+4
+3
+2
+
+100
+
+102
+
+5
+4
+3
+
+5
+4
+3
+
+2
+
+2
+
+10
+
+2.7
+3.6
+4.7
+5.1
+
+5
+4
+3
+2
+
+1
+18117
+
+2
+
+5
+
+1
+
+2
+
+5
+
+10
+
+2
+
+5
+
+100 mA
+
+IZ
+
+Fig. 3 - Dynamic Resistance vs. Zener Current
+
+3 4 5
+
+10
+mA
+
+Rzth = RthA x VZ x
+
+Δ VZ
+ΔTj
+
+negative
+
+positive
+
+10
+5
+4
+3
+2
+
+5.6
+
+0.1
+
+2
+
+IZ
+
+Ω
+103
+
+5
+4
+3
+2
+
+1
+
+Fig. 5 - Dynamic Resistance vs. Zener Current
+
+Ω
+1000
+
+rzj
+
+2
+
+18120
+
+Tamb
+
+18888
+
+1
+1
+18121
+
+2
+
+3
+
+4 5
+
+10
+
+2
+
+3 4 5
+
+100 V
+
+VZ at IZ = 5 mA
+
+Fig. 6 - Thermal Differential Resistance vs. Zener Voltage
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+4
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+Ω
+100
+
+mV/°C
+100
+IZ = 5 mA
+
+7
+5
+4
+
+Rzj
+
+Δ VZ
+ΔTj
+
+3
+
+80
+
+2
+
+60
+
+10
+7
+
+40
+
+5
+4
+3
+
+20
+
+2
+
+Tj = 25 °C
+IZ = 5 mA
+
+1
+1
+
+2
+
+3
+
+10
+
+4 5
+
+2
+
+3 4 5
+
+18122
+
+0
+0
+
+100 V
+
+VZ
+
+Fig. 7 - Dynamic Resistance vs. Zener Voltage
+
+60
+
+40
+
+100 V
+
+80
+
+VZ at IZ = 2 mA
+
+Fig. 10 - Temperature Dependence of Zener Voltage vs.
+Zener Voltage
+
+mV/°C
+25
+
+Δ VZ
+ΔTj
+
+20
+
+18136
+
+V
+9
+8
+
+20
+IZ =
+
+15
+
+VZ at IZ = 5 mA
+
+7
+
+5 mA
+1 mA
+20 mA
+
+ΔVZ
+
+51
+
+6
+5
+
+43
+
+4
+
+10
+
+36
+
+3
+
+5
+
+2
+1
+
+0
+
+0
+
+-5
+
+-1
+0
+
+1
+
+2
+
+3
+
+10
+
+4 5
+
+2
+
+3 4 5
+
+100 V
+
+40
+
+60
+
+80
+
+18158
+
+100
+Tj
+
+120
+
+140 °C
+
+VZ at IZ = 5 mA
+V ≥ 27 V, I = 2 mA
+
+18135
+
+Fig. 8 - Temperature Dependence of Zener Voltage vs.
+Zener Voltage
+
+Fig. 11 - Change of Zener Voltage vs. Junction Temperature
+
+V
+0.8
+
+25
+
+0.7
+
+VZ at IZ = 5 mA
+
+V
+1.6
+15
+
+0.6
+
+Δ VZ
+
+IZ = 5 mA
+20
+
+10
+
+1.2
+ΔVZ 1.0
+
+0.5
+8
+
+0.8
+
+7
+
+0.6
+
+0.2
+
+6.2
+5.9
+
+0.4
+
+0.1
+
+5.6
+
+0
+
+5.1
+
+0.4
+0.3
+
+0.2
+0
+- 0.2
+
+-1
+3.6
+
+- 0.2
+0
+18124
+
+20
+
+40
+
+60
+
+80
+
+ΔVZ = rZth x IZ
+IZ = 5 mA
+VZ >= 56 V; IZ = 2.5 mA
+
+1.4
+
+- 0.4
+
+4.7
+
+100 120 140 C
+
+1
+18159
+
+10
+
+VZ at IZ = 5 mA
+
+100 V
+
+Tj
+
+Fig. 9 - Change of Zener Voltage vs. Junction Temperature
+
+Fig. 12 - Change of Zener Voltage from Turn-on up to the Point of
+Thermal Equilibrium vs. Zener Voltage
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+5
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+V
+5
+
+Vishay Semiconductors
+mA
+50
+
+ΔVZ = rzth x IZ
+
+4
+
+Tj = 25 °C
+
+3.9 5.6
+
+2.7
+
+6.8
+
+3.3 4.7
+
+40
+
+lZ
+
+Δ VZ
+3
+
+8.2
+30
+
+IZ = 5 mA
+
+2
+
+20
+
+1
+
+Test
+current
+IZ 5 mA
+
+10
+
+IZ = 2.5 mA
+
+0
+
+0
+
+0
+
+20
+
+40
+
+60
+
+80
+
+100 V
+
+0
+
+VZ at IZ = 5 mA
+
+18160
+
+18111
+
+Fig. 13 - Change of Zener Voltage from Turn-on up to the Point of
+Thermal Equilibrium vs. Zener Voltage
+
+mA
+30
+
+lZ
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9 10 V
+
+VZ
+
+Fig. 14 - Breakdown Characteristics
+
+10
+12
+
+Tj = 25 °C
+
+15
+
+20
+
+18
+22
+27
+
+Test
+10 current
+IZ 5 mA
+
+33 36
+
+0
+0
+18112
+
+10
+
+20
+
+30
+
+40 V
+
+VZ
+
+Fig. 15 - Breakdown Characteristics
+
+18157
+
+Fig. 16 - Breakdown Characteristics
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+6
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+BZT52-Series
+www.vishay.com
+
+Vishay Semiconductors
+
+0.10 (0.004)
+
+0.15 (0.006)
+
+8°
+0.45 (0.018)
+0.25 (0.010)
+
+0° to
+
+0.2 (0.008)
+
+1 (0.039)
+
+1.35 (0.053)
+
+0.1 (0.004) max.
+
+PACKAGE DIMENSIONS in millimeters (inches): SOD-123
+
+0.5 (0.020) ref.
+
+Cathode bar
+
+Mounting Pad Layout
+2.85 (0.112)
+2.55 (0.100)
+0.85 (0.033)
+
+2.5 (0.098)
+
+0.85 (0.033)
+
+3.55 (0.140)
+
+1.7 (0.067)
+
+3.85 (0.152)
+
+1.40 (0.055)
+
+0.45 (0.018)
+
+0.65 (0.026)
+
+0.85 (0.033)
+
+Rev. 4 - Date: 24. Sep. 2009
+Document no.: S8-V-3910.01-001 (4)
+17432
+
+Rev. 1.9, 20-Feb-18
+Document Number: 85760
+7
+For technical questions within your region: DiodesAmericas@vishay.com, DiodesAsia@vishay.com, DiodesEurope@vishay.com
+THIS DOCUMENT IS SUBJECT TO CHANGE WITHOUT NOTICE. THE PRODUCTS DESCRIBED HEREIN AND THIS DOCUMENT
+ARE SUBJECT TO SPECIFIC DISCLAIMERS, SET FORTH AT www.vishay.com/doc?91000
+
+Legal Disclaimer Notice
+www.vishay.com
+
+Vishay
+
+Disclaimer
+ALL PRODUCT, PRODUCT SPECIFICATIONS AND DATA ARE SUBJECT TO CHANGE WITHOUT NOTICE TO IMPROVE
+RELIABILITY, FUNCTION OR DESIGN OR OTHERWISE.
+Vishay Intertechnology, Inc., its affiliates, agents, and employees, and all persons acting on its or their behalf (collectively,
+“Vishay”), disclaim any and all liability for any errors, inaccuracies or incompleteness contained in any datasheet or in any other
+disclosure relating to any product.
+Vishay makes no warranty, representation or guarantee regarding the suitability of the products for any particular purpose or
+the continuing production of any product. To the maximum extent permitted by applicable law, Vishay disclaims (i) any and all
+liability arising out of the application or use of any product, (ii) any and all liability, including without limitation special,
+consequential or incidental damages, and (iii) any and all implied warranties, including warranties of fitness for particular
+purpose, non-infringement and merchantability.
+Statements regarding the suitability of products for certain types of applications are based on Vishay’s knowledge of
+typical requirements that are often placed on Vishay products in generic applications. Such statements are not binding
+statements about the suitability of products for a particular application. It is the customer’s responsibility to validate that a
+particular product with the properties described in the product specification is suitable for use in a particular application.
+Parameters provided in datasheets and / or specifications may vary in different applications and performance may vary over
+time. All operating parameters, including typical parameters, must be validated for each customer application by the customer’s
+technical experts. Product specifications do not expand or otherwise modify Vishay’s terms and conditions of purchase,
+including but not limited to the warranty expressed therein.
+Except as expressly indicated in writing, Vishay products are not designed for use in medical, life-saving, or life-sustaining
+applications or for any other application in which the failure of the Vishay product could result in personal injury or death.
+Customers using or selling Vishay products not expressly indicated for use in such applications do so at their own risk.
+Please contact authorized Vishay personnel to obtain written terms and conditions regarding products designed for
+such applications.
+No license, express or implied, by estoppel or otherwise, to any intellectual property rights is granted by this document
+or by any conduct of Vishay. Product names and markings noted herein may be trademarks of their respective owners.
+
+© 2019 VISHAY INTERTECHNOLOGY, INC. ALL RIGHTS RESERVED
+
+Revision: 01-Jan-2019
+
+1
+
+Document Number: 91000
+
+Mouser Electronics
+Authorized Distributor
+
+Click to View Pricing, Inventory, Delivery & Lifecycle Information:
+
+Vishay:
+BZT52C8V2-V-GS08 BZT52C36-V-GS08 BZT52C12-V-GS08 BZT52C24-V-GS08 BZT52C9V1-V-GS08
+BZT52C16-V-GS08 BZT52C13-V-GS08 BZT52C10-V-GS08 BZT52C22-V-GS08 BZT52C4V3-V-GS08 BZT52C27-VGS08 BZT52C5V6-V-GS08 BZT52C3V9-V-GS08 BZT52C30-V-GS08 BZT52B10-V-GS08 BZT52B10-V-GS18
+BZT52B11-V-GS08 BZT52B11-V-GS18 BZT52B12-V-GS08 BZT52B12-V-GS18 BZT52B13-V-GS08 BZT52B13-VGS18 BZT52B15-V-GS08 BZT52B15-V-GS18 BZT52B16-V-GS08 BZT52B16-V-GS18 BZT52B18-V-GS08
+BZT52B18-V-GS18 BZT52B2V4-V-GS08 BZT52B2V4-V-GS18 BZT52B2V7-V-GS08 BZT52B2V7-V-GS18
+BZT52B20-V-GS08 BZT52B20-V-GS18 BZT52B22-V-GS08 BZT52B24-V-GS08 BZT52B24-V-GS18 BZT52B3V0-VGS08 BZT52B3V0-V-GS18 BZT52B3V3-V-GS08 BZT52B3V6-V-GS08 BZT52B3V9-V-GS08 BZT52B3V9-V-GS18
+BZT52B30-V-GS08 BZT52B33-V-GS08 BZT52B39-V-GS08 BZT52B39-V-GS18 BZT52B4V3-V-GS08 BZT52B4V3V-GS18 BZT52B4V7-V-GS08 BZT52B4V7-V-GS18 BZT52B47-V-GS08 BZT52B5V1-V-GS08 BZT52B5V1-V-GS18
+BZT52B5V6-V-GS08 BZT52B5V6-V-GS18 BZT52B51-V-GS08 BZT52B56-V-GS08 BZT52B56-V-GS18 BZT52B6V2V-GS08 BZT52B6V2-V-GS18 BZT52B62-V-GS08 BZT52B7V5-V-GS08 BZT52B75-V-GS08 BZT52B75-V-GS18
+BZT52B9V1-V-GS08 BZT52B9V1-V-GS18 BZT52C11-V-GS18 BZT52C12-V-GS18 BZT52C13-V-GS18 BZT52C16V-GS18 BZT52C18-V-GS18 BZT52C2V4-V-GS18 BZT52C2V7-V-GS18 BZT52C24-V-GS18 BZT52C3V0-V-GS18
+BZT52C3V3-V-GS18 BZT52C3V6-V-GS18 BZT52C3V9-V-GS18 BZT52C33-V-GS18 BZT52C36-V-GS18
+BZT52C39-V-GS18 BZT52C4V3-V-GS18 BZT52C4V7-V-GS18 BZT52C47-V-GS18 BZT52C5V1-V-GS18
+BZT52C5V6-V-GS18 BZT52C56-V-GS18 BZT52C7V5-V-GS18 BZT52C8V2-V-GS18 BZT52C22-V-GS18
+BZT52C15-V-GS08 BZT52C15-V-GS18 BZT52C33-V-GS08 BZT52C4V7-V-GS08 BZT52C6V8-V-GS08
+BZT52C5V1-V-GS08 BZT52C7V5-V-GS08 BZT52C39-V-GS08 BZT52C18-V-GS08
+
+

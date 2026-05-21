@@ -1,0 +1,134 @@
+* =============================================================
+* sim2_shaper.cir  —  CR-RC² shaper transient analysis
+* Gamma spectrometer ADC/MCU board v1.4
+* =============================================================
+*
+* Full signal chain: PMT pulse -> AD8000 (x-15) -> OPAMP1 CR
+*                   -> OPAMP2 RC -> OPAMP3 PGA x2 -> ADC
+*
+* What we verify:
+*   - DC operating points (V_CR=0.5V, V_RC=0.5V, V_ADC=2.1V)
+*   - Peaking factor = Delta_V(adc_in) / V_AD8000_peak = 0.36
+*   - Peaking time  ~ 380 ns from pulse start
+*   - Undershoot    ~ 7% of peak amplitude
+*   - Polarity: pulse goes DOWN from baseline 2.1V (negative pulse at ADC)
+*
+* Libraries
+* NOTE: AD8000 replaced by ideal inverting amp (opamp_g474 model) for this sim.
+* AD8000 stability already validated in sim1. Here we only need gain x15.
+.lib models/opamp_g474.sub
+
+* =============================================================
+* SUPPLIES
+* =============================================================
+VDD   VDD   0   DC  3.3     ; G474 OPAMP supply
+VREF  VREF  0   DC  2.5     ; REF3025 reference
+
+* =============================================================
+* PMT PULSE MODEL (behavioral current source)
+* R1307 + NaI(Tl): tau_d = 230 ns, current into anode node
+* =============================================================
+.param tau_d  = 230n
+.param I_peak = 0.94m       ; Cs-137 (662 keV): 0.94 mA
+
+* PMT pulse — smooth exponential, no discontinuity.
+* EXP primitive: rises from 0 to I_peak with tau=5n, then decays with tau=tau_d.
+I_pmt  0  anode  EXP(0 {I_peak} 500n 5n 505n {tau_d})
+
+* Input termination + input resistance (real circuit Rg=100 in parallel with AD8000 Rin)
+Rin    anode   0        50
+Rg     anode   0        100    ; AD8000 input impedance (virtual GND ≈ 0V for ±5V supply)
+
+* =============================================================
+* AD8000: ideal inverting amplifier, gain = -Rfb/Rg = -1500/100 = -15
+* Replaced with E source (infinite bandwidth).
+* AD8000 stability + bandwidth validated in sim1.
+* E source: V(amp_out) = -15 * V(anode) = gain*(V(0)-V(anode))
+* =============================================================
+E_ad8   amp_out   0   0   anode   15
+
+* =============================================================
+* DC BIAS DIVIDERS from REF3025 (2.5V)
+* =============================================================
+* Divider A: V_A = 0.5V for OPAMP1 + OPAMP2 VINP
+Ra   VREF  vbias_a  8.2k    ; 8.2k to VREF
+Rb   vbias_a  0     2k      ; 2k to GND  -> V_A = 2.5*2/(8.2+2) = 0.490V
+Ca   vbias_a  0     100n    ; decoupling
+
+* Divider B: V_B = 1.05V for OPAMP3 VINP
+Rc   VREF  vbias_b  22k     ; 22k to VREF
+Rd   vbias_b  0     5.9k    ; 5.9k to GND -> V_B = 2.5*5.9/(22+5.9) = 0.529V (PGA x4 -> V_out=2.116V)
+Cb   vbias_b  0     100n
+
+* =============================================================
+* OPAMP1: CR high-pass (inverting)
+* H_CR = -s*tau_diff / (1 + s*tau_diff)
+* tau_diff = R_diff * C_diff = 10k * 100p = 1 us
+* R_cr_in = R_diff required for correct pole: H = -Z_f/Z_in = -R_diff/(R_cr_in + 1/sC)
+* IN+ = vbias_a (0.5V), IN- = cr_in, OUT = cr_out
+* =============================================================
+R_cr_in  amp_out  cr_mid  10k      ; input R: pole at 1/tau_diff = 1 MHz
+C_diff   cr_mid   cr_in   100p     ; series C
+R_diff   cr_out   cr_in   10k      ; feedback R, tau_diff = 1 us
+
+XU1  vbias_a  cr_in  VDD  0  cr_out  opamp_g474
+
+* =============================================================
+* AC coupling OPAMP1 -> OPAMP2
+* =============================================================
+C_couple  cr_out   rc_node  100n   ; f_c = 1/(2pi*1k*100n) = 1.6 kHz
+
+* =============================================================
+* OPAMP2: RC integrator (inverting)
+* tau_int = R_int * C_int = 1k * 510p = 510 ns
+* IN+ = vbias_a (0.5V), IN- = rc_in, OUT = rc_out
+* =============================================================
+R_int    rc_node   rc_in   1k       ; input resistor
+C_int    rc_out    rc_in   510p     ; feedback C, tau_int = 510 ns
+R_stab   rc_out    rc_in   1k       ; pole at 1/tau_int = 1.96 MHz, DC gain = R_stab/R_int = 1
+
+XU2  vbias_a  rc_in  VDD  0  rc_out  opamp_g474
+
+* =============================================================
+* AC coupling OPAMP2 -> OPAMP3
+* =============================================================
+C_buf_in  rc_out  pga_inp  100n    ; f_c = 1/(2pi*(22k||5.9k)*100n) = 342 Hz
+
+* =============================================================
+* OPAMP3: PGA x4 (non-inverting)
+* gain = 1 + R_pga1/R_pga2 = 1 + 30k/10k = 4
+* IN+ = pga_inp (0.529V DC), IN- = pga_inm (feedback), OUT = adc_in
+* =============================================================
+* DC bias for pga_inp: connect to vbias_b through divider impedance
+* (C_buf_in provides signal; vbias_b provides DC via Thevenin)
+Rbias_pga  vbias_b  pga_inp  4.65k  ; Thevenin R of divider B = 22k||5.9k
+
+R_pga1   adc_in   pga_inm  30k     ; feedback resistor (gain x4)
+R_pga2   pga_inm  0        10k     ; gain-setting resistor
+
+XU3  pga_inp  pga_inm  VDD  0  adc_in  opamp_g474
+
+* =============================================================
+* TRANSIENT SIMULATION
+* Run 8 us to see: 0.5us settling + 0.5us rise + ~6us pulse + undershoot
+* 10n tstep: 800 output points, enough for 380ns peaking-time resolution
+* =============================================================
+.save V(amp_out) V(cr_out) V(rc_out) V(adc_in)
+.tran 10n 8u
+
+* =============================================================
+* PARAMETRIC: step by energy level
+* =============================================================
+.step param I_peak list 0.084m 0.94m 1.88m 3.69m 4.97m
+* Labels:                 Am-241  Cs-137  Co-60  Tl-208  3.5MeV
+
+* =============================================================
+* MEASUREMENTS
+* =============================================================
+.meas TRAN baseline_adc  AVG V(adc_in)    FROM 200n TO 400n
+.meas TRAN baseline_amp  AVG V(amp_out)   FROM 200n TO 400n
+.meas TRAN v_adc_min     MIN V(adc_in)    FROM 500n TO 4u
+.meas TRAN v_amp_min     MIN V(amp_out)   FROM 500n TO 4u
+
+.backanno
+.end

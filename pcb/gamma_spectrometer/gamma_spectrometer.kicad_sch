@@ -1,0 +1,182 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "9de23c55-b97f-4e07-9aa5-29ce30f3c480")
+	(paper "A4")
+	(lib_symbols)
+	(sheet
+		(at 62.23 125.73)
+		(size 29.21 11.43)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "0e491218-e2a9-4640-b27e-9c4e6f92e006")
+		(property "Sheetname" "MCU_Board"
+			(at 62.23 125.0184 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "mcu_board.kicad_sch"
+			(at 62.23 137.7446 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 52.07 83.82)
+		(size 39.37 20.32)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "672516e7-4bac-417a-ab8a-eef4ea532a40")
+		(property "Sheetname" "HV_Board"
+			(at 52.07 83.1084 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "hv_board.kicad_sch"
+			(at 52.07 104.7246 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 48.26 39.37)
+		(size 38.1 11.43)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "8b74f2d9-9116-4c99-abf6-23a898a445ad")
+		(property "Sheetname" "USB_Power_Board"
+			(at 48.26 38.6584 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "usb_power_board.kicad_sch"
+			(at 48.26 51.3846 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 63.5 152.4)
+		(size 33.02 13.97)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c")
+		(property "Sheetname" "Divider_Board"
+			(at 63.5 151.6884 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "divider_board.kicad_sch"
+			(at 63.5 166.9546 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

@@ -1,0 +1,97 @@
+* =============================================================
+* sim1_ad8000.cir  —  AD8000 CFA: stability & frequency response
+* Gamma spectrometer ADC/MCU board v1.4  —  Input stage
+* =============================================================
+*
+* Circuit: inverting CFA amplifier, gain = -Rfb/Rg = -1500/100 = -15
+* Supply: +/-5V_A (AD8000 powered from analog supply)
+*
+* What we check:
+*   1A. AC sweep    — flatness, peaking from Cpar, Cfb compensation
+*   1B. Step response — ringing / overshoot in time domain
+*
+* How to run in LTspice XVII:
+*   File -> Open -> sim1_ad8000.cir
+*   Click Run button (green triangle) or F9
+*   After simulation: click on wire at node "vout" to add trace
+*
+* =============================================================
+
+.lib models/ad8000p.cir
+
+* ---- Supply voltages ----
+Vcc  VCC  0  DC 5
+Vee  VEE  0  DC -5
+
+* ---- Input source ----
+* For 1A (AC sweep): AC=1 is the small-signal source
+* For 1B (step):    PULSE gives a 31mV step (Cs-137 equivalent at AD8000 input)
+Vin  vin  0  AC 1  PULSE(0 31m 2n 0.5n 0.5n 200n 1u)
+
+* ---- Input network ----
+Rin  vin   0    50       ; 50 Ohm termination (matches coax from PMT divider)
+Rg   vin   vinm 100      ; gain resistor
+
+* ---- Feedback network ----
+Rfb  vout  vinm  {Rfb_val}    ; feedback resistor — sets transimpedance + gain
+
+* ---- C_par: parasitic capacitance at VINM ----
+* Estimated: SOIC-8 pin 0.5pF + trace 0.3pF + Rg pad 0.3pF ~ 1pF
+* This creates a pole at f = 1/(2*pi*Rfb*Cpar) = 106 MHz
+Cpar vinm  0    {Cpar_val}
+
+* ---- C_fb: compensation capacitor parallel to Rfb ----
+* Creates a zero at same frequency -> cancels Cpar pole
+* Value 1f = 1e-15 F is effectively "no capacitor" (open circuit)
+Cfb  vout  vinm  {Cfb_val}
+
+* ---- AD8000 instance ----
+* Subcircuit pin order (from ad8000p.cir header):
+*   IN+   IN-   V+   V-   OUT   PD
+XU1  0    vinm  VCC  VEE  vout  VCC  AD8000
+*    ^                          ^
+*    IN+ to GND (midpoint +-5V) PD to Vcc -> amp enabled
+*                               (model: PD HIGH enables, PD LOW disables —
+*                                opposite of "DISABLE" naming in datasheet)
+
+* =============================================================
+* PARAMETERS  (edit here, not in the circuit above)
+* =============================================================
+.param Rfb_val  = 1.5k   ; designed value
+.param Rg_val   = 100     ; for reference (hardcoded above)
+.param Cfb_val  = 1p      ; compensation: 1p nominal. Use 1f to disable.
+.param Cpar_val = 1p      ; parasitic: 1p nominal PCB estimate
+
+* =============================================================
+* SIMULATION 1A: AC sweep — frequency response
+* =============================================================
+* Plots to add after running:
+*   V(vout)        — gain magnitude in dB (right-click trace -> dB scale)
+*   Expected: flat at 23.5 dB up to ~150 MHz, then rolloff
+*   Look for: peaking bump near 100 MHz when Cfb_val = 1f (no comp)
+*             peaking suppressed when Cfb_val = 1p (with comp)
+.ac dec 100 100k 1G
+
+* =============================================================
+* SIMULATION 1B: Step response — time domain
+* (comment out .ac above, uncomment .tran below)
+* =============================================================
+* Expected: output settles to -465 mV (= -15 * 31 mV) in ~5 ns
+* Look for: ringing / overshoot near t=2ns
+* .tran 0 100n 0 10p
+
+* =============================================================
+* PARAMETRIC SWEEPS — uncomment ONE .step at a time
+* (keep .ac active for these)
+* =============================================================
+
+* --- Sweep 1: Does Cfb help? (Cpar = 1p fixed) ---
+* Run this first. Should show: without Cfb peaking >0.5dB, with 1p peaking <0.5dB
+* .step param Cfb_val  list 1f 0.5p 1p 2p
+
+* --- Sweep 2: How bad is layout Cpar? (Cfb = 1p fixed) ---
+* Shows margin: PCB layout must keep Cpar < 3-4 pF
+.step param Cpar_val list 0.5p 1p 2p 3p 5p
+
+.backanno
+.end

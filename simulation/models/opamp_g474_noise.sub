@@ -1,0 +1,20 @@
+* opamp_g474_noise.sub — G474 OPAMP with input voltage noise model
+* Same interface as opamp_g474: INP INM VDD GND OUT
+*
+* Noise model: R_vn = e_n^2 / (4kT) = (50e-9)^2 / (4*1.38e-23*300) = 151 Ohm
+* Models white noise floor of G474: ~50 nV/rtHz above 100 kHz
+* 1/f noise ignored: CR stage cuts off below 160 kHz
+
+* Base single-pole opamp primitive
+.subckt opamp 1 2 3
+G1 0 3 2 1 {Aol}
+R3 3 0 1.
+C3 3 0 {Aol/GBW/6.28318530717959}
+.ends opamp
+
+.subckt opamp_g474_noise INP INM VDD GND OUT
+Vos_src  INP_os  INP    DC 3m       ; input offset 3 mV
+R_vn     INP_os  INP_v  151         ; 50 nV/rtHz white noise (4kT*151 = 2.5e-18 V^2/Hz)
+Rin_diff INP_v   INM    1G          ; high input impedance
+XU1  INM  INP_v  OUT  opamp  Aol=100k  GBW=13Meg
+.ends opamp_g474_noise

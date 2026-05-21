@@ -1,0 +1,34 @@
+* Inline copy of LTspice standard opamp.sub (3-terminal primitive)
+* Included here to avoid search-path dependency
+.subckt opamp 1 2 3
+G1 0 3 2 1 {Aol}
+R3 3 0 1.
+C3 3 0 {Aol/GBW/6.28318530717959}
+.ends opamp
+
+* opamp_g474.sub — G474 internal OPAMP, minimal behavioral model
+* STM32G474 DS12288 Table 80: GBW=13MHz, SR=45V/us, Vos=3mV
+*
+* Uses LTspice built-in opamp.sub (3-terminal: IN+ IN- OUT) as base.
+* Adds: 5-terminal interface (VDD GND unused here but keep for future),
+*       Vos offset, and Rinput.
+*
+* Pins: INP INM VDD GND OUT
+* NOTE: VDD/GND present for pin-compatibility but not used in model.
+*       Output is NOT rail-clamped — all DC levels in shaper are within
+*       0.5V...2.1V which is well inside 3.3V rail.
+
+.subckt opamp_g474 INP INM VDD GND OUT
+
+* Input offset: Vos = 3mV in series with IN+
+Vos_src  INP_off  INP  DC 3m
+
+* High input impedance
+Rin_diff  INP_off  INM  1G
+
+* Single-pole amplifier: GBW=13MHz, Avol=100k
+* f_pole = GBW/Avol = 130 Hz (dominant pole)
+* opamp pin1=IN-, pin2=IN+ (see opamp.asy SpiceOrder). INM is IN-, INP_off is IN+.
+XU1  INM  INP_off  OUT  opamp  Aol=100k  GBW=13Meg
+
+.ends opamp_g474

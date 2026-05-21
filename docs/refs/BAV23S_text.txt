@@ -1,0 +1,647 @@
+BAV23S
+
+BAV23S
+Connection Diagram
+
+3
+
+3
+
+3
+
+L30
+
+2
+
+1
+
+1
+
+2
+
+1
+
+2
+
+SOT-23
+
+Small Signal Diode
+Absolute Maximum Ratings* T = 25°C unless otherwise noted
+A
+
+Symbol
+
+Parameter
+
+Value
+
+Units
+
+VRRM
+
+Maximum Repetitive Reverse Voltage
+
+250
+
+V
+
+IF(AV)
+
+Average Rectified Forward Current
+
+200
+
+mA
+
+IFSM
+
+Tstg
+
+Non-repetitive Peak Forward Surge Current
+Pulse Width = 1.0 microsecond
+Pulse Width = 100 microsecond
+Storage Temperature Range
+
+9.0
+3.0
+-55 to +150
+
+A
+A
+°C
+
+TJ
+
+Operating Junction Temperature
+
+150
+
+°C
+
+Value
+
+Units
+
+*These ratings are limiting values above which the serviceability of any semiconductor device may be impaired.
+
+Thermal Characteristics
+Symbol
+
+Parameter
+
+PD
+
+Power Dissipation
+
+350
+
+mW
+
+RθJA
+
+Thermal Resistance, Junction to Ambient
+
+357
+
+°C/W
+
+Electrical Characteristics
+Symbol
+
+Parameter
+
+VR
+
+Breakdown Voltage
+
+VF
+
+Forward Voltage
+
+IR
+
+Reverse Current
+
+trr
+
+Reverse Recovery Time
+
+2000 Fairchild Semiconductor Corporation
+
+TA = 25°C unless otherwise noted
+
+Test Conditions
+
+Min
+
+IR = 100 µA
+IF = 100 mA
+IF = 200 mA
+VR = 250 V
+VR = 250 V, TA = 150°C
+IF = IR = 30 mA, IRR = 3.0 mA,
+RL = 100 Ω
+
+250
+
+Max
+
+Units
+V
+
+1.0
+1.25
+100
+100
+50
+
+V
+V
+nA
+µA
+ns
+
+BAV23S, Rev. C
+
+(continued)
+
+Typical Characteristics
+
+300 Ta= 25°C
+
+Reverse Current, IR [nA]
+
+Ta= 25°C
+
+250
+
+140
+
+200
+150
+
+130
+
+100
+
+120
+
+50
+0
+10
+
+R
+
+Reverse Voltage, VR [v]
+
+150
+
+110
+
+1
+
+2
+
+3
+
+5
+10
+20 30
+Reverse Current, IR [uA]
+
+50
+
+100
+
+400
+350
+300
+250
+225
+1
+
+2
+
+3
+F
+
+5
+10
+20 30
+Forward Current, IF [uA]
+
+50
+
+725
+Ta= 25°C
+700
+650
+600
+550
+500
+450
+0.1
+
+1.2
+1
+0.8
+
+5
+
+10
+
+Figure 4. Forward Voltage vs Forward Current
+VF - 0.1 to 10 mA
+
+Total Capacitance, CT [pF]
+
+Ta= 25°C
+
+0.2 0.3 0.5
+1
+2
+3
+Forward Current, IF [mA]
+
+1.3
+
+Ta= 25 °C
+
+1.2
+
+1.1
+
+F
+
+Forward Voltage, VF [V]
+
+1.4
+
+Figure 2. Reverse Current vs Reverse Voltage
+IR - 10 to 100 V
+
+100
+
+Figure 3. Forward Voltage vs Forward Current
+VF - 1.0 to 100 uA
+
+1.5
+
+100
+
+GENERAL RULE: The Reverse Current of a diode will approximately
+double for every ten (10) Degree C increase in Temperature
+
+Forward Voltage, VF [mV]
+
+485
+Ta= 25°C
+450
+
+70
+
+F
+
+F
+
+Forward Voltage, VF [mV]
+
+Figure 1. Reverse Voltage vs Reverse Current
+BV - 1.0 to 100 uA
+
+20
+30
+50
+Reverse Voltage, VR [v]
+
+0.6
+10
+
+20
+
+30
+50
+100
+200 300
+Forward Current, IF [mA]
+
+500
+
+Figure 5. Forward Voltage vs Forward Current
+VF - 10 - 800 mA
+
+1
+
+0
+
+2
+
+4
+6
+8
+10
+Reverse Voltage [V]
+
+12
+
+14 15
+
+Figure 6. Total Capacitance
+
+BAV23S, Rev. C
+
+BAV23S
+
+Small Signal Diode
+
+(continued)
+
+Reverse Recovery Time, trr [ns]
+
+Typical Characteristics (continued)
+
+4
+
+Ta= 25°C
+
+500
+
+IR
+
+400
+
+C u rre n t [m A ]
+
+3.5
+3
+
+2.5
+2
+
+1.5
+
+300
+IF
+
+200
+
+200
+100
+
+30
+40
+Reverse Current [mA]
+
+50
+
+60
+
+D
+
+20
+
+0
+
+0
+
+0
+
+IRR (Reverse Recovery Current) = 1.0 mA - Rloop = 100 Ohms
+
+OR
+WA
+R
+
+300
+
+100
+
+(A V
+
+- A
+
+D
+
+CU
+R
+
+RE
+NT
+
+ST
+EA
+D
+
+Y
+Io - A V E R A
+ST
+VERA G E
+AT
+GE R R E C
+E
+ECTIF T I F
+-m
+IE D ICE D
+A
+CU
+URR
+R
+E NTR E
+- mNAT
+)
+
+mA
+
+0
+
+50
+
+50
+
+1 0
+100
+
+15
+150
+
+o
+
+o
+
+A Ambient Temperature, T A [ C]
+
+Figure 7. Reverse Recovery Time
+vs Reverse Current
+TRR - IR 10 mA vs 60 mA
+
+Figure 8. Average Rectified Current (IF(AV))
+versus Ambient Temperature (T A)
+
+500
+Power Dissipation, P D [mW]
+
+1
+10
+
+-F
+
+400
+
+400
+
+DO-35 Pkg
+
+300
+SOT-23 Pkg
+
+200
+
+100
+
+0
+
+0
+
+50
+100
+150
+Average Temperature, IO ( oC)
+
+200
+
+Figrue 9. Power Derating Curve
+
+BAS16, Rev. C
+
+BAV23S
+
+Small Signal Diode
+
+TRADEMARKS
+The following are registered and unregistered trademarks Fairchild Semiconductor owns or is authorized to use and is
+not intended to be an exhaustive list of all such trademarks.
+
+ACEx™
+Bottomless™
+CoolFET™
+CROSSVOLT™
+DenseTrench™
+DOME™
+EcoSPARK™
+E2CMOSTM
+EnSignaTM
+FACT™
+FACT Quiet Series™
+
+FAST 
+FASTr™
+FRFET™
+GlobalOptoisolator™
+GTO™
+HiSeC™
+ISOPLANAR™
+LittleFET™
+MicroFET™
+MicroPak™
+MICROWIRE™
+
+OPTOLOGIC™
+OPTOPLANAR™
+PACMAN™
+POP™
+Power247™
+PowerTrench 
+QFET™
+QS™
+QT Optoelectronics™
+Quiet Series™
+SILENT SWITCHER 
+
+SMART START™
+STAR*POWER™
+Stealth™
+SuperSOT™-3
+SuperSOT™-6
+SuperSOT™-8
+SyncFET™
+TinyLogic™
+TruTranslation™
+UHC™
+UltraFET 
+
+VCX™
+
+STAR*POWER is used under license
+
+DISCLAIMER
+FAIRCHILD SEMICONDUCTOR RESERVES THE RIGHT TO MAKE CHANGES WITHOUT FURTHER
+NOTICE TO ANY PRODUCTS HEREIN TO IMPROVE RELIABILITY, FUNCTION OR DESIGN. FAIRCHILD
+DOES NOT ASSUME ANY LIABILITY ARISING OUT OF THE APPLICATION OR USE OF ANY PRODUCT
+OR CIRCUIT DESCRIBED HEREIN; NEITHER DOES IT CONVEY ANY LICENSE UNDER ITS PATENT
+RIGHTS, NOR THE RIGHTS OF OTHERS.
+LIFE SUPPORT POLICY
+FAIRCHILD’S PRODUCTS ARE NOT AUTHORIZED FOR USE AS CRITICAL COMPONENTS IN LIFE SUPPORT
+DEVICES OR SYSTEMS WITHOUT THE EXPRESS WRITTEN APPROVAL OF FAIRCHILD SEMICONDUCTOR CORPORATION.
+As used herein:
+1. Life support devices or systems are devices or
+2. A critical component is any component of a life
+systems which, (a) are intended for surgical implant into
+support device or system whose failure to perform can
+the body, or (b) support or sustain life, or (c) whose
+be reasonably expected to cause the failure of the life
+failure to perform when properly used in accordance
+support device or system, or to affect its safety or
+with instructions for use provided in the labeling, can be
+effectiveness.
+reasonably expected to result in significant injury to the
+user.
+PRODUCT STATUS DEFINITIONS
+Definition of Terms
+Datasheet Identification
+
+Product Status
+
+Definition
+
+Advance Information
+
+Formative or
+In Design
+
+This datasheet contains the design specifications for
+product development. Specifications may change in
+any manner without notice.
+
+Preliminary
+
+First Production
+
+This datasheet contains preliminary data, and
+supplementary data will be published at a later date.
+Fairchild Semiconductor reserves the right to make
+changes at any time without notice in order to improve
+design.
+
+No Identification Needed
+
+Full Production
+
+This datasheet contains final specifications. Fairchild
+Semiconductor reserves the right to make changes at
+any time without notice in order to improve design.
+
+Obsolete
+
+Not In Production
+
+This datasheet contains specifications on a product
+that has been discontinued by Fairchild semiconductor.
+The datasheet is printed for reference information only.
+
+Rev. H4
+
+This datasheet has been download from:
+www.datasheetcatalog.com
+Datasheets for electronics components.
+
+

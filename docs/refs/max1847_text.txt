@@ -1,0 +1,3139 @@
+EVALUATION KIT AVAILABLE
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+General Description
+
+Features
+
+The MAX1846 is available in an ultra-compact 10-pin
+µMAX® package. Operation at high frequency, compatibility with ceramic capacitors, and inverting topology without transformers allow for a compact design.
+Compatibility with electrolytic capacitors and flexibility to
+operate down to 100kHz allow users to minimize the cost
+of external components. The high-current output drivers
+are designed to drive a P-channel MOSFET and allow the
+converter to deliver up to 30W.
+
+Ordering Information
+
+MAX1846/MAX1847 high-efficiency PWM inverting
+controllers allow designers to implement compact, lownoise, negative-output DC-DC converters for telecom
+and networking applications. Both devices operate
+from +3V to +16.5V input and generate -500mV to
+-200V output. To minimize switching noise, both devices
+feature a current-mode, constant-frequency PWM control
+scheme. The operating frequency can be set from 100kHz
+to 500kHz through a resistor.
+
+The MAX1847 features clock synchronization and shutdown functions. The MAX1847 can also be configured to
+operate as an inverting flyback controller with an N-channel
+MOSFET and a transformer to deliver up to 70W. The
+MAX1847 is available in a 16-pin QSOP package.
+Current-mode control simplifies compensation and
+provides good transient response. Accurate current-mode
+control and over current protection are achieved through
+low-side current sensing.
+
+●● 90% Efficiency
+●● +3.0V to +16.5V Input Range
+●● -500mV to -200V Output
+●● Drives High-Side P-Channel MOSFET
+●● 100kHz to 500kHz Switching Frequency
+●● Current-Mode, PWM Control
+●● Internal Soft-Start
+●● Electrolytic or Ceramic Output Capacitor
+●● The MAX1847 also offers:
+Synchronization to External Clock Shutdown
+N-Channel Inverting Flyback Option
+PART
+
+TEMP RANGE
+
+PIN-PACKAGE
+
+MAX1846EUB
+
+-40°C to +85°C
+
+10 µMAX
+
+MAX1846EUB+
+
+-40°C to +105°C
+
+10 µMAX
+
+MAX1847EEE
+
+-40°C to +85°C
+
+16 QSOP
+
+MAX1847EEE+
+
+-40°C to +85°C
+
+16 QSOP
+
++Denotes a lead(Pb)-free/RoHS-compliant package.
+
+Typical Operating Circuit
+POSITIVE
+VIN
+
+Applications
+
+●● Cellular Base Stations
+●● Networking Equipment
+●● Optical Networking Equipment
+●● SLIC Supplies
+●● CO DSL Line Driver Supplies
+●● Industrial Power Supplies
+●● Servers
+●● VOIP Supplies
+
+P
+
+VL
+
+µMAX is a registered trademark of Maxim Integrated Products, Inc.
+
+19-2091; Rev 4; 7/16
+
+EXT
+
+MAX1846
+MAX1847
+COMP
+
+CS
+
+FREQ
+
+PGND
+
+REF
+
+Pin Configurations appear at end of data sheet.
+
+IN
+
+GND
+
+FB
+
+NEGATIVE
+VOUT
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Absolute Maximum Ratings
+
+IN, SHDN to GND..................................................-0.3V to +20V
+PGND to GND.......................................................-0.3V to +0.3V
+VL to PGND for VIN ≤ 5.7V. .......................-0.3V to (VIN + 0.3V)
+VL to PGND for VIN > 5.7V. ....................................-0.3V to +6V
+EXT to PGND..............................................-0.3V to (VIN + 0.3V)
+REF, COMP to GND. ...................................-0.3V to (VL + 0.3V)
+CS, FB, FREQ, POL, SYNC to GND.......................-0.3V to +6V
+
+Continuous Power Dissipation (TA = +70°C)
+10-Pin µMAX (derate 5.6mW/°C above +70°C)...........444mW
+16-Pin QSOP (derate 8.3mW/°C above +70°C)..........696mW
+Operating Temperature Range. ........................ -40°C to +105°C
+Junction Temperature. .....................................................+150°C
+Storage Temperature Range............................. -65°C to +150°C
+Lead Temperature (soldering, 10s).................................. +300°C
+Soldering Temperature (reflow)
+Lead(Pb)-free...............................................................+260°C
+Containing lead(Pb). ....................................................+240°C
+
+Stresses beyond those listed under “Absolute Maximum Ratings” may cause permanent damage to the device. These are stress ratings only, and functional operation of the device at these
+or any other conditions beyond those indicated in the operational sections of the specifications is not implied. Exposure to absolute maximum rating conditions for extended periods may affect
+device reliability.
+
+Electrical Characteristics
+(VSHDN = VIN = +12V, SYNC = GND, PGND = GND, RFREQ = 147kΩ ±1%, CVL = 0.47µF, CREF = 0.1µF, TA = 0°C to +85°C,
+unless otherwise noted.)
+PARAMETER
+
+CONDITIONS
+
+MIN
+
+TYP
+
+MAX
+
+UNITS
+
+16.5
+
+V
+
+PWM CONTROLLER
+Operating Input Voltage Range
+UVLO Threshold
+
+3.0
+VIN rising
+VIN falling
+
+-40°C to ~+85°C
+
+2.8
+
+2.95
+
+-40°C to ~+105°C
+
+2.8
+
+2.96
+
+-40°C to ~+85°C
+
+2.6
+
+2.74
+
+-40°C to ~+105°C
+
+2.59
+
+2.74
+
+UVLO Hysteresis
+
+60
+
+V
+
+mV
+
+FB Threshold
+
+No load
+
+-12
+
+0
+
+12
+
+mV
+
+FB Input Current
+
+VFB = -0.1V
+CCOMP = 0.068µF, VOUT = -48V,
+
+-50
+
+-6
+
+50
+
+nA
+
+0
+
+%
+
+Load Regulation
+Line Regulation
+Current-Limit Threshold
+
+IOUT = 20mA to 200mA (Note 1)
+CCOMP = 0.068µF, VOUT = -48V,
+VIN = +8V to +16.5V, IOUT = 100mA
+
+-1
+0.04
+85
+
+100
+
+%
+115
+
+mV
+
+CS Input Current
+
+CS = GND
+
+10
+
+20
+
+µA
+
+Supply Current
+
+VFB = -0.1V, VIN = +3.0V to +16.5V
+SHDN = GND, VIN = +3.0V to +16.5V
+
+0.75
+
+1.2
+
+mA
+
+10
+
+25
+
+µA
+
+1.264
+
+V
+mV
+
+Shutdown Supply Current
+
+VIN = +3.0V to +16.5V
+REFERENCE AND VL REGULATOR
+REF Output Voltage
+IREF = 50µA
+
+1.236
+
+1.25
+-2
+
+-15
+
+VL Output Voltage
+
+3.85
+
+4.25
+
+4.65
+
+V
+
+-20
+
+-60
+
+mV
+
+REF Load Regulation
+VL Load Regulation
+
+www.maximintegrated.com
+
+IREF = 0 to 500µA
+IVL = 100µA
+
+IVL = 0.1mA to 2.0mA
+
+Maxim Integrated │ 2
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Electrical Characteristics (continued)
+(VSHDN = VIN = +12V, SYNC = GND, PGND = GND, RFREQ = 147kΩ ±1%, CVL = 0.47µF, CREF = 0.1µF, TA = 0°C to +85°C,
+unless otherwise noted.)
+PARAMETER
+OSCILLATOR
+Oscillator Frequency
+
+CONDITIONS
+RFREQ = 500kΩ ±1%
+
+SYNC Input Signal Duty-Cycle
+
+TYP
+
+UNITS
+
+88
+
+100
+
+112
+
+255
+
+300
+
+345
+
+RFREQ = 500kΩ ±1%
+
+93
+
+96
+
+98
+
+85
+
+88
+
+92
+
+%
+
+93
+
+%
+
+200
+
+ns
+
+200
+
+ns
+
+550
+
+kHz
+
+RFREQ = 147kΩ ±1%
+
+80
+7
+50
+
+Pulse Width
+(Note 2)
+
+SYNC Input Frequency Range
+
+kHz
+
+500
+
+RFREQ = 76.8kΩ ±1%
+
+Range
+Minimum SYNC Input Logic-Low
+SYNC Input Rise/Fall Time
+
+MAX
+
+RFREQ = 147kΩ ±1%
+
+RFREQ = 76.8kΩ ±1%
+Maximum Duty Cycle
+
+MIN
+
+100
+
+DIGITAL INPUTS
+POL, SYNC, SHDN Input High
+
+2.0
+
+Voltage
+POL, SYNC, SHDN Input Low
+
+V
+0.45
+
+V
+
+20
+
+40
+
+µA
+
+-4
+
+0
+
+1.5
+
+6
+
+Voltage
+POL, SYNC Input Current
+SHDN Input Current
+SOFT-START
+
+POL, SYNC = GND or VL
+VSHDN = +5V or GND
+VSHDN = +16.5V
+
+-12
+
+Soft-Start Clock Cycles
+
+1024
+
+Soft-Start Levels
+
+64
+
+µA
+
+EXT OUTPUT
+EXT Sink/Source Current
+EXT On-Resistance
+
+VIN = +5V, VEXT forced to +2.5V
+
+1
+3
+
+7.5
+
+EXT high or low, tested with 100mA load, VIN = +3V
+
+5
+
+12
+
+EXT high or low, tested with 100mA load, VIN = +5V
+
+A
+Ω
+
+Note 1: Production test correlates to operating conditions.
+Note 2: Guaranteed by design and characterization.
+
+www.maximintegrated.com
+
+Maxim Integrated │ 3
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Electrical Characteristics
+(VSHDN = VIN = +12V, SYNC = GND, PGND = GND, RFREQ = 147kΩ ±1%, CVL = 0.47µF, CREF = 0.1µF, TA = -40°C to +85°C,
+unless otherwise noted.) (Note 3)
+PARAMETER
+PWM CONTROLLER
+Operating Input Voltage Range
+UVLO Threshold
+FB Threshold
+FB Input Current
+Load Regulation
+Current Limit Threshold
+
+CONDITIONS
+
+VIN rising
+
+MAX
+
+UNITS
+
+3.0
+
+16.5
+
+V
+
+2.95
+
+VIN falling
+
+2.6
+
+No load
+
+VFB = -0.1V
+
+MIN
+
+V
+
+-20
+
++20
+
+-40°C to ~+85°C
+
+-50
+
++50
+
+-40°C to ~+105°C
+
+-150
+
++150
+
+-2
+
+0
+
+%
+
+85
+
+115
+
+mV
+
+CCOMP = 0.068µF, VOUT = -48V,
+IOUT= 20mA to 200mA (Note 1)
+
+mV
+nA
+
+CS Input Current
+
+CS = GND
+
+20
+
+µA
+
+Supply Current
+
+VFB = -0.1V, VIN = +3.0V to +16.5V
+
+1.2
+
+mA
+
+25
+
+µA
+
+Shutdown Supply Current
+
+SHDN = GND, VIN = +3.0V to +16.5V
+
+REFERENCE AND VL REGULATOR
+REF Output Voltage
+REF Load Regulation
+VL Output Voltage
+VL Load Regulation
+OSCILLATOR
+Oscillator Frequency
+Maximum Duty Cycle
+
+IREF = 50µA
+
+1.225
+
+IVL = 100µA
+
+3.85
+
+RFREQ = 500kΩ ±1%
+
+84
+
+116
+
+RFREQ = 147kΩ ±1%
+
+255
+
+345
+
+93
+
+98
+
+RFREQ = 147kΩ ±1%
+
+84
+
+93
+
+7
+
+93
+
+%
+
+200
+
+ns
+
+IREF = 0 to 500µA
+IVL = 0.1mA to 2.0mA
+
+RFREQ = 500kΩ ±1%
+
+SYNC Input Signal Duty-Cycle
+Range
+Minimum SYNC Input Logic Low
+Pulse Width
+SYNC Input Rise/Fall Time
+SYNC Input Frequency Range
+
+(Note 2)
+100
+
+1.275
+
+V
+
+-15
+
+mV
+
+4.65
+
+V
+
+-60
+
+mV
+kHz
+%
+
+200
+
+ns
+
+550
+
+kHz
+
+DIGITAL INPUTS
+POL, SYNC, SHDN Input High
+Voltage
+POL, SYNC, SHDN Input Low
+Voltage
+
+www.maximintegrated.com
+
+2.0
+
+V
+0.45
+
+V
+
+Maxim Integrated │ 4
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Electrical Characteristics (continued)
+(VSHDN = VIN = +12V, SYNC = GND, PGND = GND, RFREQ = 147kΩ ±1%, CVL = 0.47µF, CREF = 0.1µF, TA = -40°C to +85°C,
+unless otherwise noted.) (Note 3)
+PARAMETER
+
+CONDITIONS
+
+POL, SYNC Input Current
+
+POL, SYNC = GND or VL
+
+SHDN Input Current
+
+VSHDN = +5V or GND
+VSHDN = +16.5V
+
+EXT OUTPUT
+
+MAX
+
+UNITS
+
+40
+
+µA
+
+-12
+
+0
+
+µA
+
+6
+
+EXT high or low, IEXT =
+100mA, VIN = +5V
+
+EXT On-Resistance
+
+MIN
+
+-40°C to ~+85°C
+
+7.5
+
+-40°C to ~+105°C
+
+8.75
+
+EXT high or low, IEXT = 100mA, VIN = +3V
+
+Ω
+
+12
+
+Note 3: Parameters to -40°C are guaranteed by design and characterization.
+
+Typical Operating Characteristics
+
+(Circuit references are from Table 1 in the Main Application Circuits section, CVL = 0.47µF, CREF = 0.1°F, TA = +25°C, unless otherwise
+noted.)
+
+VIN = 16.5V
+
+50
+40
+30
+
+60
+40
+30
+20
+
+10
+
+10
+
+VOUT = -5V
+
+1
+
+1000
+
+10
+
+100
+
+0
+
+10,000
+
+VIN = 12V
+
+70
+
+VIN = 16.5V
+
+60
+50
+40
+30
+
+APPLICATION CIRCUIT B
+1
+
+10
+
+10
+
+VOUT = -12V
+
+100
+
+1000
+
+0
+
+10,000
+
+VOUT = -48V
+
+APPLICATION CIRCUIT C
+1
+
+10
+
+100
+
+LOAD CURRENT (mA)
+
+LOAD CURRENT (mA)
+
+LOAD CURRENT (mA)
+
+OUTPUT VOLTAGE LOAD REGULATION
+
+SUPPLY CURRENT
+vs. SUPPLY VOLTAGE
+
+REFERENCE VOLTAGE
+vs. TEMPERATURE
+
+1.6
+
+-11.94
+
+1.4
+1.2
+
+-11.96
+
+-12.02
+
+0.8
+
+1.250
+
+0.6
+
+-12.04
+
+1.258
+
+VREF (V)
+
+IIN (mA)
+
+-12.00
+
+1.262
+
+1.254
+
+1.0
+
+-11.98
+
+1000
+
+MAX1846/7 toc06
+
+-11.92
+
+1.246
+
+0.4
+
+-12.06
+
+1.242
+
+0.2
+
+-12.08
+-12.10
+
+80
+
+20
+
+MAX1846/7 toc05
+
+-11.90
+
+APPLICATION CIRCUIT A
+
+VIN = 3.3V
+
+VIN = 3V
+
+50
+
+20
+0
+
+OUTPUT VOLTAGE (V)
+
+70
+
+90
+
+EFFICIENCY (%)
+
+EFFICIENCY (%)
+
+60
+
+80
+
+MAX1846/7 toc04
+
+EFFICIENCY (%)
+
+VIN = 5V
+
+70
+
+VIN = 5V
+
+90
+
+EFFICIENCY vs. LOAD CURRENT
+
+100
+
+MAX1846/7 toc02
+
+MAX1846/7 toc01
+
+90
+80
+
+100
+
+MAX1846/7 toc03
+
+EFFICIENCY vs. LOAD CURRENT
+
+EFFICIENCY vs. LOAD CURRENT
+100
+
+APPLICATION CIRCUIT B
+0
+
+100
+
+200
+
+300
+
+VIN = 5V
+400
+
+LOAD CURRENT (mA)
+
+www.maximintegrated.com
+
+500
+
+600
+
+0
+
+VFB = -0.1V
+0
+
+2
+
+4
+
+6
+
+8
+VIN (V)
+
+10
+
+12
+
+14
+
+16
+
+1.238
+
+-40
+
+-20
+
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+TEMPERATURE (C)
+
+Maxim Integrated │ 5
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Typical Operating Characteristics (continued)
+
+(Circuit references are from Table 1 in the Main Application Circuits section, CVL = 0.47µF, CREF = 0.1°F, TA = +25°C, unless otherwise
+noted.)
+VL VOLTAGE
+vs. TEMPERATURE
+4.340
+4.300
+
+4.26
+
+1.250
+
+VL (V)
+
+4.260
+VL (V)
+
+4.220
+
+4.24
+4.180
+
+1.245
+
+4.23
+
+4.140
+
+0
+
+200
+
+400
+
+500
+
+-20
+
+0
+
+20
+
+40
+
+60
+
+80
+
+SWITCHING FREQUENCY
+vs. RFREQ
+
+4
+
+14
+
+A
+
+A: VIN = 3V, VOUT = -12V
+
+12
+
+fOSC (kHz)
+
+8
+
+APPLICATION CIRCUIT A
+B: VIN = 5V, VOUT = -5V
+C: VIN = 16.5V, VOUT = -5V
+
+6
+
+B
+
+4
+
+0
+
+20
+
+60
+40
+TEMPERATURE (C)
+
+80
+
+0
+
+100
+
+-40
+
+298
+297
+
+RFREQ = 147k 1%
+
+www.maximintegrated.com
+
+80
+
+100
+
+80
+
+100
+
+0
+
+0
+
+100
+
+200
+
+300
+
+400
+
+500
+
+RFREQ (k)
+
+EXT RISE/FALL TIME
+vs. CAPACITANCE
+
+EXITING SHUTDOWN
+
+600
+
+MAX1846/7 toc15
+
+FALL TIME
+
+5V/div
+SHDN
+0
+VOUT
+5V/div
+
+60
+
+20
+
+60
+40
+TEMPERATURE (C)
+
+60
+
+80
+
+295
+20
+
+40
+
+100
+
+40
+
+0
+
+20
+
+TEMPERATURE (C)
+
+120
+
+296
+
+-20
+
+0
+
+140
+
+TIME (ns)
+
+299
+
+-20
+
+160
+
+MAX1846/7 toc13
+
+300
+
+200
+100
+
+SWITCHING FREQUENCY
+vs. TEMPERATURE
+
+301
+
+300
+
+C
+
+MAX1846/7 toc14
+
+-20
+
+400
+
+10
+
+2
+
+2
+
+500
+
+MAX1846/7 toc11
+
+VIN = 10V
+
+VIN = 3V
+
+-40
+
+0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0
+
+OPERATING CURRENT
+vs. TEMPERATURE
+
+6
+
+302
+
+0
+
+SHUTDOWN SUPPLY CURRENT
+vs. TEMPERATURE
+
+VIN = 16.5V
+
+-40
+
+4.22
+
+100
+
+IVL (mA)
+
+8
+
+294
+
+-40
+
+TEMPERATURE (C)
+
+10
+
+0
+
+IVL = 0
+
+IREF (A)
+
+14
+12
+
+300
+
+4.100
+
+OPERATING CURRENT (mA)
+
+SHUTDOWN SUPPLY CURRENT (A)
+
+16
+
+100
+
+MAX1846/7 toc10
+
+1.240
+
+FREQUENCY (kHz)
+
+4.25
+
+MAX1846/7 toc12
+
+VREF (V)
+
+1.255
+
+VL LOAD REGULATION
+4.27
+
+MAX1846/7 toc09
+
+MAX1846/7 toc07
+
+1.260
+
+MAX1846/7 toc08
+
+REFERENCE LOAD REGULATION
+
+0
+
+RISE TIME
+VIN = 12V
+0
+
+2000
+
+4000
+
+6000
+
+CAPACITANCE (pF)
+
+8000
+
+10,000
+
+1A/div
+
+IL
+APPLICATION CIRCUIT B
+1ms/div
+
+Maxim Integrated │ 6
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Typical Operating Characteristics (continued)
+
+(Circuit references are from Table 1 in the Main Application Circuits section, CVL = 0.47µF, CREF = 0.1°F, TA = +25°C, unless otherwise
+noted.)
+HEAVY-LOAD SWITCHING
+WAVEFORM
+
+ENTERING SHUTDOWN
+
+MAX1846/7 toc17
+
+MAX1846/7 toc16
+
+SHDN
+VOUT
+
+5V/div
+
+0
+
+5V/div
+
+1A/div
+
+IL
+
+VOUT
+
+LX
+
+1A/div
+
+IL
+
+100mV/div
+
+10V/div
+APPLICATION CIRCUIT B
+1s/div
+ILOAD = 600mA
+
+APPLICATION CIRCUIT B
+1ms/div
+
+LIGHT-LOAD SWITCHING
+WAVEFORM
+
+MAX1846/7 toc18
+
+VOUT
+
+100mV/div
+
+1A/div
+
+IL
+
+LX
+
+10V/div
+APPLICATION CIRCUIT B
+1s/div
+ILOAD = 50mA
+
+LOAD-TRANSIENT RESPONSE
+
+LOAD-TRANSIENT RESPONSE
+
+MAX1846/7 toc19
+
+MAX1846/7 toc20
+
+ILOAD
+
+ILOAD
+
+VOUT
+
+500mV/div
+
+IL
+
+1A/div
+APPLICATION CIRCUIT B
+2ms/div
+ILOAD = 10mA to 400mA
+
+www.maximintegrated.com
+
+VOUT
+
+200mV/div
+
+IL
+
+500mA/div
+APPLICATION CIRCUIT C
+400s/div
+ILOAD = 4mA to 100mA
+
+Maxim Integrated │ 7
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Pin Description
+MAX1846
+
+PIN
+
+MAX1847
+
+NAME
+
+FUNCTION
+
+—
+
+1
+
+POL
+
+Sets polarity of the EXT pin. Connect POL to GND to set EXT for use with an external
+PMOS high-side FET. Connect POL to VL to set EXT for use with an external NMOS lowside FET in transformer-based applications.
+
+1
+
+2
+
+VL
+
+VL Low-Dropout Regulator. Connect 0.47µF ceramic capacitor from VL to GND.
+
+2
+
+3
+
+FREQ
+
+Oscillator Frequency Set Input. Connect a resistor (RFREQ) from FREQ to GND to set the
+internal oscillator frequency from 100kHz (RFREQ = 500kW) to 500kHz (RFREQ = 76.8kW).
+RFREQ is still required if an external clock is used at SYNC. See Setting the Operating
+Frequency section.
+
+3
+
+4
+
+COMP
+
+Compensation Node for Error Amp/Integrator. Connect a series resistor/capacitor network
+from COMP to GND for loop compensation. See Design Procedure.
+
+4
+
+5
+
+REF
+
+1.25V Reference Output. REF can source up to 500µA. Bypass with a 0.1µF ceramic
+capacitor from REF to GND.
+
+5
+
+6
+
+FB
+
+Feedback Input. Connect FB to the center of a resistor-divider connected between the
+output and REF. The FB threshold is 0.
+
+—
+
+7, 9
+
+N.C.
+
+No Connection
+
+—
+
+8
+
+SHDN
+
+Shutdown Control. Drive SHDN low to turn off the DC-DC controller. Drive high or connect
+to IN for normal operation.
+
+6
+
+10, 11
+
+GND
+
+Analog Ground. Connect to PGND.
+
+7
+
+12
+
+PGND
+
+Negative Rail for EXT Driver and Negative Current-Sense Input. Connect to GND.
+
+8
+
+13
+
+CS
+
+Positive Current-Sense Input. Connect a current-sense resistor (RCS) between CS and
+PGND.
+
+9
+
+14
+
+EXT
+
+External MOSFET Gate-Driver Output. EXT swings from IN to PGND.
+
+10
+
+15
+
+IN
+
+Power-Supply Input
+
+—
+
+16
+
+www.maximintegrated.com
+
+SYNC
+
+Operating Frequency Synchronization Control. Drive SYNC low or connect to GND to set
+the internal oscillator frequency with RFREQ. Drive SYNC with a logic-level clock input
+signal to externally set the converter’s operating frequency. DC-DC conversion cycles
+initiate on the rising edge of the input clock signal. Note that when driving SYNC with an
+external signal, RFREQ must still be connected to FREQ.
+
+Maxim Integrated │ 8
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Typical Application Circuit
+3 x 22µF
+10V
+
+VIN
++3V to +5.5V
+
+22kΩ
+FDS6375
+
+2
+
+0.47µF
+
+16
+
+SHDN
+
+10kΩ
+
+150kΩ
+
+CS
+MAX1847
+
+4
+0.22µF
+
+EXT
+
+SYNC
+
+220pF
+
+3
+5
+
+VOUT
+-12V AT 400mA
+
+IN
+
+VL
+8
+
+CMSH5-40
+
+15
+
+COMP
+
+N.C.
+PGND
+
+47µF
+16V
+
+10µH
+DO5022P-103
+
+14
+13
+
+47µF
+16V
+
+SANYO
+16TPB47M
+
+7, 9
+
+0.02Ω
+1W
+
+12
+
+R1
+95.3kΩ
+1%
+
+FREQ
+REF
+
+FB
+POL
+1
+
+GND
+10, 11
+
+6
+1200pF
+
+R2
+10.0kΩ
+1%
+
+0.1µF
+
+www.maximintegrated.com
+
+Maxim Integrated │ 9
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Functional Diagram
+IN
+
+EXT
+SHDN
+MAX1847 ONLY
+
+STARTUP
+CIRCUITRY
+
+PGND
+EXT DRIVER
+VL
+
+VL
+REGULATOR
+
+UNDERVOLTAGE
+LOCK OUT
+
+SYNC
+MAX1847 ONLY
+
+MAX1846
+MAX1847
+
+CONTROL
+CIRCUITRY
+
+POL
+
+OSCILLATOR
+
+FREQ
+ERROR
+COMPARATOR
+
+COMP
+
+CS
+
+FB
+GM
+SOFT-START
+
+CURRENTSENSE
+AMPLIFIER
+
+ERROR
+AMPLIFIER
+
+PGND
+X3.3
+
+SLOPE
+COMP
+REF
+
+REFERENCE
+
+GND
+
+www.maximintegrated.com
+
+Maxim Integrated │ 10
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Detailed Description
+
+2) when exiting shutdown with power already applied, and
+3) when exiting undervoltage lockout.
+
+The MAX1846/MAX1847 current-mode PWM controllers
+use an inverting topology that is ideal for generating
+output voltages from -500mV to -200V. Features include
+shutdown, adjustable internal operating frequency or
+synchronization to an external clock, soft-start, adjustable
+current limit, and a wide (+3V to +16.5V) input range.
+
+PWM Controller
+
+The architecture of the MAX1846/MAX1847 current-mode
+PWM controller is a BiCMOS multi-input system that
+simultaneously processes the output-error signal, the
+current-sense signal, and a slope-compensation ramp
+(Functional Diagram). Slope compensation prevents subharmonic oscillation, a potential result in current-mode
+regulators operating at greater than 50% duty cycle. The
+controller uses fixed-frequency, current-mode operation
+where the duty ratio is set by the input-to-output voltage
+ratio. The current-mode feedback loop regulates peak
+inductor current as a function of the output error signal.
+
+Internal Regulator
+
+The MAX1846/MAX1847 incorporate an internal lowdropout regulator (LDO). This LDO has a 4.25V output
+and powers all MAX1846/MAX1847 functions (excluding
+EXT) for the primary purpose of stabilizing the performance of the IC over a wide input voltage range (+3V to
++16.5V). The input to this regulator is connected to IN,
+and the dropout voltage is typically 100mV, so that when
+VIN is less than 4.35V, VL is typically VIN minus 100mV.
+When the LDO is in dropout, the MAX1846/MAX1847 still
+operate with VIN as low as 3V. For best performance, it is
+recommended to connect VL to IN when the input supply
+is less than 4.5V.
+
+Undervoltage Lockout
+
+The MAX1846/MAX1847 have an undervoltage lockout
+circuit that monitors the voltage at VL. If VL falls below
+the UVLO threshold (2.8V typ), the control logic turns
+the P-channel FET off (EXT high impedance). The rest
+of the IC circuitry is still powered and operating. When
+VL increases to 60mV above the UVLO threshold, the IC
+resumes operation from a start up condition (soft-start).
+
+Soft-Start
+
+The MAX1846/MAX1847 feature a “digital” soft-start
+that is preset and requires no external capacitor. Upon
+startup, the FB threshold decrements from the reference voltage to 0 in 64 steps over 1024 cycles of fOSC
+or fSYNC. See the Typical Operating Characteristics for
+a scope picture of the soft-start operation. Soft-start is
+implemented: 1) when power is first applied to the IC,
+
+www.maximintegrated.com
+
+Shutdown (MAX1847 only)
+
+The MAX1847 shuts down to reduce the supply current
+to 10µA when SHDN is low. In this mode, the internal
+reference, error amplifier, comparators, and biasing
+circuitry turn off. The EXT output becomes high impedance and the external pullup resistor connected to EXT
+pulls VEXT to VIN, turning off the P-channel MOSFET.
+When in shutdown mode, the converter's output goes to 0.
+
+Frequency Synchronization
+(MAX1847 only)
+
+The MAX1847 is capable of synchronizing its switching
+frequency with an external clock source. Drive SYNC
+with a logic-level clock input signal to synchronize the
+MAX1847. A switching cycle starts on the rising edge
+of the signal applied to SYNC. Note that the frequency of the signal applied to SYNC must be higher than
+the default frequency set by RFREQ. This frequency
+is required so that the internal clock does not start a
+switching cycle prematurely. If SYNC is inactive for an
+entire clock cycle of the internal oscillator, the internal
+oscillator takes over the switching operation. Choose
+RFREQ such that fOSC = 0.9 5 fSYNC.
+
+EXT Polarity (MAX1847 only)
+
+The MAX1847 features an option to utilize an N-channel
+MOSFET configuration, rather than the typical p-channel
+MOSFET configuration (Figure 1). In order to drive the
+different polarities of these MOSFETs, the MAX1847
+is capable of reversing the phase of EXT by 180
+degrees. When driving a P-channel MOSFET, connect
+POL to GND. When driving an n-channel MOSFET,
+connect POL to VL. These POL connections ensure the
+proper polarity for EXT. For design guidance in regard to
+this application, refer to the MAX1856 data sheet.
+
+Design Procedure
+Initial Specifications
+
+In order to start the design procedure, a few parameters
+must be identified: the minimum input voltage expected (VIN(MIN)), the maximum input voltage expected
+(VIN(MAX)), the desired output voltage (VOUT), and the
+expected maximum load current (ILOAD).
+
+Calculate the Equivalent Load Resistance
+This is a simple calculation used to shorten the verification equations:
+RLOAD = VOUT / ILOAD
+
+Maxim Integrated │ 11
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+VIN
++12V
+12µF VP1-0190
+25V
+12.2µH
+
+0.47µF
+8
+16
+
+1
+2
+VL POL
+SYNC
+
+0.033µF
+
+270kΩ
+150kΩ
+
+3
+5
+
+COMP
+FREQ
+REF
+
+VOUT
+-48V AT 100mA
+
+IRLL2705
+EXT
+CS
+
+MAX1847
+4
+
+CMR1U-02
+
+15
+IN
+
+SHDN
+
+1:4
+
+N.C.
+PGND
+
+GND
+
+FB
+
+10, 11
+
+14
+
+470Ω
+
+13
+
+100pF
+100V
+
+7, 9
+
+0.05Ω
+0.5W
+
+12µF
+100V
+
+383kΩ
+1%
+
+12
+6
+1800pF
+
+10.0kΩ
+1%
+
+0.1µF
+
+Figure 1. Using an N-Channel MOSFET (MAX1847 only)
+
+Calculate the Duty Cycle
+The duty cycle is the ratio of the on-time of the MOSFET
+switch to the oscillator period. It is determined by the
+ratio of the input voltage to the output voltage. Since
+the input voltage typically has a range of operation, a
+minimum (DMIN) and maximum (DMAX) duty cycle is
+calculated by:
+D MIN =
+
+− VOUT + VD
+VIN(MAX) − VSW − VLIM − VOUT + VD
+
+D MAX =
+
+− VOUT + VD
+VIN(MIN) − VSW − VLIM − VOUT + VD
+
+where VD is the forward drop across the output diode,
+VSW is the drop across the external FET when on,
+and VLIM is the current-limit threshold. To begin with,
+assume VD = 0.5V for a Schottky diode, VSW = 100mV,
+and VLIM = 100mV. Remember that VOUT is negative
+when using this formula.
+
+Setting the Output Voltage
+
+The output voltage is set using two external resistors to
+form a resistive-divider to FB between the output and
+REF (refer to R1 and R2 in Figure 1). VREF is nominally
+
+www.maximintegrated.com
+
+1.25V and the regulation voltage for FB is nominally 0.
+The load presented to the reference by the feedback
+resistors must be less than 500µA to guarantee that
+VREF is in regulation (see Electrical Characteristics
+Table). Conversely, the current through the feedback
+resistors must be large enough so that the leakage
+current of the FB input (50nA) is insignificant. Therefore,
+select R2 so that IR2 is between 50µA and 250µA.
+IR2 = VREF / R2
+where VREF = 1.25V. A typical value for R2 is 10kΩ.
+Once R2 is selected, calculate R1 with the following
+equation:
+R1 = R2 x (-VOUT / VREF)
+
+Setting the Operating Frequency
+The MAX1846/MAX1847 are capable of operating at
+switching frequencies from 100kHz to 500kHz. Choice
+of operating frequency depends on a number of factors:
+1) Noise considerations may dictate setting (or
+synchronizing) fOSC above or below a certain
+frequency or band of frequencies, particularly in RF
+applications.
+
+Maxim Integrated │ 12
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+2) Higher frequencies allow the use of smaller value
+(hence smaller size) inductors and capacitors.
+
+to the rate set by RFREQ. Choose RFREQ such that
+fOSC = 0.9 x fSYNC.
+
+3) Higher frequencies consume more operating power
+both to operate the IC and to charge and discharge
+the gate at the external FET, which tends to reduce the
+efficiency at light loads.
+
+Choosing Inductance Value
+
+4) Higher frequencies may exhibit lower overall efficiency
+due to more transition losses in the FET; however, this
+shortcoming can often be nullified by trading some
+of the inductor and capacitor size benefits for lowerresistance components.
+5) High-duty-cycle applications may require lower frequencies to accommodate the controller minimum
+off-time of 0.4µs. Calculate the maximum oscillator
+frequency with the following formula:
+f OSC(MAX) =
+×
+
+VIN(MIN) − VSW − VLIM
+VIN(MIN) − VSW − VLIM − VOUT + VD
+1
+
+1
+2
+ 5.21×10 −7 + 1.92×10 −11 × R
+− 4.86 ×10 −19 × (R FREQ ) 
+FREQ
+
+
+
+) (
+
+)
+
+(
+
+The SYNC input provides external-clock synchronization (if desired). When SYNC is driven with an external clock, the frequency of the clock directly sets the
+MAX1847's switching frequency. A rising clock edge on
+SYNC is interpreted as a synchronization input. If the
+sync signal is lost, the internal oscillator takes over at
+the end of the last cycle, and the frequency is returned
+
+)
+
+Then calculate an inductance value:
+L = (VIN(MAX) / IRIPPLE) x (DMIN / fOSC)
+Choose the closest standard value. Once again, remember that VOUT is negative when using this formula.
+
+Determining Peak Inductor Current
+The peak inductor current required for a particular output
+is:
+ILPEAK = ILDC + (ILPP / 2)
+where ILDC is the average DC inductor current and ILPP
+is the inductor peak-to-peak ripple current. The ILDC and
+ILPP terms are determined as follows:
+ILDC =
+
+)
+
+External Synchronization (MAX1847 only)
+
+www.maximintegrated.com
+
+(
+
+(VIN(MAX) − VSW − VLIM)
+
+The oscillator frequency is set by a resistor, RFREQ,
+which is connected from FREQ to GND. The relationship between fOSC (in Hz) and RFREQ (in Ω) is slightly
+nonlinear, as illustrated in the Typical Operating
+Characteristics. Choose the resistor value from the graph
+and check the oscillator frequency using the following
+formula:
+
+(
+
+IRIPPLE =
+
+0.4 × ILOAD(MAX) × VIN(MAX) − VSW − VLIM − VOUT + VD
+
+t OFF(MIN)
+
+Remember that VOUT is negative when using this formula.
+When running at the maximum oscillator frequency
+(fOSCILLATOR) and maximum duty cycle (DMAX), do
+not exceed the minimum value of DMAX stated in the
+Electrical Characteristics table. For designs that exceed
+the DMAX and fOSC(MAX), an autotransformer can reduce
+the duty cycle and allow higher operating frequencies.
+
+f OSC =
+
+The inductance value determines the operation of the
+current-mode regulator. Except for low-current applications, most circuits are more efficient and economical
+operating in continuous mode, which refers to continuous current in the inductor. In continuous mode there is
+a trade-off between efficiency and transient response.
+Higher inductance means lower inductor ripple current,
+lower peak current, lower switching losses, and, therefore, higher efficiency. Lower inductance means higher
+inductor ripple current and faster transient response. A
+reasonable compromise is to choose the ratio of inductor
+ripple current to average continuous current at minimum duty cycle to be 0.4. Calculate the inductor ripple
+with the following formula:
+
+ILPP =
+
+ILOAD
+1
+( − D MAX )
+
+(VIN(MIN) − VSW − VLIM) x DMAX
+L x f OSC
+
+where L is the selected inductance value. The
+saturation rating of the selected inductor should meet
+or exceed the calculated value for ILPEAK, although
+most coil types can be operated up to 20% over their
+saturation rating without difficulty. In addition to the saturation criteria, the inductor should have as low a series
+resistance as possible. For continuous inductor current,
+
+Maxim Integrated │ 13
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+the power loss in the inductor resistance (PLR) is
+approximated by:
+ I
+
+PLR ~ R L x  LOAD 
+ I − D MAX 
+
+2
+
+where RL is the inductor series resistance.
+Once the peak inductor current is calculated, the
+current sense resistor, RCS, is determined by:
+RCS = 85mV / ILPEAK
+For high peak inductor currents (>1A), Kelvin-sensing
+connections should be used to connect CS and PGND
+to RCS. Connect PGND and GND together at the ground
+side of RCS. A lowpass filter between RCS and CS may
+be required to prevent switching noise from tripping the
+current-sense comparator at heavy loads. Connect a
+100Ω resistor between CS and the high side of RCS, and
+connect a 1000pF capacitor between CS and GND.
+
+Checking Slope-Compensation Stability
+In a current-mode regulator, the cycle-by-cycle
+stability is dependent on slope compensation to prevent
+subharmonic oscillation at duty cycles greater than
+50%. For the MAX1846/MAX1847, the internal slope
+compensation is optimized for a minimum inductor value
+(LMIN) with respect to duty cycle. For duty cycles greater
+then 50%, check stability by calculating LMIN using the
+following equation:
+
+(
+
+)
+
+L MIN =  VIN(MIN) xR CS /M S 
+
+
+x (2 xD MAX − 1) / (1 − D MAX )
+where VIN(MIN) is the minimum expected input voltage,
+Ms is the Slope Compensation Ramp (41 mV/µs) and
+DMAX is the maximum expected duty cycle. If LMIN is
+larger than L, increase the value of L to the next standard
+value that is larger than LMIN to ensure slope compensation stability.
+
+Choosing the Inductor Core
+Choosing the most cost-effective inductor usually requires
+optimizing the field and flux with size. With higher output
+voltages the inductor may require many turns, and this
+can drive the cost up. Choosing an inductor value at LMIN
+can provide a good solution if discontinuous inductor
+current can be tolerated. Powdered iron cores can provide the most economical solution but are larger in size
+than ferrite.
+
+Power MOSFET Selection
+The MAX1846/MAX1847 drive a wide variety of P-channel
+power MOSFETs (PFETs). The best performance,
+especially with input voltages below 5V, is achieved with
+low-threshold PFETs that specify on-resistance with
+a gate-to-source voltage (VGS) of 2.7V or less. When
+selecting a PFET, key parameters include:
+●● Total gate charge (QG)
+●● Reverse transfer capacitance (CRSS)
+●● On-resistance (RDS(ON))
+●● Maximum drain-to-source voltage (VDS(MAX))
+●● Minimum threshold voltage (VTH(MIN))
+At high-switching rates, dynamic characteristics (parameters 1 and 2 above) that predict switching losses
+may have more impact on efficiency than RDS(ON),
+which predicts DC losses. QG includes all capacitance
+associated with charging the gate. In addition, this
+parameter helps predict the current needed to drive the
+gate at the selected operating frequency. The power
+MOSFET in an inverting converter must have a high
+enough voltage rating to handle the input voltage plus
+the magnitude of the output voltage and any spikes
+induced by leakage inductance and ringing.
+An RC snubber circuit across the drain to ground might be
+required to reduce the peak ringing and noise.
+Choose RDS(ON)(MAX) specified at VGS < VIN(MIN) to be
+one to two times RCS. Verify that VIN(MAX) < VGS(MAX)
+and VDS(MAX) > VIN(MAX) - VOUT + VD. Choose the riseand-fall times (tR, tF) to be less than 50ns.
+
+Output Capacitor Selection
+
+The output capacitor (COUT) does all the filtering in an
+inverting converter. The output ripple is created by the
+variations in the charge stored in the output capacitor with
+each pulse and the voltage drop across the capacitor’s
+equivalent series resistance (ESR) caused by the current
+into and out of the capacitor. There are two properties
+of the output capacitor that affect ripple voltage: the
+capacitance value, and the capacitor’s ESR. The output
+ripple due to the output capacitor’s value is given by:
+VRIPPLE-C = (ILOAD × DMAX × TOSC ) / COUT
+The output ripple due to the output capacitor’s ESR is
+given by:
+VRIPPLE-R = ILPP × RESR
+These two ripple voltages are additive and the total output
+ripple is:
+VRIPPLE-T = VRIPPLE-C + VRIPPLE-R
+
+www.maximintegrated.com
+
+Maxim Integrated │ 14
+
+MAX1846/MAX1847
+
+The ESR-induced ripple usually dominates this last
+equation, so typically output capacitor selection is based
+mostly upon the capacitor's ESR, voltage rating, and
+ripple current rating. Use the following formula to determine the maximum ESR for a desired output ripple voltage (VRIPPLE-D):
+RESR = VRIPPLE-D / ILPP
+Select a capacitor with ESR rating less than RESR. The
+value of this capacitor is highly dependent on dielectric
+type, package size, and voltage rating. In general, when
+choosing a capacitor, it is recommended to use low-ESR
+capacitor types such as ceramic, organic, or tantalum capacitors. Ensure that the selected capacitor has
+sufficient margin to safely handle the maximum RMS
+ripple current.
+For continuous inductor current the maximum RMS ripple
+current in the output filter capacitor is:
+I
+IRMS = LOAD x D MAX −D MAX 2
+I − D MAX
+
+Choosing Compensation Components
+
+The MAX1846/MAX1847 are externally loop-compensated devices. This feature provides flexibility in designs to
+accommodate a variety of applications. Proper compensation of the control loop is important to prevent excessive
+output ripple and poor efficiency caused by instability. The
+goal of compensation is to cancel unwanted poles and
+zeros in the DC-DC converter’s transfer function created
+by the power-switching and filter elements. More precisely, the objective of compensation is to ensure stability by
+ensuring that the DC-DC converter’s phase shift is less
+than 180° by a safe margin, at the frequency where the
+loop gain falls below unity. One method for ensuring adequate phase margin is to introduce corresponding zeros
+and poles in the feedback network to approximate a single-pole response with a -20dB/decade slope all the way
+to unity-gain crossover.
+
+Calculating Poles and Zeros
+The MAX1846/MAX1847 current-mode architecture takes
+the double pole caused by the inductor and output
+capacitor and shifts one of these poles to a much higher
+frequency to make loop compensation easier. To compensate these devices, we must know the center frequencies
+of the right-half plane zero (zRHP) and the higher frequency pole (pOUT2). Calculate the zRHP frequency with the
+following formula:
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+(
+
+The calculations for pOUT2 are very complex. For most
+applications where VOUT does not exceed -48V (in a
+negative sense), the pOUT2 will not be lower than 1/8th
+of the oscillator frequency and is generally at a higher
+frequency than zRHP. Therefore:
+pOUT2 ≥ 0.125 × fOSC
+A pole is created by the output capacitor and the load
+resistance. This pole must also be compensated and its
+center frequency is given by the formula:
+pOUT1 = 1 / (2π × RLOAD × COUT)
+Finally, there is a zero introduced by the ESR of the
+output capacitor. This zero is determined from the following equation:
+zESR = 1 / (2π × COUT × RESR)
+
+Calculating the Required Pole Frequency
+To ensure stability of the MAX1846/MAX1847, the gain
+of the error amplifier must roll-off the total loop gain to
+1 before ZRHP or POUT2 occurs. First, calculate the DC
+open-loop gain ADC:
+A DC =
+
+B xG M xR O x (1− D MAX )R LOAD
+A CS xR CS
+
+where:
+ACS is the current-sense amplifier gain = 3.3
+B is the feedback-divider attenuation factor =
+R2
+R1 + R2
+GM is the error-amplifier transconductance =
+400 µA/V
+RO is the error-amplifier output resistance = 3 MΩ
+RCS is the selected current-sense resistor
+
+Determining the Compensation Component Values
+Select a unity-gain crossover frequency (fCROS), which is
+lower than zRHP and pOUT2 and higher than pOUT1. Using
+fCROS, calculate the compensation resistor (RCOMP).
+R COMP =
+
+www.maximintegrated.com
+
+)
+
+2
+− (1− D MAX ) x VIN(MIN) − VOUT xR LOAD 
+
+
+Z RHP =
+(2π x VOUT ×L)
+
+f CROS x R O
+A DC xPOUT1 − f CROS
+
+Maxim Integrated │ 15
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Select the next smaller standard value of resistor and
+then calculate the compensation capacitor required to
+cancel out the output-capacitor-induced pole (POUT1)
+determined previously.
+C COMP =
+
+1
+6.28 x POUT1 xR COMP
+
+POUT(MAX) = Efficiency × PIN(MAX)
+
+In order for pCOMP to compensate the loop, the openloop gain must reach unity at a lower frequency than the
+right-half-plane zero or the second output pole, whichever
+is lower in frequency. If the second output pole and the
+right-half-plane zero are close together in frequency, the
+higher resulting phase shift at unity gain may require
+a lower crossover frequency. For duty cycles greater
+than 50%, slope compensation reduces ADC, reducing
+the actual crossover frequency from fCROS. It is also a
+good practice to reduce noise on COMP with a capacitor
+(CCOMP2) to ground. To avoid adding extra phase margin
+at the crossover, the capacitor (CCOMP2) should roll-off
+noise at five times the crossover frequency. The value for
+CCOMP2 can be found using:
+R O + R COMP
+5 x 6.28 x f CROS x R O x R COMP
+
+It might require a couple iterations to obtain a suitable
+combination of compensation components.
+Finally, the zero introduced by the output capacitor's
+ESR must be compensated. This compensation is
+accomplished by placing a capacitor between REF
+and FB creating a pole directly in the feedback loop.
+Calculate the value of this capacitor using the frequency
+of zESR and the selected feedback resistor values with
+the formula:
+R +R 2
+C FB = R ESR xC OUT x 1
+R 1 xR 2
+When using low-ESR, ceramic chip capacitors (MLCCs)
+at the output, calculate the value of CFB as follows:
+C FB =
+
+Maximum Output Power
+
+The maximum output power that the MAX1846/MAX1847
+can provide depends on the maximum input power
+available and the circuit's efficiency:
+
+Choose the next larger standard value of capacitor.
+
+C COMP2 =
+
+Applications Information
+
+R1+ R 2
+2 × 3.14 × f OSC ×R 1×R 2
+
+www.maximintegrated.com
+
+Furthermore, the efficiency and input power are both
+functions of component selection. Efficiency losses can
+be divided into three categories: 1) resistive losses across
+the inductor, MOSFET on-resistance, current-sense resistor, rectification diode, and the ESR of the input and output capacitors; 2) switching losses due to the MOSFET's
+transition region, and charging the MOSFET's gate
+capacitance; and 3) inductor core losses. Typically,
+80% efficiency can be assumed for initial calculations.
+The required input power depends on the inductor
+current limit, input voltage, output voltage, output current,
+inductor value, and the switching frequency. The maximum output power is approximated by the following
+formula:
+PMAX = [VIN - (VLIM + ILIM x RDS(ON))] x ILIM x
+[1 - (LIR / 2)] x [(-VOUT + VD) / (VIN - VSW - VLIM
+- VOUT + VD)]
+where ILIM is the peak current limit and LIR is the inductor
+current-ripple ratio and is calculated by:
+LIR = ILPP / ILDC
+Again, remember that VOUT for the MAX1846/MAX1847
+is negative.
+
+Diode Selection
+
+The MAX1846/MAX1847's high-switching frequency
+demands a high-speed rectifier. Schottky diodes are
+recommended for most applications because of their
+fast recovery time and low forward voltage. Ensure that
+the diode's average current rating exceeds the peak
+inductor current by using the diode manufacturer's data.
+Additionally, the diode's reverse breakdown voltage must
+exceed the potential difference between VOUT and the
+input voltage plus the leakage-inductance spikes. For
+high output voltages (-50V or more), Schottky diodes
+may not be practical because of this voltage requirement.
+In these cases, use an ultrafast recovery diode with
+adequate reverse-breakdown voltage.
+
+Maxim Integrated │ 16
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Input Filter Capacitor
+
+PC Board Layout Guidelines
+
+The input capacitor (CIN) must provide the peak current
+into the inverter. This capacitor is selected the same way
+as the output capacitor (COUT). Under ideal conditions,
+the RMS current for the input capacitor is the same as the
+output capacitor. The capacitor value and ESR must be
+selected to reduce noise to an acceptable value and also
+handle the ripple current (INRMS where:
+INRMS =
+
+Good PC board layout and routing are required in highfrequency-switching power supplies to achieve good
+regulation, high efficiency, and stability. It is strongly
+recommended that the evaluation kit PC board layouts
+be followed as closely as possible. Place power components
+as close together as possible, keeping their traces short,
+direct, and wide. Avoid interconnecting the ground pins
+of the power components using vias through an internal
+ground plane. Instead, keep the power components close
+together and route them in a “star” ground configuration
+using component-side copper, then connect the star
+ground to internal ground using multiple vias.
+
+1.2 xIO
+x D MAX − D MAX 2
+(I − D MAX )
+
+Bypass Capacitor
+
+Main Application Circuits
+
+In addition to CIN and COUT, other ceramic bypass
+capacitors are required with the MAX1846/MAX1847.
+Bypass REF to GND with a 0.1µF or larger capacitor.
+Bypass VL to GND with a 0.47µF or larger capacitor. All
+bypass capacitors should be located as close to their
+respective pins as possible.
+
+The MAX1846/MAX1847 are extremely versatile devices.
+Figure 2 shows a generic schematic of the MAX1846.
+Table 1 lists component values for several typical
+applications. These component values also apply to the
+MAX1847. The first two applications are featured in the
+MAX1846/MAX1847 EV kit.
+
+VIN
+APPLICATION B
+ONLY
+
+CIN
+
+22k
+P
+
+VL
+
+EXT
+CS
+
+9
+
+3
+CCOMP
+
+RCOMP
+RFREQ
+
+2
+4
+
+COMP
+FREQ
+REF
+
+GND
+6
+
+FB
+
+COUT
+
+L1
+
+RCS
+PGND
+
+VOUT
+
+8
+
+MAX1846
+CCOMP2
+
+D1
+
+10
+IN
+
+1
+
+0.47µF
+
+R1
+
+7
+5
+
+R2
+CFB
+
+0.1µF
+
+NOTE: APPLICATIONS A & B USE POS CAPACITORS. APPLICATIONS C & D USE ALUMINUM ELECTROLYTIC CAPACITORS.
+
+Figure 2. MAX1846 Main Application Circuit
+
+www.maximintegrated.com
+
+Maxim Integrated │ 17
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Table 1. Component List for Main Application Circuits
+A
+
+B
+
+C
+
+D
+
+Input (V)
+
+CIRCUIT ID
+
+12
+
+3 to 5.5
+
+12
+
+12
+
+Output (V)
+
+-5
+
+-12
+
+-48
+
+-72
+
+Output (A)
+
+2
+
+0.4
+
+0.1
+
+0.1
+
+CCOMP (µF)
+
+0.047
+
+0.22
+
+0.1
+
+0.068
+
+3 x 10
+
+3 x 22
+
+10
+
+10
+
+COUT (µF)
+
+2 x 100
+
+2 x 47
+
+39
+
+39
+
+390
+
+1200
+
+1000
+
+1000
+
+R1 (kW) (1%)
+
+40.2
+
+95.3
+
+383
+
+576
+
+R2 (kW) (1%)
+
+10
+
+10
+
+10
+
+10
+
+RCOMP (kΩ)
+
+8.2
+
+10
+
+220
+
+470
+
+0.02
+
+0.02
+
+0.05
+
+0.05
+
+CIN (µF)
+
+CFB (pF)
+
+RCS (W)
+
+RFREQ (kW)
+D1
+
+150
+
+150
+
+150
+
+150
+
+CMSH5-40
+
+CMSH5-40
+
+CMR1U-02
+
+CMR1U-02
+
+L1 (µH)
+P1
+CCOMP2 (pF)
+
+10
+
+10
+
+47
+
+82
+
+FDS6685
+
+FDS6375
+
+IRFR5410
+
+IRFR5410
+
+220
+
+220
+
+22
+
+12
+
+Component Suppliers
+SUPPLIER
+AVX
+
+COMPONENT
+
+PHONE
+
+WEBSITE
+
+Capacitors
+
+803-946-0690
+
+www.avxcorp.com
+
+Central Semiconductor
+
+Diodes
+
+516-435-1110
+
+www.centralsemi.com
+
+Coilcraft
+
+Inductors
+
+847-639-6400
+
+www.coilcraft.com
+
+Dale
+
+Resistors
+
+402-564-3131
+
+www.vishay.com/company/brands/dale/
+
+Fairchild
+
+MOSFETs
+
+408-721-2181
+
+www.fairchildsemi.com
+
+International Rectifier
+
+MOSFETs
+
+310-322-3331
+
+www.irf.com
+
+IRC
+
+Resistors
+
+512-992-7900
+
+www.irctt.com
+
+Kemet
+
+Capacitors
+
+864-963-6300
+
+www.kemet.com
+
+On Semiconductor
+
+MOSFETs, Diodes
+
+602-303-5454
+
+www.onsemi.com
+
+Panasonic
+
+Capacitors, resistors
+
+201-348-7522
+
+www.panasonic.com
+
+Sanyo
+
+Capacitors
+
+619-661-6835
+
+www.secc.co.jp
+
+Siliconix
+
+MOSFETs
+
+408-988-8000
+
+www.siliconix.com
+
+Sprague
+
+Capacitors
+
+603-224-1961
+
+www.vishay.com/company/brands/sprague/
+
+Sumida
+
+Inductors
+
+847-956-0666
+
+www.remtechcorp.com
+
+Vitramon
+
+Resistors
+
+203-268-6261
+
+www.vishay.com/company/brands/vitramon/
+
+Note: Indicate that you are using the MAX1846/MAX1847 when contacting these component suppliers.
+
+www.maximintegrated.com
+
+Maxim Integrated │ 18
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+Chip Information
+
+Pin Configurations
+
+PROCESS: BiCMOS
+
+TOP VIEW
+VL 1
+
++
+
+10 IN
+
+POL 1
+
+9
+
+EXT
+
+VL 2
+FREQ 3
+
+FREQ
+
+2
+
+COMP
+
+3
+
+8
+
+CS
+
+REF
+
+4
+
+7
+
+PGND COMP 4
+
+FB
+
+5
+
+6
+
+GND
+
+MAX1846
+
+µMAX
+
++
+
+16 SYNC
+15 IN
+14 EXT
+
+MAX1847
+
+12 PGND
+
+FB 6
+
+11 GND
+
+N.C. 7
+
+10 GND
+
+SHDN 8
+
+9
+
+QSOP
+
+www.maximintegrated.com
+
+13 CS
+
+REF 5
+
+N.C.
+
+Package Information
+
+For the latest package outline information and land patterns
+(footprints), go to www.maximintegrated.com/packages. Note
+that a “+”, “#”, or “-” in the package code indicates RoHS status
+only. Package drawings may show a different suffix character, but
+the drawing pertains to the package regardless of RoHS status.
+PACKAGE PACKAGE
+TYPE
+CODE
+
+OUTLINE
+NO.
+
+LAND
+PATTERN NO.
+
+10 µMAX
+16 QSOP
+
+21-0061
+21-0055
+
+90-0330
+
+U10+2
+E16+1
+
+90-0167
+
+Maxim Integrated │ 19
+
+MAX1846/MAX1847
+
+High-Efficiency, Current-Mode,
+Inverting PWM Controller
+
+Revision History
+REVISION
+NUMBER
+
+REVISION
+DATE
+
+DESCRIPTION
+
+PAGES
+CHANGED
+
+2
+
+9/10
+
+Added equation in the Determining the Compensation Component Values section
+
+16
+
+3
+
+3/14
+
+Removed automotive application from the Applications section
+
+4
+
+7/16
+
+Extended maximum operating temperature from +85°C to +105°C
+
+1
+1, 2, 4
+
+For pricing, delivery, and ordering information, please contact Maxim Direct at 1-888-629-4642, or visit Maxim Integrated’s website at www.maximintegrated.com.
+Maxim Integrated cannot assume responsibility for use of any circuitry other than circuitry entirely embodied in a Maxim Integrated product. No circuit patent licenses
+are implied. Maxim Integrated reserves the right to change the circuitry and specifications without notice at any time. The parametric values (min and max limits)
+shown in the Electrical Characteristics table are guaranteed. Other parametric values quoted in this data sheet are provided for guidance.
+
+Maxim Integrated and the Maxim Integrated logo are trademarks of Maxim Integrated Products, Inc.
+
+© 2016 Maxim Integrated Products, Inc. │ 20
+
+

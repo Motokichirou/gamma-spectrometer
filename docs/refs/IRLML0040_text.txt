@@ -1,0 +1,1146 @@
+IRLML0040
+LOW VOLTAGE MOSFET (N-CHANNEL)
+FEATURES
+ Ultra low on-resistance:VDS=40V,RDS(ON)=56mΩ@VGS=10 V,ID=3.6A
+ For Low power DC to DC converter application
+ For Load switch application
+ Surface Mount device
+
+SOT-23
+
+MECHANICAL DATA
+ Case: SOT-23
+ Case Material: Molded Plastic. UL flammability
+ Classification Rating: 94V-0
+ Weight: 0.008 grams (approximate)
+
+MAXIMUM RATINGS (TA = 25°C unless otherwise noted)
+Symbol
+VDS
+
+Parameter
+
+Max.
+
+Units
+
+40
+
+V
+
+ID @ TA = 25°C
+
+Drain-Source Voltage
+Continuous Drain Current, VGS @ 10V
+
+3.6
+
+ID @ TA = 70°C
+
+Continuous Drain Current, VGS @ 10V
+
+2.9
+
+IDM
+
+Pulsed Drain Current
+
+15
+
+PD @TA = 25°C
+
+Maximum Power Dissipation
+
+1.3
+
+PD @TA = 70°C
+
+Maximum Power Dissipation
+
+0.8
+
+Linear Derating Factor
+
+0.01
+
+VGS
+
+Gate-to-Source Voltage
+
+± 16
+
+W/°C
+V
+
+-55 to + 150
+
+°C
+
+TJ, TSTG
+
+Junction and Storage Temperature Range
+
+RθJA
+
+Junction-to-Ambient
+
+RθJA
+
+Junction-to-Ambient (t<10s)
+
+e
+
+A
+
+W
+
+100
+
+°C/W
+
+99
+
+Electric Characteristics @ TJ = 25°C (unless otherwise specified)
+Symbol
+
+Parameter
+
+V(BR)DSS
+Drain-to-Source Breakdown Voltage
+ΔV(BR)DSS/ΔTJ Breakdown Voltage Temp. Coefficient
+RDS(on)
+
+Static Drain-to-Source On-Resistance
+
+VGS(th)
+IDSS
+
+Gate Threshold Voltage
+
+IGSS
+RG
+gfs
+Qg
+Qgs
+Qgd
+td(on)
+tr
+td(off)
+tf
+Ciss
+Coss
+Crss
+IS
+ISM
+
+Drain-to-Source Leakage Current
+Gate-to-Source Forward Leakage
+Gate-to-Source Reverse Leakage
+Internal Gate Resistance
+Forward Transconductance
+Total Gate Charge
+Gate-to-Source Charge
+Gate-to-Drain ("Miller") Charge
+Turn-On Delay Time
+Rise Time
+Turn-Off Delay Time
+Fall Time
+Input Capacitance
+Output Capacitance
+Reverse Transfer Capacitance
+Continuous Source Current
+(Body Diode)
+Pulsed Source Current
+(Body Diode)
+
+c
+
+Min. Typ. Max. Units
+40
+–––
+–––
+–––
+1.0
+–––
+–––
+–––
+–––
+–––
+6.2
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+
+–––
+0.04
+44
+62
+1.8
+–––
+–––
+–––
+–––
+1.1
+–––
+2.6
+0.7
+1.4
+5.1
+5.4
+6.4
+4.3
+266
+49
+29
+
+–––
+–––
+56
+78
+2.5
+20
+250
+100
+-100
+–––
+–––
+3.9
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+–––
+
+–––
+
+–––
+
+1.3
+
+–––
+
+–––
+
+15
+
+VSD
+–––
+–––
+1.2
+Diode Forward Voltage
+trr
+–––
+10
+–––
+Reverse Recovery Time
+Qrr
+–––
+9.3
+–––
+Reverse Recovery Charge
+Notes:  Repetitive rating; pulse width limited by max. junction temperature.
+ Pulse width ≤ 400μs; duty cycle ≤ 2%.
+ Surface mounted on 1 in square Cu board
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+Conditions
+
+V
+VGS = 0V, ID = 250μA
+V/°C Reference to 25°C, ID = 1mA
+VGS = 10V, ID = 3.6A
+mΩ V = 4.5V, I = 2.9A
+GS
+D
+V
+VDS = VGS, ID = 25μA
+VDS = 40V, VGS = 0V
+μA V = 40V, V = 0V, T = 125°C
+DS
+GS
+J
+VGS = 16V
+nA
+VGS = -16V
+Ω
+VDS = 10V, ID = 3.6A
+S
+ID = 3.6A
+nC VDS = 20V
+VGS = 4.5V
+VDD = 20V
+ns ID = 1.0A
+RG = 6.8 Ω
+VGS = 4.5V
+VGS = 0V
+pF VDS = 25V
+ƒ = 1.0MHz
+
+d
+d
+
+d
+
+A
+V
+ns
+nC
+
+MOSFET symbol
+showing the
+integral reverse
+p-n junction diode.
+
+D
+
+G
+S
+
+TJ = 25°C, IS = 1.3A, VGS = 0V
+TJ = 25°C, VR = 32V, IF = 1.3 A
+di/dt = 100A/μs
+
+E-mail:hkt@heketai.com
+
+d
+
+d
+
+1/ 6
+
+IRLML0040
+LOW VOLTAGE MOSFET (N-CHANNEL)
+Typical Characteristics
+100
+
+100
+
+ID, Drain-to-Source Current (A)
+
+10
+
+BOTTOM
+
+1
+
+TOP
+
+ID, Drain-to-Source Current (A)
+
+TOP
+
+VGS
+10V
+7.0V
+6.0V
+4.5V
+4.0V
+3.5V
+3.0V
+2.5V
+
+0.1
+2.5V
+
+0.01
+
+0.1
+
+1
+10
+V DS, Drain-to-Source Voltage (V)
+
+BOTTOM
+
+1
+2.5V
+
+≤60μs PULSE WIDTH
+
+≤60μs PULSE WIDTH Tj = 25°C
+0.001
+
+10
+
+0.1
+
+100
+
+Tj = 150°C
+0.1
+
+100
+
+2.0
+RDS(on) , Drain-to-Source On Resistance
+(Normalized)
+
+100
+
+ID, Drain-to-Source Current (A)
+
+1
+10
+V DS, Drain-to-Source Voltage (V)
+
+Fig 2. Typical Output Characteristics
+
+Fig 1. Typical Output Characteristics
+
+VDS = 25V
+≤60μs PULSE WIDTH
+10
+
+TJ = 150°C
+T J = 25°C
+
+1
+
+ID = 3.6A
+VGS = 10V
+
+1.5
+
+1.0
+
+0.5
+
+0.1
+
+2.0
+
+3.0
+4.0
+VGS, Gate-to-Source Voltage (V)
+
+5.0
+
+-60 -40 -20 0 20 40 60 80 100 120 140 160
+T J , Junction Temperature (°C)
+
+Fig 4. Normalized On-Resistance
+Vs. Temperature
+
+Fig 3. Typical Transfer Characteristics
+f = 1 MHZ
+VGS = 0V,
+C iss = C gs + C gd, C ds SHORTED
+C rss = C gd
+C oss = C ds + C gd
+
+1000
+Ciss
+100
+
+Coss
+Crss
+
+10
+
+1
+
+10
+VDS, Drain-to-Source Voltage (V)
+
+Fig 5. Typical Capacitance Vs.
+Drain-to-Source Voltage
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+14
+ID= 3.6A
+VGS, Gate-to-Source Voltage (V)
+
+10000
+
+C, Capacitance (pF)
+
+VGS
+10V
+7.0V
+6.0V
+4.5V
+4.0V
+3.5V
+3.0V
+2.5V
+
+100
+
+12
+
+VDS= 32V
+VDS= 20V
+VDS= 8V
+
+10
+8
+6
+4
+2
+0
+
+0
+
+1
+
+2
+3
+4
+5
+6
+QG, Total Gate Charge (nC)
+
+7
+
+Fig 6. Typical Gate Charge Vs.
+Gate-to-Source Voltage
+E-mail:hkt@heketai.com
+
+2/ 6
+
+IRLML0040
+LOW VOLTAGE MOSFET (N-CHANNEL)
+100
+
+ID, Drain-to-Source Current (A)
+
+ISD, Reverse Drain Current (A)
+
+100
+
+10
+T J = 150°C
+T J = 25°C
+
+1
+
+OPERATION IN THIS AREA
+LIMITED BY R DS(on)
+10
+
+100μsec
+
+1
+1msec
+10msec
+
+0.1
+
+T A = 25°C
+
+Tj = 150°C
+Single Pulse
+
+VGS = 0V
+0.1
+
+0.3
+
+0.5
+0.7
+0.9
+VSD, Source-to-Drain Voltage (V)
+
+1.1
+
+0.01
+
+Fig 7. Typical Source-Drain Diode
+Forward Voltage
+
+0
+
+1
+10
+VDS, Drain-to-Source Voltage (V)
+
+Fig 8. Maximum Safe Operating Area
+RD
+
+VDS
+
+4.2
+
+VGS
+3.6
+ID, Drain Current (A)
+
+100
+
+D.U.T.
+
+RG
+
+3
+
++
+
+- VDD
+
+VGS
+Pulse Width ≤ 1 µs
+Duty Factor ≤ 0.1 %
+
+2.4
+1.8
+
+Fig 10a. Switching Time Test Circuit
+VDS
+
+1.2
+
+90%
+
+0.6
+0
+25
+
+50
+
+75
+
+100
+
+125
+
+150
+
+T A , Ambient Temperature (°C)
+
+Fig 9. Maximum Drain Current Vs.
+Ambient Temperature
+
+10%
+VGS
+td(on)
+
+tr
+
+t d(off)
+
+tf
+
+Fig 10b. Switching Time Waveforms
+
+Thermal Response ( Z thJA ) °C/W
+
+1000
+100
+10
+1
+
+D = 0.50
+0.20
+0.10
+0.05
+0.02
+0.01
+
+0.1
+0.01
+0.001
+1E-006
+
+Notes:
+1. Duty Factor D = t1/t2
+2. Peak Tj = P dm x Zthja + T A
+
+SINGLE PULSE
+( THERMAL RESPONSE )
+1E-005
+
+0.0001
+
+0.001
+0.01
+0.1
+t1 , Rectangular Pulse Duration (sec)
+
+1
+
+10
+
+100
+
+Fig 11. Typical Effective Transient Thermal Impedance, Junction-to-Ambient
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+E-mail:hkt@heketai.com
+
+3/ 6
+
+IRLML0040
+160
+
+RDS(on), Drain-to -Source On Resistance ( mΩ)
+
+RDS(on), Drain-to -Source On Resistance (m Ω)
+
+LOW VOLTAGE MOSFET (N-CHANNEL)
+ID = 3.6A
+140
+120
+100
+T J = 125°C
+
+80
+60
+40
+
+T J = 25°C
+
+20
+2
+
+4
+
+6
+
+8
+
+10
+
+12
+
+14
+
+250
+
+200
+
+150
+
+100
+
+Vgs = 4.5V
+Vgs = 10V
+
+50
+
+0
+
+16
+
+0
+
+5
+
+10
+
+15
+
+20
+
+25
+
+30
+
+35
+
+ID, Drain Current (A)
+
+VGS, Gate -to -Source Voltage (V)
+
+Fig 13. Typical On-Resistance Vs. Drain
+Current
+
+Fig 12. Typical On-Resistance Vs. Gate
+Voltage
+
+Current Regulator
+Same Type as D.U.T.
+
+50KΩ
+
+QG
+
+VGS
+
+QGS
+
+12V
+
+.2μF
+.3μF
+
+QGD
+
++
+V
+- DS
+
+D.U.T.
+VGS
+
+VG
+
+3mA
+
+IG
+
+Charge
+
+ID
+
+Current Sampling Resistors
+
+Fig 14a. Basic Gate Charge Waveform
+
+Fig 14b. Gate Charge Test Circuit
+
+100
+
+80
+
+2.0
+Power (W)
+
+VGS(th) , Gate threshold Voltage (V)
+
+2.5
+
+1.5
+ID = 25uA
+1.0
+
+ID = 250uA
+
+0
+
+40
+
+20
+
+0.5
+-75 -50 -25
+
+60
+
+25
+
+50
+
+75 100 125 150
+
+T J , Temperature ( °C )
+
+Fig 15. Typical Threshold Voltage Vs.
+Junction Temperature
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+0
+1E-005 0.0001 0.001
+
+0.01
+
+0.1
+
+1
+
+10
+
+Time (sec)
+
+Fig 16. Typical Power Vs. Time
+E-mail:hkt@heketai.com
+
+4/ 6
+
+IRLML0040
+LOW VOLTAGE MOSFET (N-CHANNEL)
+SOT-23 Package Outline Dimensions
+
+Dimensions In Millimeters
+
+Dimensions In Inches
+
+Min.
+
+Max.
+
+Min.
+
+Max.
+
+A
+
+0.900
+
+1.150
+
+0.035
+
+0.045
+
+A1
+
+0.000
+
+0.100
+
+0.000
+
+0.004
+
+A2
+
+0.900
+
+1.050
+
+0.035
+
+0.041
+
+b
+
+0.300
+
+0.500
+
+0.012
+
+0.020
+
+c
+
+0.080
+
+0.150
+
+0.003
+
+0.006
+
+D
+
+2.800
+
+3.000
+
+0.110
+
+0.118
+
+E
+
+1.200
+
+1.400
+
+0.047
+
+0.055
+
+E1
+
+2.250
+
+2.550
+
+0.089
+
+0.100
+
+Symbol
+
+e
+e1
+
+0.950 TYP
+1.800
+
+L
+
+0.037 TYP
+2.000
+
+0.071
+
+0.550 RE F
+
+0.079
+0.022 REF
+
+L1
+
+0.300
+
+0.500
+
+0.012
+
+0.020
+
+θ
+
+0°
+
+8°
+
+0°
+
+8°
+
+SOT-23 Suggested Pad Layout
+
+Note:
+1.Controlling dimension: in millimeters
+2.General tolerance: ±0.05mm
+3.The pad layout is for reference purposes only
+
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+E-mail:hkt@heketai.com
+
+5/ 6
+
+IRLML0040
+LOW VOLTAGE MOSFET (N-CHANNEL)
+SOT-23 Tape and Reel
+SOT-23 Embossed Carrier Tape
+
+DIMENSIONS ARE IN MILLIMETER
+TYPE
+
+A
+
+B
+
+C
+
+d
+
+E
+
+F
+
+P0
+
+P
+
+P1
+
+W
+
+SOT-23
+
+3.15
+
+2.77
+
+1.22
+
+Ø1.50
+
+1.75
+
+3.50
+
+4.00
+
+4.00
+
+2.00
+
+8.00
+
+TOLERANCE
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+±0.1
+
+SOT-23 Tape Leader and Trailer
+
+SOT-23 Reel
+
+DIMENSIONS ARE IN MILLIMETER
+REEL OPTION
+
+D
+
+D1
+
+D2
+
+G
+
+H
+
+I
+
+W1
+
+W2
+
+7’’ DIA
+
+Ø178
+
+54.40
+
+13.00
+
+R78
+
+R25.60
+
+R6.50
+
+9.50
+
+12.30
+
+TOLERANCE
+
+±2
+
+±1
+
+±1
+
+±1
+
+±1
+
+±1
+
+±1
+
+±1
+
+© SHENZHEN HOTTECH ELECTRONICS CO.,LTD
+
+E-mail:hkt@heketai.com
+
+6/ 6
+
+

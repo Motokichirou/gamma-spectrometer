@@ -1,0 +1,2941 @@
+Important notice
+Dear Customer,
+On 7 February 2017 the former NXP Standard Product business became a new company with the
+tradename Nexperia. Nexperia is an industry leading supplier of Discrete, Logic and PowerMOS
+semiconductors with its focus on the automotive, industrial, computing, consumer and wearable
+application markets
+In data sheets and application notes which still contain NXP or Philips Semiconductors references, use
+the references to Nexperia, as shown below.
+Instead of http://www.nxp.com, http://www.philips.com/ or http://www.semiconductors.philips.com/,
+use http://www.nexperia.com
+Instead of sales.addresses@www.nxp.com or sales.addresses@www.semiconductors.philips.com, use
+salesaddresses@nexperia.com (email)
+Replace the copyright notice at the bottom of each page or elsewhere in the document, depending on
+the version, as shown below:
+- © NXP N.V. (year). All rights reserved or © Koninklijke Philips Electronics N.V. (year). All rights
+reserved
+Should be replaced with:
+- © Nexperia B.V. (year). All rights reserved.
+If you have any questions related to the data sheet, please contact our nearest sales office via e-mail
+or telephone (details via salesaddresses@nexperia.com). Thank you for your cooperation and
+understanding,
+Kind regards,
+
+Team Nexperia
+
+BAS16 series
+High-speed switching diodes
+Rev. 6 — 24 September 2014
+
+Product data sheet
+
+1. Product profile
+1.1 General description
+High-speed switching diodes, encapsulated in small Surface-Mounted Device (SMD)
+plastic packages.
+Table 1.
+
+Product overview
+
+Type number
+
+Package
+
+Configuration
+
+Package
+configuration
+
+NXP
+
+JEITA
+
+JEDEC
+
+BAS16
+
+SOT23
+
+-
+
+TO-236AB
+
+single
+
+small
+
+BAS16H
+
+SOD123F
+
+-
+
+-
+
+single
+
+small and flat lead
+
+BAS16J
+
+SOD323F
+
+SC-90
+
+-
+
+single
+
+very small and flat
+lead
+
+BAS16L
+
+SOD882
+
+-
+
+-
+
+single
+
+leadless ultra
+small
+
+BAS16T
+
+SOT416
+
+SC-75
+
+-
+
+single
+
+ultra small
+
+BAS16VV
+
+SOT666
+
+-
+
+-
+
+triple isolated
+
+ultra small and flat
+lead
+
+BAS16VY
+
+SOT363
+
+SC-88
+
+-
+
+triple isolated
+
+very small
+
+BAS16W
+
+SOT323
+
+SC-70
+
+-
+
+single
+
+very small
+
+BAS316
+
+SOD323
+
+SC-76
+
+-
+
+single
+
+very small
+
+BAS516
+
+SOD523
+
+SC-79
+
+-
+
+single
+
+ultra small and flat
+lead
+
+1.2 Features and benefits
+ High switching speed: trr  4 ns
+ Low leakage current
+ Repetitive peak reverse voltage:
+VRRM  100 V
+ AEC-Q101 qualified
+
+1.3 Applications
+ High-speed switching
+ General-purpose switching
+
+ Low capacitance
+ Reverse voltage: VR  100 V
+ Small SMD plastic packages
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+1.4 Quick reference data
+Table 2.
+Quick reference data
+Tamb = 25 C unless otherwise specified.
+Symbol
+
+Parameter
+
+Conditions
+
+Min
+
+Typ
+
+Max
+
+Unit
+
+Per diode
+VR
+
+reverse voltage
+
+-
+
+-
+
+100
+
+V
+
+IR
+
+reverse current
+
+VR = 80 V
+
+-
+
+-
+
+0.5
+
+A
+
+trr
+
+reverse recovery
+time
+
+IF = 10 mA; IR = 10 mA;
+RL = 100 ; IR(meas) = 1 mA
+
+-
+
+-
+
+4
+
+ns
+
+2. Pinning information
+Table 3.
+Pin
+
+Pinning
+Description
+
+Simplified outline
+
+Graphic symbol
+
+BAS16; BAS16T; BAS16W
+1
+
+anode
+
+2
+
+not connected
+
+3
+
+cathode
+
+3
+
+3
+1
+
+2
+006aaa764
+
+1
+
+2
+006aaa144
+
+BAS16H; BAS16J; BAS316; BAS516
+1
+
+cathode
+
+2
+
+anode
+
+[1]
+
+1
+
+2
+
+2
+
+1
+
+006aab040
+001aab540
+
+BAS16L
+1
+
+cathode
+
+2
+
+anode
+
+[1]
+
+1
+
+2
+
+1
+
+2
+
+006aab040
+
+Transparent
+top view
+
+BAS16VV; BAS16VY
+1
+
+anode (diode 1)
+
+2
+
+anode (diode 2)
+
+3
+
+anode (diode 3)
+
+4
+
+cathode (diode 3)
+
+5
+
+cathode (diode 2)
+
+6
+
+cathode (diode 1)
+
+6
+
+5
+
+1
+
+2
+
+4
+
+3
+001aab555
+
+6
+
+5
+
+1
+
+2
+
+4
+
+3
+006aab106
+
+[1]
+
+BAS16_SER
+
+Product data sheet
+
+The marking bar indicates the cathode.
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+2 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+3. Ordering information
+Table 4.
+
+Ordering information
+
+Type number
+
+Package
+Name
+
+Description
+
+Version
+
+BAS16
+
+TO-236AB
+
+plastic surface-mounted package; 3 leads
+
+SOT23
+
+BAS16H
+
+-
+
+plastic surface-mounted package; 2 leads
+
+SOD123F
+
+BAS16J
+
+SC-90
+
+plastic surface-mounted package; 2 leads
+
+SOD323F
+
+BAS16L
+
+DFN1006-2
+
+leadless ultra small plastic package; 2 terminals;
+body 1.0  0.6  0.5 mm
+
+SOD882
+
+BAS16T
+
+SC-75
+
+plastic surface-mounted package; 3 leads
+
+SOT416
+
+BAS16VV
+
+-
+
+plastic surface-mounted package; 6 leads
+
+SOT666
+
+BAS16VY
+
+SC-88
+
+plastic surface-mounted package; 6 leads
+
+SOT363
+
+BAS16W
+
+SC-70
+
+plastic surface-mounted package; 3 leads
+
+SOT323
+
+BAS316
+
+SC-76
+
+plastic surface-mounted package; 2 leads
+
+SOD323
+
+BAS516
+
+SC-79
+
+plastic surface-mounted package; 2 leads
+
+SOD523
+
+Table 5.
+
+Marking codes
+
+4. Marking
+Type number
+
+Marking code[1]
+
+BAS16
+
+A6*
+
+BAS16H
+
+A1
+
+BAS16J
+
+AR
+
+BAS16L
+
+S2
+
+BAS16T
+
+A6
+
+BAS16VV
+
+53
+
+BAS16VY
+
+16*
+
+BAS16W
+
+A6*
+
+BAS316
+
+A6
+
+BAS516
+
+6
+
+[1]
+
+* = placeholder for manufacturing site code
+
+5. Limiting values
+Table 6.
+Limiting values
+In accordance with the Absolute Maximum Rating System (IEC 60134).
+Symbol
+
+Parameter
+
+Conditions
+
+Min
+
+Max
+
+Unit
+
+Per diode
+
+BAS16_SER
+
+Product data sheet
+
+VRRM
+
+repetitive peak reverse
+voltage
+
+-
+
+100
+
+V
+
+VR
+
+reverse voltage
+
+-
+
+100
+
+V
+
+All information provided in this document is subject to legal disclaimers.
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+Rev. 6 — 24 September 2014
+
+3 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+Table 6.
+Limiting values …continued
+In accordance with the Absolute Maximum Rating System (IEC 60134).
+Symbol
+
+Parameter
+
+IF
+
+forward current
+
+Conditions
+
+Min
+
+Max
+
+Unit
+
+BAS16
+
+[1]
+
+-
+
+215
+
+mA
+
+BAS16H
+BAS16L
+
+[2]
+
+-
+
+215
+
+mA
+
+BAS16T
+
+[1]
+
+-
+
+155
+
+mA
+
+BAS16VV
+BAS16VY
+
+[1][3]
+
+-
+
+200
+
+mA
+
+BAS16W
+
+[1]
+
+-
+
+175
+
+mA
+
+BAS16J
+BAS316
+BAS516
+
+[1]
+
+-
+
+250
+
+mA
+
+-
+
+500
+
+mA
+
+tp = 1 s
+
+-
+
+4
+
+A
+
+tp = 1 ms
+
+-
+
+1
+
+A
+
+tp = 1 s
+
+-
+
+0.5
+
+A
+
+IFRM
+
+repetitive peak forward
+current
+
+tp  0.5 ms;
+  0.25
+
+IFSM
+
+non-repetitive peak forward
+current
+
+square wave;
+Tj(init) = 25 °C
+
+total power dissipation
+
+Ptot
+
+BAS16
+
+Tamb  25 C
+
+[1]
+
+-
+
+250
+
+mW
+
+BAS16H
+
+Tamb  25 C
+
+[2]
+
+-
+
+380
+
+mW
+
+[5]
+
+-
+
+830
+
+mW
+
+BAS16J
+
+Tamb  25 C
+
+[5]
+
+-
+
+550
+
+mW
+
+BAS16L
+
+Tamb  25 C
+
+[2]
+
+-
+
+250
+
+mW
+
+BAS16T
+
+Tsp  90 C
+
+[1][4]
+
+-
+
+170
+
+mW
+
+BAS16VV
+
+Tamb  25 C
+
+[1][3]
+
+-
+
+180
+
+mW
+
+BAS16VY
+
+Tsp  85 C
+
+[1][3][6]
+
+-
+
+250
+
+mW
+
+BAS16W
+
+Tamb  25 C
+
+[1]
+
+-
+
+200
+
+mW
+
+BAS316
+
+Tsp  90 C
+
+[1][4]
+
+-
+
+400
+
+mW
+
+BAS516
+
+Tsp  90 C
+
+[1][4]
+
+-
+
+500
+
+mW
+
+Per device
+Tj
+
+junction temperature
+
+-
+
+150
+
+C
+
+Tamb
+
+ambient temperature
+
+65
+
++150
+
+C
+
+Tstg
+
+storage temperature
+
+65
+
++150
+
+C
+
+[1]
+
+BAS16_SER
+
+Product data sheet
+
+Device mounted on an FR4 Printed-Circuit Board (PCB), single-sided copper, tin-plated and standard
+footprint.
+
+[2]
+
+Device mounted on an FR4 PCB with 60 m copper strip line.
+
+[3]
+
+Single diode loaded.
+
+[4]
+
+Soldering point of cathode tab.
+
+[5]
+
+Device mounted on an FR4 PCB, single-sided copper, tin-plated, mounting pad for cathode 1 cm2.
+
+[6]
+
+Soldering points at pins 4, 5 and 6.
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+4 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+6. Thermal characteristics
+Table 7.
+
+Thermal characteristics
+
+Symbol
+
+Parameter
+
+Conditions
+
+Rth(j-a)
+
+thermal resistance from
+junction to ambient
+
+in free air
+
+Unit
+
+-
+
+-
+
+500
+
+K/W
+
+BAS16H
+
+[2]
+
+-
+
+-
+
+330
+
+K/W
+
+[3]
+
+-
+
+-
+
+150
+
+K/W
+
+BAS16J
+
+[3]
+
+-
+
+-
+
+230
+
+K/W
+
+BAS16L
+
+[2]
+
+-
+
+-
+
+500
+
+K/W
+
+BAS16VV
+
+[2][4]
+
+-
+
+-
+
+700
+
+K/W
+
+[3][4]
+
+-
+
+-
+
+410
+
+K/W
+
+[1]
+
+-
+
+-
+
+625
+
+K/W
+
+-
+
+-
+
+330
+
+K/W
+
+-
+
+-
+
+70
+
+K/W
+
+thermal resistance from
+junction to solder point
+BAS16H
+
+[5]
+
+BAS16J
+
+[5]
+
+BAS16T
+BAS16VY
+
+[4][6]
+
+BAS16W
+
+Product data sheet
+
+Max
+
+[1]
+
+BAS16
+
+BAS16_SER
+
+Typ
+
+BAS16
+
+BAS16W
+Rth(j-sp)
+
+Min
+
+-
+
+-
+
+55
+
+K/W
+
+-
+
+-
+
+350
+
+K/W
+
+-
+
+-
+
+260
+
+K/W
+
+-
+
+-
+
+300
+
+K/W
+
+BAS316
+
+[5]
+
+-
+
+-
+
+150
+
+K/W
+
+BAS516
+
+[5]
+
+-
+
+-
+
+120
+
+K/W
+
+[1]
+
+Device mounted on an FR4 PCB, single-sided copper, tin-plated and standard footprint.
+
+[2]
+
+Device mounted on an FR4 PCB with 60 m copper strip line.
+
+[3]
+
+Device mounted on an FR4 PCB, single-sided copper, tin-plated, mounting pad for cathode 1 cm2.
+
+[4]
+
+Single diode loaded.
+
+[5]
+
+Soldering point of cathode tab.
+
+[6]
+
+Soldering points at pins 4, 5 and 6.
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+5 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+7. Characteristics
+Table 8.
+Characteristics
+Tamb = 25 C unless otherwise specified.
+Symbol
+
+Parameter
+
+Conditions
+
+Min
+
+Typ
+
+Max
+
+Unit
+
+IF = 1 mA
+
+-
+
+-
+
+715
+
+mV
+
+IF = 10 mA
+
+-
+
+-
+
+855
+
+mV
+
+IF = 50 mA
+
+-
+
+-
+
+1
+
+V
+
+Per diode
+VF
+
+IR
+
+Cd
+
+Product data sheet
+
+IF = 150 mA
+
+-
+
+-
+
+1.25
+
+V
+
+VR = 25 V
+
+-
+
+-
+
+30
+
+nA
+
+VR = 80 V
+
+-
+
+-
+
+0.5
+
+A
+
+VR = 25 V; Tj = 150 C
+
+-
+
+-
+
+30
+
+A
+
+VR = 80 V; Tj = 150 C
+
+-
+
+-
+
+50
+
+A
+
+BAS16; BAS16H;
+BAS16J; BAS16L;
+BAS16T; BAS16VV;
+BAS16VY; BAS16W;
+BAS316
+
+-
+
+-
+
+1.5
+
+pF
+
+BAS516
+
+-
+
+-
+
+1
+
+pF
+
+-
+
+-
+
+4
+
+ns
+
+-
+
+-
+
+1.75
+
+V
+
+reverse current
+
+diode capacitance
+
+f = 1 MHz; VR = 0 V
+
+trr
+
+reverse recovery time
+
+VFR
+
+forward recovery voltage IF = 10 mA; tr = 20 ns
+
+[1]
+
+BAS16_SER
+
+[1]
+
+forward voltage
+
+IF = 10 mA; IR = 10 mA;
+RL = 100 ;
+IR(meas) = 1 mA
+
+Pulse test: tp  300 s;   0.02.
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+6 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+006aab132
+
+103
+IF
+(mA)
+
+mbg704
+
+102
+IFSM
+(A)
+
+102
+10
+
+10
+
+1
+(1)
+
+(2)
+
+(3)
+
+(4)
+
+1
+
+10−1
+
+10−1
+0
+
+0.2
+
+0.4
+
+0.6
+
+0.8
+
+1.0
+
+1
+
+1.2
+1.4
+VF (V)
+
+10
+
+102
+
+103
+
+104
+tp (μs)
+
+(1) Tamb = 150 C
+
+Based on square wave currents.
+
+(2) Tamb = 85 C
+
+Tj(init) = 25 C
+
+(3) Tamb = 25 C
+(4) Tamb = 40 C
+
+Fig 1.
+
+Forward current as a function of forward
+voltage; typical values
+
+Fig 2.
+
+006aab133
+
+102
+IR
+(μA)
+10
+
+(1)
+
+1
+
+(2)
+
+Non-repetitive peak forward current as a
+function of pulse duration; maximum values
+mbg446
+
+0.8
+Cd
+(pF)
+0.6
+
+10−1
+
+0.4
+
+(3)
+
+10−2
+10−3
+
+0.2
+
+10−4
+
+(4)
+
+10−5
+
+0
+0
+
+20
+
+40
+
+60
+
+80
+
+0
+
+100
+
+4
+
+8
+
+VR (V)
+
+(1) Tamb = 150 C
+
+12
+
+VR (V)
+
+16
+
+f = 1 MHz; Tamb = 25 C
+
+(2) Tamb = 85 C
+(3) Tamb = 25 C
+(4) Tamb = 40 C
+
+Fig 3.
+
+Reverse current as a function of reverse
+voltage; typical values
+
+BAS16_SER
+
+Product data sheet
+
+Fig 4.
+
+Diode capacitance as a function of reverse
+voltage; typical values
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+7 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+8. Test information
+
+tr
+
+tp
+t
+
+D.U.T.
+
+10 %
++ IF
+
+IF
+
+RS = 50 Ω
+
+SAMPLING
+OSCILLOSCOPE
+
+trr
+t
+
+Ri = 50 Ω
+
+V = VR + IF × RS
+
+(1)
+
+90 %
+
+VR
+mga881
+
+input signal
+
+output signal
+
+(1) IR = 1 mA
+Input signal: reverse pulse rise time tr = 0.6 ns; reverse voltage pulse duration tp = 100 ns; duty cycle  = 0.05
+Oscilloscope: rise time tr = 0.35 ns
+
+Fig 5.
+
+Reverse recovery time test circuit and waveforms
+I
+
+1 kΩ
+
+RS = 50 Ω
+D.U.T.
+
+450 Ω
+
+I
+
+V
+
+90 %
+
+OSCILLOSCOPE
+
+VFR
+
+Ri = 50 Ω
+10 %
+t
+tr
+
+t
+
+tp
+input signal
+
+output signal
+mga882
+
+Input signal: forward pulse rise time tr = 20 ns; forward current pulse duration tp  100 ns; duty cycle   0.005
+
+Fig 6.
+
+Forward recovery voltage test circuit and waveforms
+
+8.1 Quality information
+This product has been qualified in accordance with the Automotive Electronics Council
+(AEC) standard Q101 - Stress test qualification for discrete semiconductors, and is
+suitable for use in automotive applications.
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+8 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+9. Package outline
+
+3.0
+2.8
+
+1.7
+1.5
+
+1.1
+0.9
+
+1.2
+1.0
+1
+
+3
+
+0.55
+0.35
+
+0.45
+0.15
+2.5 1.4
+2.1 1.2
+
+3.6
+3.4
+
+1
+
+2
+
+0.48
+0.38
+
+1.9
+
+04-11-04
+
+Package outline BAS16 (SOT23/TO-236AB)
+1.35
+1.15
+
+2
+
+0.15
+0.09
+
+Dimensions in mm
+
+Fig 7.
+
+2.7
+2.5
+
+0.70
+0.55
+Dimensions in mm
+
+Fig 8.
+
+04-11-29
+
+Package outline BAS16H (SOD123F)
+
+0.80
+0.65
+
+2
+
+0.30
+0.22
+2.7
+2.3
+
+0.50
+0.46
+
+0.62
+0.55
+
+0.5
+0.3
+
+1
+
+0.25
+0.10
+
+1.8
+1.6
+
+1.02
+0.95
+
+0.65
+0.30
+0.22
+
+1
+
+2
+
+Dimensions in mm
+
+Fig 9.
+
+0.55
+0.47
+
+0.25
+0.10
+
+0.40
+0.25
+
+04-09-13
+
+Package outline BAS16J (SOD323F/SC-90)
+
+Dimensions in mm
+
+03-04-17
+
+Fig 10. Package outline BAS16L (SOD882/DFN1006-2)
+1.7
+1.5
+
+0.95
+0.60
+
+1.8
+1.4
+3
+
+cathode marking on top side (if applicable)
+
+6
+
+0.45
+0.15
+
+0.6
+0.5
+5
+
+4
+0.3
+0.1
+
+1.75 0.9
+1.45 0.7
+
+1.7
+1.5
+
+1.3
+1.1
+pin 1 index
+
+1
+
+2
+
+1
+0.30
+0.15
+
+0.25
+0.10
+
+1
+Dimensions in mm
+
+Product data sheet
+
+3
+0.27
+0.17
+
+0.18
+0.08
+
+1
+04-11-04
+
+Fig 11. Package outline BAS16T (SOT416/SC-75)
+
+BAS16_SER
+
+2
+
+0.5
+
+Dimensions in mm
+
+04-11-08
+
+Fig 12. Package outline BAS16VV (SOT666)
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+9 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+2.2
+1.8
+6
+
+2.2 1.35
+2.0 1.15
+
+1.1
+0.8
+5
+
+2.2
+1.8
+
+0.45
+0.15
+
+4
+
+2.2 1.35
+2.0 1.15
+
+2
+
+1
+
+3
+0.3
+0.2
+
+0.65
+
+2
+
+0.25
+0.10
+
+0.4
+0.3
+
+1.3
+06-03-16
+
+Fig 13. Package outline BAS16VY (SOT363)
+1.35
+1.15
+
+Dimensions in mm
+
+04-11-04
+
+Fig 14. Package outline BAS16W (SOT323/SC-70)
+0.85
+0.75
+
+1.1
+0.8
+0.45
+0.15
+
+1
+
+1.65 1.25
+1.55 1.15
+
+2
+
+2
+0.40
+0.25
+
+0.25
+0.10
+
+0.34
+0.26
+03-12-17
+
+Fig 15. Package outline BAS316 (SOD323/SC-76)
+
+BAS16_SER
+
+Product data sheet
+
+0.65
+0.58
+1
+
+1.8
+1.6
+
+Dimensions in mm
+
+0.25
+0.10
+
+1.3
+
+Dimensions in mm
+
+2.7
+2.3
+
+0.45
+0.15
+
+3
+
+pin 1
+index
+
+1
+
+1.1
+0.8
+
+Dimensions in mm
+
+0.17
+0.11
+02-12-13
+
+Fig 16. Package outline BAS516 (SOD523/SC-79)
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+10 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+10. Soldering
+3.3
+2.9
+1.9
+
+solder lands
+solder resist
+3
+
+2
+
+1.7
+
+solder paste
+occupied area
+
+0.6
+(3×)
+
+0.7
+(3×)
+
+Dimensions in mm
+0.5
+(3×)
+0.6
+(3×)
+1
+
+sot023_fr
+
+Fig 17. Reflow soldering footprint BAS16 (SOT23/TO-236AB)
+2.2
+1.2
+(2×)
+
+1.4
+(2×)
+solder lands
+4.6
+
+solder resist
+
+2.6
+
+occupied area
+Dimensions in mm
+1.4
+
+preferred transport direction during soldering
+2.8
+4.5
+
+sot023_fw
+
+Fig 18. Wave soldering footprint BAS16 (SOT23/TO-236AB)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+11 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+4.4
+4
+2.9
+1.6
+solder lands
+solder resist
+2.1 1.6
+
+1.1 1.2
+solder paste
+occupied area
+1.1
+(2×)
+
+Dimensions in mm
+
+Fig 19. Reflow soldering footprint BAS16H (SOD123F)
+3.05
+2.2
+2.1
+solder lands
+solder resist
+0.5 (2×)
+
+1.65 0.95
+
+0.6 (2×)
+solder paste
+occupied area
+
+0.5
+(2×)
+0.6
+(2×)
+
+Dimensions in mm
+sod323f_fr
+
+Fig 20. Reflow soldering footprint BAS16J (SOD323F)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+12 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+1.3
+R0.05 (8×)
+
+0.7
+
+solder lands
+solder resist
+
+0.6 0.7 0.8
+(2×) (2×) (2×)
+
+0.9
+
+solder paste
+occupied area
+0.3
+(2×)
+
+Dimensions in mm
+
+0.4
+(2×)
+0.5
+(2×)
+
+sod882_fr
+
+Fig 21. Reflow soldering footprint BAS16L (SOD882/DFN1006-2)
+2.2
+1.7
+
+solder lands
+solder resist
+1
+
+0.85
+
+2
+solder paste
+
+0.5
+(3×)
+
+occupied area
+Dimensions in mm
+
+0.6
+(3×)
+1.3
+
+sot416_fr
+
+Fig 22. Reflow soldering footprint BAS16T (SOT416/SC-75)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+13 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+2.75
+2.45
+2.1
+1.6
+solder lands
+0.4
+(6×) 0.25
+(2×)
+
+0.538
+2
+
+1.7 1.075
+
+0.3
+(2×)
+
+placement area
+
+0.55
+(2×)
+
+solder paste
+occupied area
+0.325 0.375
+(4×) (4×)
+
+Dimensions in mm
+
+1.7
+0.45
+(4×)
+
+0.6
+(2×)
+
+0.5
+(4×)
+
+0.65
+(2×)
+
+sot666_fr
+
+Fig 23. Reflow soldering footprint BAS16VV (SOT666)
+2.65
+
+solder lands
+2.35 1.5
+
+0.4 (2×)
+
+0.6 0.5
+(4×) (4×)
+
+solder resist
+solder paste
+0.5
+(4×)
+
+0.6
+(2×)
+
+0.6
+(4×)
+
+occupied area
+Dimensions in mm
+
+1.8
+
+sot363_fr
+
+Fig 24. Reflow soldering footprint BAS16VY (SOT363/SC-88)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+14 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+1.5
+solder lands
+0.3 2.5
+
+4.5
+
+solder resist
+occupied area
+1.5
+Dimensions in mm
+
+1.3
+
+preferred transport
+direction during soldering
+
+1.3
+2.45
+5.3
+
+sot363_fw
+
+Fig 25. Wave soldering footprint BAS16VY (SOT363/SC-88)
+2.65
+1.85
+1.325
+solder lands
+solder resist
+
+2
+
+2.35
+
+0.6
+(3×)
+
+3
+
+1.3
+
+1
+
+0.5
+(3×)
+
+solder paste
+occupied area
+Dimensions in mm
+
+0.55
+(3×)
+
+sot323_fr
+
+Fig 26. Reflow soldering footprint BAS16W (SOT323/SC-70)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+15 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+4.6
+2.575
+1.425
+(3×)
+solder lands
+solder resist
+occupied area
+1.8
+
+3.65 2.1
+
+09
+(2×)
+
+Dimensions in mm
+preferred transport
+direction during soldering
+
+sot323_fw
+
+Fig 27. Wave soldering footprint BAS16W (SOT323/SC-70)
+3.05
+2.1
+solder lands
+solder resist
+0.5 (2×)
+
+1.65 0.95
+
+0.6 (2×)
+solder paste
+occupied area
+
+2.2
+0.5
+(2×)
+0.6
+(2×)
+
+Dimensions in mm
+
+sod323_fr
+
+Fig 28. Reflow soldering footprint BAS316 (SOD323/SC-76)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+16 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+5
+2.9
+1.5 (2×)
+solder lands
+solder resist
+occupied area
+2.75
+
+1.2
+(2×)
+
+Dimensions in mm
+preferred transport
+direction during soldering
+
+sod323_fw
+
+Fig 29. Wave soldering footprint BAS316 (SOD323/SC-76)
+2.15
+1.4
+solder lands
+solder resist
+0.5 0.6
+(2×) (2×)
+
+1.2
+
+solder paste
+occupied area
+Dimensions in mm
+
+0.4
+(2×)
+0.5
+(2×)
+
+sod523_fr
+
+Fig 30. Reflow soldering footprint BAS516 (SOD523/SC-79)
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+17 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+11. Revision history
+Table 9.
+
+Revision history
+
+Document ID
+
+Release date
+
+Data sheet status
+
+Change notice
+
+Supersedes
+
+BAS16_SER_6
+
+20140924
+
+Product data sheet
+
+-
+
+BAS16_SER_5
+
+Modifications:
+
+• Section 1.2 “Features and benefits”: updated
+• Section 4 “Marking”: updated
+• Table 6 “Limiting values”: updated
+• Section 8 “Test information”: updated
+• Section 12 “Legal information”: updated
+
+BAS16_SER_5
+
+20080825
+
+Product data sheet
+
+-
+
+BAS16_4
+BAS16H_1
+BAS16J_1
+BAS16L_1
+BAS16T_1
+BAS16VV_BAS16VY_3
+BAS16W_4
+BAS316_4
+BAS516_1
+
+BAS16_4
+
+20011010
+
+Product specification
+
+-
+
+BAS16_3
+
+BAS16H_1
+
+20050415
+
+Product data sheet
+
+-
+
+-
+
+BAS16J_1
+
+20070308
+
+Product data sheet
+
+-
+
+-
+
+BAS16L_1
+
+20030623
+
+Product specification
+
+-
+
+-
+
+BAS16T_1
+
+19980120
+
+Product specification
+
+-
+
+-
+
+BAS16VV_BAS16VY_3
+
+20070420
+
+Product data sheet
+
+-
+
+BAS16VV_BAS16VY_2
+
+BAS16W_4
+
+19990506
+
+Product specification
+
+-
+
+BAS16W_3
+
+BAS316_4
+
+20040204
+
+Product specification
+
+-
+
+BAS316_3
+
+BAS516_1
+
+19980831
+
+Product specification
+
+-
+
+-
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+18 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+12. Legal information
+12.1 Data sheet status
+Document status[1][2]
+
+Product status[3]
+
+Definition
+
+Objective [short] data sheet
+
+Development
+
+This document contains data from the objective specification for product development.
+
+Preliminary [short] data sheet
+
+Qualification
+
+This document contains data from the preliminary specification.
+
+Product [short] data sheet
+
+Production
+
+This document contains the product specification.
+
+[1]
+
+Please consult the most recently issued document before initiating or completing a design.
+
+[2]
+
+The term ‘short data sheet’ is explained in section “Definitions”.
+
+[3]
+
+The product status of device(s) described in this document may have changed since this document was published and may differ in case of multiple devices. The latest product status
+information is available on the Internet at URL http://www.nxp.com.
+
+12.2 Definitions
+Draft — The document is a draft version only. The content is still under
+internal review and subject to formal approval, which may result in
+modifications or additions. NXP Semiconductors does not give any
+representations or warranties as to the accuracy or completeness of
+information included herein and shall have no liability for the consequences of
+use of such information.
+Short data sheet — A short data sheet is an extract from a full data sheet
+with the same product type number(s) and title. A short data sheet is intended
+for quick reference only and should not be relied upon to contain detailed and
+full information. For detailed and full information see the relevant full data
+sheet, which is available on request via the local NXP Semiconductors sales
+office. In case of any inconsistency or conflict with the short data sheet, the
+full data sheet shall prevail.
+Product specification — The information and data provided in a Product
+data sheet shall define the specification of the product as agreed between
+NXP Semiconductors and its customer, unless NXP Semiconductors and
+customer have explicitly agreed otherwise in writing. In no event however,
+shall an agreement be valid in which the NXP Semiconductors product is
+deemed to offer functions and qualities beyond those described in the
+Product data sheet.
+
+12.3 Disclaimers
+Limited warranty and liability — Information in this document is believed to
+be accurate and reliable. However, NXP Semiconductors does not give any
+representations or warranties, expressed or implied, as to the accuracy or
+completeness of such information and shall have no liability for the
+consequences of use of such information. NXP Semiconductors takes no
+responsibility for the content in this document if provided by an information
+source outside of NXP Semiconductors.
+In no event shall NXP Semiconductors be liable for any indirect, incidental,
+punitive, special or consequential damages (including - without limitation - lost
+profits, lost savings, business interruption, costs related to the removal or
+replacement of any products or rework charges) whether or not such
+damages are based on tort (including negligence), warranty, breach of
+contract or any other legal theory.
+Notwithstanding any damages that customer might incur for any reason
+whatsoever, NXP Semiconductors’ aggregate and cumulative liability towards
+customer for the products described herein shall be limited in accordance
+with the Terms and conditions of commercial sale of NXP Semiconductors.
+Right to make changes — NXP Semiconductors reserves the right to make
+changes to information published in this document, including without
+limitation specifications and product descriptions, at any time and without
+notice. This document supersedes and replaces all information supplied prior
+to the publication hereof.
+
+BAS16_SER
+
+Product data sheet
+
+Suitability for use in automotive applications — This NXP
+Semiconductors product has been qualified for use in automotive
+applications. Unless otherwise agreed in writing, the product is not designed,
+authorized or warranted to be suitable for use in life support, life-critical or
+safety-critical systems or equipment, nor in applications where failure or
+malfunction of an NXP Semiconductors product can reasonably be expected
+to result in personal injury, death or severe property or environmental
+damage. NXP Semiconductors and its suppliers accept no liability for
+inclusion and/or use of NXP Semiconductors products in such equipment or
+applications and therefore such inclusion and/or use is at the customer's own
+risk.
+Applications — Applications that are described herein for any of these
+products are for illustrative purposes only. NXP Semiconductors makes no
+representation or warranty that such applications will be suitable for the
+specified use without further testing or modification.
+Customers are responsible for the design and operation of their applications
+and products using NXP Semiconductors products, and NXP Semiconductors
+accepts no liability for any assistance with applications or customer product
+design. It is customer’s sole responsibility to determine whether the NXP
+Semiconductors product is suitable and fit for the customer’s applications and
+products planned, as well as for the planned application and use of
+customer’s third party customer(s). Customers should provide appropriate
+design and operating safeguards to minimize the risks associated with their
+applications and products.
+NXP Semiconductors does not accept any liability related to any default,
+damage, costs or problem which is based on any weakness or default in the
+customer’s applications or products, or the application or use by customer’s
+third party customer(s). Customer is responsible for doing all necessary
+testing for the customer’s applications and products using NXP
+Semiconductors products in order to avoid a default of the applications and
+the products or of the application or use by customer’s third party
+customer(s). NXP does not accept any liability in this respect.
+Limiting values — Stress above one or more limiting values (as defined in
+the Absolute Maximum Ratings System of IEC 60134) will cause permanent
+damage to the device. Limiting values are stress ratings only and (proper)
+operation of the device at these or any other conditions above those given in
+the Recommended operating conditions section (if present) or the
+Characteristics sections of this document is not warranted. Constant or
+repeated exposure to limiting values will permanently and irreversibly affect
+the quality and reliability of the device.
+Terms and conditions of commercial sale — NXP Semiconductors
+products are sold subject to the general terms and conditions of commercial
+sale, as published at http://www.nxp.com/profile/terms, unless otherwise
+agreed in a valid written individual agreement. In case an individual
+agreement is concluded only the terms and conditions of the respective
+agreement shall apply. NXP Semiconductors hereby expressly objects to
+applying the customer’s general terms and conditions with regard to the
+purchase of NXP Semiconductors products by customer.
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+19 of 21
+
+BAS16 series
+
+NXP Semiconductors
+
+High-speed switching diodes
+
+No offer to sell or license — Nothing in this document may be interpreted or
+construed as an offer to sell products that is open for acceptance or the grant,
+conveyance or implication of any license under any copyrights, patents or
+other industrial or intellectual property rights.
+
+Translations — A non-English (translated) version of a document is for
+reference only. The English version shall prevail in case of any discrepancy
+between the translated and English versions.
+
+Export control — This document as well as the item(s) described herein
+may be subject to export control regulations. Export might require a prior
+authorization from competent authorities.
+
+12.4 Trademarks
+
+Quick reference data — The Quick reference data is an extract of the
+product data given in the Limiting values and Characteristics sections of this
+document, and as such is not complete, exhaustive or legally binding.
+
+Notice: All referenced brands, product names, service names and trademarks
+are the property of their respective owners.
+
+13. Contact information
+For more information, please visit: http://www.nxp.com
+For sales office addresses, please send an email to: salesaddresses@nxp.com
+
+BAS16_SER
+
+Product data sheet
+
+All information provided in this document is subject to legal disclaimers.
+
+Rev. 6 — 24 September 2014
+
+© NXP Semiconductors N.V. 2014. All rights reserved.
+
+20 of 21
+
+NXP Semiconductors
+
+BAS16 series
+High-speed switching diodes
+
+14. Contents
+1
+1.1
+1.2
+1.3
+1.4
+2
+3
+4
+5
+6
+7
+8
+8.1
+9
+10
+11
+12
+12.1
+12.2
+12.3
+12.4
+13
+14
+
+Product profile . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+General description . . . . . . . . . . . . . . . . . . . . . 1
+Features and benefits . . . . . . . . . . . . . . . . . . . . 1
+Applications . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+Quick reference data . . . . . . . . . . . . . . . . . . . . 2
+Pinning information . . . . . . . . . . . . . . . . . . . . . . 2
+Ordering information . . . . . . . . . . . . . . . . . . . . . 3
+Marking . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+Limiting values. . . . . . . . . . . . . . . . . . . . . . . . . . 3
+Thermal characteristics . . . . . . . . . . . . . . . . . . 5
+Characteristics . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+Test information . . . . . . . . . . . . . . . . . . . . . . . . . 8
+Quality information . . . . . . . . . . . . . . . . . . . . . . 8
+Package outline . . . . . . . . . . . . . . . . . . . . . . . . . 9
+Soldering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+Revision history . . . . . . . . . . . . . . . . . . . . . . . . 18
+Legal information. . . . . . . . . . . . . . . . . . . . . . . 19
+Data sheet status . . . . . . . . . . . . . . . . . . . . . . 19
+Definitions . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+Disclaimers . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+Trademarks. . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+Contact information. . . . . . . . . . . . . . . . . . . . . 20
+Contents . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+
+Please be aware that important notices concerning this document and the product(s)
+described herein, have been included in section ‘Legal information’.
+
+© NXP Semiconductors N.V. 2014.
+
+All rights reserved.
+
+For more information, please visit: http://www.nxp.com
+For sales office addresses, please send an email to: salesaddresses@nxp.com
+Date of release: 24 September 2014
+Document identifier: BAS16_SER
+
+
