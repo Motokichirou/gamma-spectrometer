@@ -7330,7 +7330,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "AMS1117-3.3"
 			(at 153.67 161.29 0)
 			(effects
 				(font
@@ -7450,7 +7450,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
 			(at 143.2052 128.27 0)
 			(effects
 				(font
@@ -7495,7 +7495,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0805JKX7R9BB105"
+			(at 142.24 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0805JKX7R9BB105"
 			(at 142.24 124.46 0)
 			(effects
 				(font
@@ -7545,7 +7554,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_Neosid_SMS-ME3015"
 			(at 267.97 161.29 0)
 			(effects
 				(font
@@ -7590,7 +7599,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "SRN3015-470M"
+			(at 267.97 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/BOURNS/SRN3015-470M"
 			(at 267.97 161.29 90)
 			(effects
 				(font
@@ -7707,7 +7725,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_HandSolder"
 			(at 78.4352 167.64 0)
 			(effects
 				(font
@@ -7752,7 +7770,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TR3B106K010C0750"
+			(at 77.47 163.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/VISHAY/TR3B106K010C0750"
 			(at 77.47 163.83 0)
 			(effects
 				(font
@@ -7803,7 +7830,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_HandSolder"
 			(at 143.2052 168.91 0)
 			(effects
 				(font
@@ -7848,7 +7875,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TR3B106K010C0750"
+			(at 142.24 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/VISHAY/TR3B106K010C0750"
 			(at 142.24 165.1 0)
 			(effects
 				(font
@@ -7900,7 +7936,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 88.392 111.76 90)
 			(effects
 				(font
@@ -7945,7 +7981,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-075K1L"
+			(at 90.17 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-075K1L"
 			(at 90.17 111.76 0)
 			(effects
 				(font
@@ -7987,7 +8032,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 247.396 177.546 0)
 			(effects
 				(font
@@ -7996,7 +8041,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 251.1552 173.99 0)
 			(effects
 				(font
@@ -8041,7 +8086,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 250.19 170.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 250.19 170.18 0)
 			(effects
 				(font
@@ -8342,7 +8396,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TPS60400DBV"
 			(at 233.68 166.37 0)
 			(effects
 				(font
@@ -8455,7 +8509,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "PRTR5V0U2X"
 			(at 153.67 92.71 90)
 			(effects
 				(font
@@ -8644,7 +8698,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 337.82 93.218 90)
 			(effects
 				(font
@@ -8689,7 +8743,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RT0603BRD07330RL "
+			(at 337.82 91.44 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RT0603BRD07330RL"
 			(at 337.82 91.44 90)
 			(effects
 				(font
@@ -8997,7 +9060,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 209.296 166.116 0)
 			(effects
 				(font
@@ -9006,7 +9069,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 219.4052 168.91 0)
 			(effects
 				(font
@@ -9051,7 +9114,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 218.44 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 218.44 165.1 0)
 			(effects
 				(font
@@ -9168,7 +9240,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 82.042 111.76 90)
 			(effects
 				(font
@@ -9213,7 +9285,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-075K1L"
+			(at 83.82 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-075K1L"
 			(at 83.82 111.76 0)
 			(effects
 				(font
@@ -9263,7 +9344,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "LED_SMD:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder"
 			(at 255.27 116.84 0)
 			(effects
 				(font
@@ -9317,7 +9398,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "FYLS-0805UBC"
+			(at 255.27 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/FORYARD/FYLS-0805UBC"
 			(at 255.27 116.84 0)
 			(effects
 				(font
@@ -9632,7 +9722,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_HandSolder"
 			(at 162.2552 168.91 0)
 			(effects
 				(font
@@ -9677,7 +9767,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TR3B106K010C0750"
+			(at 161.29 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/VISHAY/TR3B106K010C0750"
 			(at 161.29 165.1 0)
 			(effects
 				(font
@@ -9727,7 +9826,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Fuse:Fuse_1812_4532Metric_Pad1.30x3.40mm_HandSolder"
 			(at 104.14 83.82 0)
 			(effects
 				(font
@@ -9773,7 +9872,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "MF-MSMF050-2"
+			(at 99.06 85.09 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/JEMETE/MF-MSMF050-2"
 			(at 99.06 85.09 90)
 			(effects
 				(font
@@ -9890,7 +9998,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_HandSolder"
 			(at 275.8948 161.29 0)
 			(effects
 				(font
@@ -9935,7 +10043,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TR3B106K010C0750"
+			(at 276.86 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/VISHAY/TR3B106K010C0750"
 			(at 276.86 165.1 0)
 			(effects
 				(font
@@ -9986,7 +10103,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
 			(at 167.3352 128.27 0)
 			(effects
 				(font
@@ -10031,7 +10148,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "GRM21BR61C475KA88L "
+			(at 166.37 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM21BR61C475KA88L"
 			(at 166.37 124.46 0)
 			(effects
 				(font
@@ -10147,7 +10273,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 247.65 118.618 90)
 			(effects
 				(font
@@ -10192,7 +10318,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RT0603BRD07330RL "
+			(at 247.65 116.84 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RT0603BRD07330RL"
 			(at 247.65 116.84 90)
 			(effects
 				(font
@@ -10234,7 +10369,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 211.836 87.884 0)
 			(effects
 				(font
@@ -10243,7 +10378,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 207.3148 86.36 0)
 			(effects
 				(font
@@ -10288,7 +10423,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 208.28 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 208.28 90.17 0)
 			(effects
 				(font
@@ -10463,7 +10607,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 342.9 119.3799 0)
 			(effects
 				(font
@@ -10472,7 +10616,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 340.0552 121.92 0)
 			(effects
 				(font
@@ -10517,7 +10661,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 339.09 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 339.09 118.11 0)
 			(effects
 				(font
@@ -10567,7 +10720,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_Bourns_SRU5016_5.2x5.2mm"
 			(at 330.2 114.3 0)
 			(effects
 				(font
@@ -10612,7 +10765,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "SRU5028-101Y"
+			(at 330.2 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/BOURNS/SRU5028-101Y"
 			(at 330.2 114.3 90)
 			(effects
 				(font
@@ -10662,7 +10824,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "LED_SMD:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder"
 			(at 330.2 91.44 0)
 			(effects
 				(font
@@ -10716,7 +10878,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "150080GS75000"
+			(at 330.2 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/WURTH/150080GS75000"
 			(at 330.2 91.44 0)
 			(effects
 				(font
@@ -10892,7 +11063,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 87.63 165.0999 0)
 			(effects
 				(font
@@ -10901,7 +11072,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 84.7852 167.64 0)
 			(effects
 				(font
@@ -10946,7 +11117,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 83.82 163.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 83.82 163.83 0)
 			(effects
 				(font
@@ -11043,7 +11223,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "FT231XQ"
 			(at 226.06 109.22 0)
 			(effects
 				(font
@@ -11151,7 +11331,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 170.942 168.91 0)
 			(effects
 				(font
@@ -11160,7 +11340,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 168.6052 168.91 0)
 			(effects
 				(font
@@ -11205,7 +11385,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 167.64 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 167.64 165.1 0)
 			(effects
 				(font
@@ -11321,7 +11510,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_Neosid_SMS-ME3015"
 			(at 73.66 160.02 0)
 			(effects
 				(font
@@ -11366,7 +11555,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "SRN3015-470M"
+			(at 73.66 160.02 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/BOURNS/SRN3015-470M"
 			(at 73.66 160.02 90)
 			(effects
 				(font
@@ -12011,7 +12209,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder"
 			(at 334.9752 121.92 0)
 			(effects
 				(font
@@ -12056,7 +12254,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "GRM32ER71A476KE15L "
+			(at 334.01 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM32ER71A476KE15L"
 			(at 334.01 118.11 0)
 			(effects
 				(font
@@ -12497,7 +12704,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 288.29 166.3699 0)
 			(effects
 				(font
@@ -12506,7 +12713,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 285.4452 168.91 0)
 			(effects
 				(font
@@ -12551,7 +12758,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 284.48 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 284.48 165.1 0)
 			(effects
 				(font
@@ -12668,7 +12884,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "DX07S024WJ3R400"
 			(at 69.85 59.69 0)
 			(effects
 				(font
@@ -12788,7 +13004,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 179.07 132.334 0)
 			(effects
 				(font
@@ -12797,7 +13013,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 180.0352 128.27 0)
 			(effects
 				(font
@@ -12842,7 +13058,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 179.07 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 179.07 124.46 0)
 			(effects
 				(font
@@ -12893,7 +13118,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_HandSolder"
 			(at 259.3848 161.29 0)
 			(effects
 				(font
@@ -12938,7 +13163,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TR3B106K010C0750"
+			(at 260.35 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/VISHAY/TR3B106K010C0750"
 			(at 260.35 165.1 0)
 			(effects
 				(font
@@ -13569,7 +13803,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "LP5907MFX-3.3"
 			(at 153.67 130.81 0)
 			(effects
 				(font

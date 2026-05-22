@@ -96,12 +96,12 @@ V(anode)=31мВ    amp_out=−431мВ             τ=1мкс       τ=510нс   
 ### USB/Power board (СХЕМА В KICAD ✓, ERC ✓)
 `docs/usb_power_board_schematic.md` + `pcb/gamma_spectrometer/usb_power_board.kicad_sch`
 - LP5907 (U101, +3.3V_A), AMS1117CD-3.3 (U102, +3.3V_D), TPS60400DBV (U104, −5V_A)
-- FT231XQ (U103, KiCad символ для FT231XS), PRTR5V0U2X (U_ESD101)
+- FT231XQ (U103, QFN-20-1EP_4x4mm), PRTR5V0U2X (U_ESD101)
 - LC-фильтры 47мкГн на +5V_A и −5V_A (84дБ @ 300кГц)
 - **+5V_HV** — power symbol, выход LC-фильтра (L103+C115+C116) от +5V_USB
 - **Бюджет USB 2.0**: ~370 мА < 500 мА ✓
 - Footprint AMS1117: SOT-223 ✓ (назначен)
-- Footprint FT231X: SSOP-16 ✓ (назначен)
+- Footprint FT231XQ: QFN-20-1EP_4x4mm ✓ (назначен)
 - C112, C113 (−5V шина): полярность обратная (+ к GND)
 
 ### HV board (СХЕМА В KICAD ✓)
@@ -148,9 +148,11 @@ V(anode)=31мВ    amp_out=−431мВ             τ=1мкс       τ=510нс   
 
 ## Что осталось
 
-1. **Разводка PCB** — все 4 схемы готовы, ERC 0 ошибок. Порядок разводки на усмотрение (предложение: начать с USB/Power board или Divider board)
-2. **STM32 прошивка** — DMA ADC, пик-детектор, гистограмма, shproto/USB
-3. **ПО на PC** — совместимость с BecqMoni (shproto протокол)
+1. **Полный BOM с MPN/footprint** — ✅ ВЫПОЛНЕНО (сессия 5, 2026-05-23): см. `bom_fp_work.md`. 81 конденсатор / 17 MPN, 79 резисторов / 28 MPN, индуктивности/LED/феррит/предохранитель. Свежий нетлист в `pcb/gamma_spectrometer.net`.
+2. **Разводка PCB** — все 4 схемы готовы, ERC 0 ошибок. Порядок разводки на усмотрение (предложение: начать с USB/Power board или Divider board)
+3. **STM32 прошивка** — DMA ADC, пик-детектор, гистограмма, shproto/USB
+4. **ПО на PC** — совместимость с BecqMoni (shproto протокол)
+5. ⚠ **К проверке перед заказом:** D202/D203 footprint должен быть `Diode_SMD:D_SOD-123` (BZT52C18 Diotec в стандартном SOD-123, не -123W); J_PMT401 — кастомный footprint B14-38 (на этапе разводки Divider).
 
 ---
 

@@ -44,10 +44,11 @@ USB 5V (+4.75...5.25V, до 500 мА USB 2.0)
 
 ## Компоненты
 
-### U103 — FT231XS (USB-UART, KiCad: FT231XQ QFN-20)
+### U103 — FT231XQ (USB-UART, QFN-20)
 - USB Full Speed → UART 600 кбит/с
 - Питание: VCCIO от +3.3V_D; VCC от +3.3V_D; 3V3OUT только с bypass C18/C109
 - CBUS0 → LED_USB (активность)
+- Корпус QFN-20 с центральным exposed pad (EP к GND)
 
 ### U101 — LP5907MFX-3.3 (3.3V_A)
 - LDO, 250 мА, SOT-23-5
@@ -140,7 +141,7 @@ USB 5V (+4.75...5.25V, до 500 мА USB 2.0)
 
 | Компонент | MPN | Количество | ~Цена |
 |---|---|---|---|
-| FT231XS | FT231XS-R | 1 | $1.50 |
+| FT231XQ | FT231XQ (QFN-20) | 1 | $1.70 |
 | LP5907MFX-3.3 | LP5907MFX-3.3/NOPB | 1 | $0.80 |
 | AMS1117-3.3 | AMS1117-3.3 | 1 | $0.20 |
 | TPS60400DBVT | TPS60400DBVT | 1 | $1.50 |

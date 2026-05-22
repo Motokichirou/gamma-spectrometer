@@ -5241,7 +5241,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 351.79 139.3952 0)
 			(effects
 				(font
@@ -5286,7 +5286,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRNPO9BN101"
+			(at 355.6 138.43 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRNPO9BN101"
 			(at 355.6 138.43 90)
 			(effects
 				(font
@@ -5472,7 +5481,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Inductor_SMD:L_0603_1608Metric_Pad1.05x0.95mm_HandSolder"
 			(at 273.812 110.49 90)
 			(effects
 				(font
@@ -5517,7 +5526,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "BLM18EG121SN1D"
+			(at 275.59 110.49 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/BLM18EG121SN1D"
 			(at 275.59 110.49 0)
 			(effects
 				(font
@@ -5559,7 +5577,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 341.63 157.48 90)
 			(effects
 				(font
@@ -5567,7 +5585,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 345.44 161.5948 0)
 			(effects
 				(font
@@ -5612,7 +5630,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 341.63 162.56 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 341.63 162.56 90)
 			(effects
 				(font
@@ -5778,7 +5805,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "ABM8G-16.000MHZ-4Y-T3"
 			(at 223.52 143.51 90)
 			(effects
 				(font
@@ -5834,7 +5861,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 77.978 90)
 			(effects
 				(font
@@ -5842,7 +5869,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 79.0448 0)
 			(effects
 				(font
@@ -5887,7 +5914,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 80.01 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 80.01 90)
 			(effects
 				(font
@@ -5928,7 +5964,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 65.278 90)
 			(effects
 				(font
@@ -5936,7 +5972,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 66.3448 0)
 			(effects
 				(font
@@ -5981,7 +6017,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 67.31 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 67.31 90)
 			(effects
 				(font
@@ -6090,7 +6135,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 208.28 124.206 0)
 			(effects
 				(font
@@ -6099,7 +6144,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 218.1352 127 0)
 			(effects
 				(font
@@ -6144,7 +6189,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 217.17 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 217.17 123.19 0)
 			(effects
 				(font
@@ -6196,7 +6250,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 366.268 127 90)
 			(effects
 				(font
@@ -6241,7 +6295,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 364.49 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 364.49 127 0)
 			(effects
 				(font
@@ -6282,7 +6345,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 320.04 159.258 90)
 			(effects
 				(font
@@ -6290,7 +6353,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 322.2752 158.75 0)
 			(effects
 				(font
@@ -6335,7 +6398,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 321.31 154.94 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 321.31 154.94 90)
 			(effects
 				(font
@@ -6378,7 +6450,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 405.1301 111.76 0)
 			(effects
 				(font
@@ -6387,7 +6459,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 402.59 108.9152 0)
 			(effects
 				(font
@@ -6432,7 +6504,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 406.4 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 406.4 107.95 0)
 			(effects
 				(font
@@ -6682,7 +6763,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 400.812 111.76 90)
 			(effects
 				(font
@@ -6727,7 +6808,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-072KL"
+			(at 402.59 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-072KL"
 			(at 402.59 111.76 90)
 			(effects
 				(font
@@ -6845,7 +6935,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 374.65 136.652 90)
 			(effects
 				(font
@@ -6890,7 +6980,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 374.65 138.43 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 374.65 138.43 90)
 			(effects
 				(font
@@ -7075,7 +7174,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 363.5248 130.81 0)
 			(effects
 				(font
@@ -7120,7 +7219,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRNPO9BN101"
+			(at 364.49 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRNPO9BN101"
 			(at 364.49 134.62 0)
 			(effects
 				(font
@@ -7362,7 +7470,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 283.718 123.19 90)
 			(effects
 				(font
@@ -7370,7 +7478,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 283.21 120.9548 0)
 			(effects
 				(font
@@ -7415,7 +7523,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 279.4 121.92 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 279.4 121.92 90)
 			(effects
 				(font
@@ -7532,7 +7649,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 313.69 206.248 90)
 			(effects
 				(font
@@ -7577,7 +7694,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 313.69 204.47 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 313.69 204.47 90)
 			(effects
 				(font
@@ -7618,7 +7744,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 46.228 90)
 			(effects
 				(font
@@ -7626,7 +7752,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 47.2948 0)
 			(effects
 				(font
@@ -7671,7 +7797,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 48.26 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 48.26 90)
 			(effects
 				(font
@@ -7720,7 +7855,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 317.5 152.908 90)
 			(effects
 				(font
@@ -7765,7 +7900,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 317.5 151.13 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 317.5 151.13 90)
 			(effects
 				(font
@@ -7947,7 +8091,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric_Pad0.74x0.62mm_HandSolder"
 			(at 210.82 148.2852 0)
 			(effects
 				(font
@@ -7992,7 +8136,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0402FRNPO9BN180 "
+			(at 214.63 147.32 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0402FRNPO9BN180"
 			(at 214.63 147.32 90)
 			(effects
 				(font
@@ -8034,7 +8187,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 363.22 114.3 90)
 			(effects
 				(font
@@ -8042,7 +8195,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 367.03 118.4148 0)
 			(effects
 				(font
@@ -8087,7 +8240,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 363.22 119.38 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 363.22 119.38 90)
 			(effects
 				(font
@@ -8138,7 +8300,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 230.632 127 90)
 			(effects
 				(font
@@ -8183,7 +8345,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-07470RL"
+			(at 232.41 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-07470RL"
 			(at 232.41 127 0)
 			(effects
 				(font
@@ -8226,7 +8397,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 401.3199 177.8 0)
 			(effects
 				(font
@@ -8235,7 +8406,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 403.86 174.9552 0)
 			(effects
 				(font
@@ -8280,7 +8451,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 400.05 173.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 400.05 173.99 0)
 			(effects
 				(font
@@ -8397,7 +8577,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 398.018 177.8 90)
 			(effects
 				(font
@@ -8442,7 +8622,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-075K9L"
+			(at 396.24 177.8 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-075K9L"
 			(at 396.24 177.8 90)
 			(effects
 				(font
@@ -8494,7 +8683,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 360.172 158.75 90)
 			(effects
 				(font
@@ -8539,7 +8728,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-071KL"
+			(at 361.95 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-071KL"
 			(at 361.95 158.75 0)
 			(effects
 				(font
@@ -8580,7 +8778,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 52.578 90)
 			(effects
 				(font
@@ -8588,7 +8786,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 53.6448 0)
 			(effects
 				(font
@@ -8633,7 +8831,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 54.61 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 54.61 90)
 			(effects
 				(font
@@ -8750,7 +8957,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 309.88 152.908 90)
 			(effects
 				(font
@@ -8795,7 +9002,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 309.88 151.13 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 309.88 151.13 90)
 			(effects
 				(font
@@ -8847,7 +9063,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 355.9048 162.56 0)
 			(effects
 				(font
@@ -8892,7 +9108,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603FRNPO9BN511"
+			(at 356.87 158.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603FRNPO9BN511"
 			(at 356.87 158.75 0)
 			(effects
 				(font
@@ -9057,7 +9282,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "STM32G474MET6"
 			(at 267.97 181.61 0)
 			(effects
 				(font
@@ -9350,7 +9575,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 370.84 121.158 90)
 			(effects
 				(font
@@ -9395,7 +9620,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-071KL"
+			(at 370.84 119.38 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-071KL"
 			(at 370.84 119.38 90)
 			(effects
 				(font
@@ -9492,7 +9726,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "W25Q64JVSSIQ"
 			(at 314.96 66.04 0)
 			(effects
 				(font
@@ -9629,7 +9863,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 400.05 63.4999 0)
 			(effects
 				(font
@@ -9638,7 +9872,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 397.2052 66.04 0)
 			(effects
 				(font
@@ -9683,7 +9917,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 396.24 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 396.24 62.23 0)
 			(effects
 				(font
@@ -9798,7 +10041,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 400.812 104.14 90)
 			(effects
 				(font
@@ -9843,7 +10086,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-078K2L"
+			(at 402.59 104.14 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-078K2L"
 			(at 402.59 104.14 90)
 			(effects
 				(font
@@ -10150,7 +10402,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 71.628 90)
 			(effects
 				(font
@@ -10158,7 +10410,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 72.6948 0)
 			(effects
 				(font
@@ -10203,7 +10455,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 73.66 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 73.66 90)
 			(effects
 				(font
@@ -10389,7 +10650,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 342.392 134.62 90)
 			(effects
 				(font
@@ -10434,7 +10695,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0710KL"
+			(at 344.17 134.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
 			(at 344.17 134.62 0)
 			(effects
 				(font
@@ -10476,7 +10746,7 @@
 				)
 			)
 		)
-		(property "Value" "TL431DBZ"
+		(property "Value" "TL431"
 			(at 217.17 135.89 0)
 			(effects
 				(font
@@ -10531,7 +10801,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "TL431"
+			(at 217.17 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YOUTAI/TL431"
 			(at 217.17 130.81 0)
 			(effects
 				(font
@@ -10781,7 +11060,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
 			(at 283.21 115.8748 0)
 			(effects
 				(font
@@ -10826,7 +11105,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "GRM21BR61C475KA88L "
+			(at 279.4 116.84 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM21BR61C475KA88L"
 			(at 279.4 116.84 90)
 			(effects
 				(font
@@ -10877,7 +11165,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 398.018 170.18 90)
 			(effects
 				(font
@@ -10922,7 +11210,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "RC0603FR-0722KL"
+			(at 396.24 170.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0722KL"
 			(at 396.24 170.18 90)
 			(effects
 				(font
@@ -11038,7 +11335,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric_Pad0.74x0.62mm_HandSolder"
 			(at 210.82 140.6652 0)
 			(effects
 				(font
@@ -11083,7 +11380,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0402FRNPO9BN180 "
+			(at 214.63 139.7 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0402FRNPO9BN180"
 			(at 214.63 139.7 90)
 			(effects
 				(font
@@ -11189,7 +11495,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 312.42 159.258 90)
 			(effects
 				(font
@@ -11197,7 +11503,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 314.6552 158.75 0)
 			(effects
 				(font
@@ -11242,7 +11548,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 313.69 154.94 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 313.69 154.94 90)
 			(effects
 				(font
@@ -11481,7 +11796,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "0.1uF"
 			(at 260.35 58.928 90)
 			(effects
 				(font
@@ -11489,7 +11804,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
 			(at 260.35 59.9948 0)
 			(effects
 				(font
@@ -11534,7 +11849,16 @@
 				(hide yes)
 			)
 		)
-		(property "PN" ""
+		(property "PN" "CC0603JRX7R9BB104"
+			(at 256.54 60.96 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
 			(at 256.54 60.96 90)
 			(effects
 				(font

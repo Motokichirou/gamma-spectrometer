@@ -87,6 +87,7 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | LTspice sim1: AD8000 stability | ✅ Done (BW=99 MHz, peaking<0.5 dB) |
 | LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
 | LTspice sim3: noise budget | ✅ Done (σ=94.4 µV rms, 0.31 ch rms) |
+| BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 79 R / 28 MPN, all active) |
 | PCB layout — all boards | 🔲 Not started |
 | STM32 firmware | 🔲 Not started |
 | Host software (BecqMoni compat.) | 🔲 Not started |
