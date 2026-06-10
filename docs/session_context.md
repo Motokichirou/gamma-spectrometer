@@ -82,6 +82,7 @@
   - Всё компилируется чисто ARM GCC из CubeIDE 1.19 (-Wall -Wextra -Werror); протокол протестирован (CRC эталон 0x4B37, раунд-трип, стаффинг)
   - CubeIDE уже установлен у пользователя (C:/ST/STM32CubeIDE_1.19.0)
   - План этапов в firmware/README.md
+  - **СЛЕДУЮЩИЙ ШАГ:** пользователь проходит пошаговую инструкцию (12 шагов, выдана в чате = firmware/README.md): создание проекта gamma_stage1 в CubeIDE → Board Selector NUCLEO-G474RE → 170МГц → LPUART1 600000 + DMA Circular → копирование core/ → 5 блоков в main.c → build → flash → проверка `python firmware/tools/becqmoni_sim.py COM<N>` (ожидаем cps=500, топ-каналы ~1138 и ~101). Затем — настоящий BecqMoni.
 
 **Сессия 7 (2026-06-10): AD4084 / DPP-анализ → решение: v1 сейчас, v2 потом**
 - Пользователь предложил рассмотреть внешний АЦП без аналоговой обработки (DPP). Изучены даташиты: LTC2387-18, LTC2387-16, **AD4084** (16-bit 20 MSPS, Rev 0 07/2025) — все в `docs/refs/`
