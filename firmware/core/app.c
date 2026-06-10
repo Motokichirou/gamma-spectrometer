@@ -100,8 +100,13 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         spectrum_clear();
         send_text("-ok");
     } else if (strncmp(cmd, "-inf", 4) == 0) {
+        /* %f не поддерживается newlib-nano по умолчанию — выводим вручную */
         char info[64];
-        snprintf(info, sizeof(info), "GammaSpec v0.1 T1 %.1f", (double)app_port_temperature_c());
+        float t = app_port_temperature_c();
+        int t10 = (int)(t * 10.0f + (t >= 0.0f ? 0.5f : -0.5f));
+        int frac = t10 % 10;
+        if (frac < 0) frac = -frac;
+        snprintf(info, sizeof(info), "GammaSpec v0.1 T1 %d.%d", t10 / 10, frac);
         send_text(info);
     }
     /* незнакомые команды молча игнорируем (этап 1) */
