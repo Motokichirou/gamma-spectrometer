@@ -38,13 +38,13 @@
 | R201 | 1 | 1M | RT0603BRD071ML | Yageo RT (thin film) |
 | R202 | 1 | 180k | RC0603FR-07180KL | Yageo RC |
 | R203, R220, R231, R232 | 4 | 100k | RC0603FR-07100KL | Yageo RC |
-| R204, R302-R305, R307, R309, R408, R411, R413 | 10 | 10k | RC0603FR-0710KL | Yageo RC |
+| R204, R302-R305, R307, R309, R408, R411, R413 | 10 | 10k | RC0603FR-0710KL | Yageo RC (R303 = Pt1000 pull-up) |
 | R205 | 1 | 0.1R | RL0603FR-070R1L | Yageo RL (current sense) |
 | R206, R233 | 2 | 10R | AC0603FR-0710RL | Yageo AC (anti-surge) |
 | R208 | 1 | 2.2M | RC0603FR-072M2L | Yageo RC |
 | R218 | 1 | 1.2k | RC0603FR-071K2L | Yageo RC |
 | R219 | 1 | 110k | RC0603FR-07110KL | Yageo RC |
-| R301 | 1 | 470R | RC0603FR-07470RL | Yageo RC |
+| R301 | 1 | 330R | RC0603FR-07330RL | Yageo RC (было 470R; 330 из-за нагрузки Pt1000 на TL431; ⚠ URL покупки в KiCad поправить на 330RL) |
 | R306, R308 | 2 | 1k | RC0603FR-071KL | Yageo RC |
 | R310 | 1 | 22k | RC0603FR-0722KL | Yageo RC |
 | R311 | 1 | 5.9k | RC0603FR-075K9L | Yageo RC |
@@ -100,6 +100,7 @@
 | U401 | 1 | AD8000YRDZ-REEL | AD8000YRDZ-REEL (ADI) | SOIC-8 (RD_8_1_ADI-M) |
 | U_ESD101 | 1 | PRTR5V0U2X | PRTR5V0U2X (YOUTAI) | SOT-143 |
 | Y301 | 1 | кварц 16МГц | ABM8G-16.000MHZ-4Y-T3 (Abracon) | Crystal_SMD_3225-4Pin |
+| (внешн.) | 1 | Pt1000 термодатчик | 700-102BAA-B00 (Honeywell, артикул 32208572) | M222 leaded, не на PCB — крепится на корпус кристалла, витой парой к TSENS_PWR/TSENS_IN |
 
 ---
 

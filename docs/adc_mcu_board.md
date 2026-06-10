@@ -86,7 +86,7 @@ V_shaper_out и V_ADC_in верифицированы sim2.
   - TL431DBZ (2.495В) → делители DC ≈0.49В (для OPAMP1/2) и ≈0.528В (для OPAMP3)
   - TIM1_CH1 PWM (PA8) → RC-фильтр → HV_CONTROL
   - ADC2_IN1 (PA0) ← HV_MONITOR
-  - ADC4_IN3 (PB12) ← NTC термистор
+  - ADC4_IN3 (PB12) ← Pt1000 термодатчик (на кристалле)
   - SPI1 (PB3-5, PA15) → W25Q64 флешка
   - USART1 (PA9, PA10) ↔ FT231XS на плате питания
   - SWD (PA13, PA14, NRST)
@@ -132,7 +132,7 @@ DC = 0 В (AD8000 на делителе работает с ±5В питание
 
 ### 3.2. Test pulse injection
 
-**Назначение:** самотест работоспособности + измерение электронного шума (ENC) без источника. **НЕ для абсолютной калибровки** (только реальный Cs-137).
+**Назначение:** самотест работоспособности тракта + измерение электронного шума (ENC) для диагностики. **НЕ для абсолютной калибровки** (она делается реальным источником: Cs-137 для энергошкалы, Ra-226 для термокомпенсации — см. `docs/reference_spectra.md`).
 
 **Принцип:** DAC1_OUT1 (PA4) выдаёт ступенчатый импульс через R_inj = 10 кОм и C_inj = 100 пФ на входной узел шейпера (J_sig_in / C_diff, до OPAMP1).
 
@@ -260,9 +260,12 @@ H(s) = (s·τ_diff) / [(1+s·τ_diff)·(1+s·τ_int)]
 - Канал **ADC2_IN1** (PA0)
 - Sampling 247.5 циклов (R_th ≈ 110кОм, требование ≥ 5.8 мкс), триггер 1 кГц, усреднение до 100 Гц
 
-**ADC4 — мониторинг NTC:**
+**ADC4 — мониторинг Pt1000 (термокомпенсация):**
 - Канал **ADC4_IN3** (PB12)
-- Sampling 247.5 циклов, триггер 10 Гц
+- Sampling 247.5 циклов
+- **Hardware oversampling 256× → эффективные 16 бит** (G474 поддерживает аппаратное усреднение)
+- Триггер 10 Гц (один цикл 256 семплов = ~1.5 мс)
+- Резолюция: с 16-бит → ~0.02°C на бит при Pt1000 + R303=10к pullup — избыточно для нашей задачи (±0.1°C достаточно)
 
 **ADC3 не используется.**
 
@@ -307,7 +310,7 @@ H(s) = (s·τ_diff) / [(1+s·τ_diff)·(1+s·τ_int)]
 | PB6 | GPIO | LED |
 | PB7-9 | GPIO | свободно |
 | PB10 | GPIO | HV_ENABLE |
-| PB12 | ADC4_IN3 | NTC |
+| PB12 | ADC4_IN3 | Pt1000 термодатчик |
 | PF0-1 | OSC_IN/OUT | HSE 16 МГц |
 
 **IWDG:** период 4 сек, reload каждые 100 мс.
@@ -327,7 +330,9 @@ H(s) = (s·τ_diff) / [(1+s·τ_diff)·(1+s·τ_int)]
 
 **TL431DBZ** (SOT-23), 2.495 В тип., 50 ppm/°C. Выбран для типизации BOM (TL431 также на HV board U202).
 
-Цепь: +3.3V_A → R301(470Ом) → Cathode; REF замкнут на Cathode; C(100нФ) на REF → GND; Anode → GND. Cathode подключён напрямую проводом к VREF+ STM32 (U302).
+Цепь: +3.3V_A → R301(**330Ом**) → Cathode; REF замкнут на Cathode; C303(100нФ) на REF → GND; Anode → GND. Cathode подключён напрямую проводом к VREF+ STM32 (U302).
+
+**Нагрузки узла 2.495В:** делитель A (0.245 мА) + делитель B (0.089 мА) + **Pt1000 pull-up R303 (0.225 мА, ратиометрия)** + VREF+ ADC (~0.2 мА). При R301=330Ом ток входа 2.44 мА → на TL431 остаётся ≥1.6 мА > 1 мА min ✓ (при старых 470Ом было на грани — изменено по аудиту 2026-06-11).
 
 **Делители (E96, 1 %):**
 
@@ -469,8 +474,8 @@ BW_n ≈ π/(8τ_int) × (1 + 1/(1+τ_int/τ_diff)) ≈ **350 кГц**.
 | 4 | +3.3V_D | вход | |
 | 5 | GND | — | |
 | 6 | GND | — | |
-| 7 | UART_TX | выход | PA9 → FTDI RX |
-| 8 | UART_RX | вход | FTDI TX → PA10 |
+| 7 | UART_TX | вход | FTDI TXD → PA10 (USART1_RX) |
+| 8 | UART_RX | выход | PA9 (USART1_TX) → FTDI RXD |
 | 9 | GND | — | |
 | 10 | LED_STATUS | выход | PB6 |
 | 11 | LED_ACTIVITY | выход | PB7 |
@@ -479,8 +484,8 @@ BW_n ≈ π/(8τ_int) × (1 + 1/(1+τ_int/τ_diff)) ≈ **350 кГц**.
 | 14 | HV_ENABLE | выход | PB10 |
 | 15 | HV_CONTROL | выход | PA8 через RC |
 | 16 | HV_MONITOR | вход | → PA0 |
-| 17 | NTC_OUT | выход | +3.3V через 10 кОм |
-| 18 | NTC_IN | вход | → PB12 |
+| 17 | TSENS_PWR | выход | +3.3V через 10 кОм (питание Pt1000) |
+| 18 | TSENS_IN | вход | от Pt1000 → PB12 |
 | 19 | GND | — | |
 | 20 | NRST | I/O | Кнопка опц. |
 | 21 | SWCLK | I/O | SWD |
@@ -538,6 +543,18 @@ BW_n ≈ π/(8τ_int) × (1 + 1/(1+τ_int/τ_diff)) ≈ **350 кГц**.
 
 ## 8. Прошивка — общая структура
 
+### 8.1. Архитектурное решение
+
+**Подключение к BecqMoni:** через **shproto-протокол по UART** (FT231XQ → USB-C). НЕ как аудиоустройство.
+
+**Распределение работы:**
+- **MCU** делает: peak detection, baseline, pile-up rejection, накопление гистограммы 8192 каналов, **термокомпенсацию**.
+- **BecqMoni** делает: отображение, fitting пиков, экспорт XML, идентификация изотопов.
+
+**Главное ТЗ прошивки** — **термокомпенсированный** спектр на выходе. Положение пика Cs-137 должно оставаться на том же канале при ΔT ±30°C. Полная процедура термокалибровки описана в `reference_spectra.md` (раздел "Архитектура прошивки и термокомпенсация").
+
+### 8.2. Структура main loop
+
 ```c
 // main.c
 int main(void) {
@@ -546,19 +563,18 @@ int main(void) {
                                // ОБЯЗАТЕЛЬНО PWR_CR5.R1MODE = 0 (Boost)
     MX_GPIO_Init();
     MX_DMA_Init();
-    MX_USART1_UART_Init();     // 600 кбит/с к FT231XS
+    MX_USART1_UART_Init();     // 600 кбит/с к FT231XQ
     MX_SPI1_Init();            // W25Q64
     MX_OPAMP1_Init();          // standalone external mode
     MX_OPAMP2_Init();          // standalone external mode
     MX_OPAMP3_Init();          // PGA mode, gain = 4
-    MX_ADC1_Init();            // ADC1_IN12
-    MX_ADC2_Init();            // PA0
-    MX_ADC4_Init();            // PB12
-    MX_DAC1_Init();            // PA4 test pulse
-    MX_TIM1_Init();            // PWM 100 кГц на PA8
-    MX_TIM_Init();
+    MX_ADC1_Init();            // ADC1_IN12 (signal, 4 Msps DMA)
+    MX_ADC2_Init();            // PA0 (HV monitor)
+    MX_ADC4_Init();            // PB12 (Pt1000 + oversampling 256x, КРИТИЧНО для термокомпенсации)
+    MX_DAC1_Init();            // PA4 test pulse (только self-test)
+    MX_TIM1_Init();            // PWM 100 кГц на PA8 (HV control)
 
-    Flash_LoadCalibration();
+    Flash_LoadAllCalibrations();   // энерго + ТЕРМОкалибровка
     HV_SetSetpoint(loaded);
     Spectrum_Init();
     HAL_IWDG_Init();
@@ -566,31 +582,67 @@ int main(void) {
     HAL_ADC_Start_DMA(&hadc1, dma_buffer, DMA_BUFFER_SIZE);
 
     while (1) {
-        ProcessADCBuffer();
-        UpdateHVMonitor();
-        UpdateNTC();
-        ProcessUARTCommands();
+        ProcessADCBuffer();      // peak detect + накопление с термокоррекцией
+        UpdateTemperature();     // 10 Гц чтение Pt1000, обновление gain_corr
+        UpdateHVMonitor();       // 100 Гц чтение V_HV
+        ProcessUARTCommands();   // shproto парсер
         UpdateLEDs();
+        SendSpectrumIfDue();     // каждую секунду cmd=0x01 + cmd=0x04
         HAL_IWDG_Refresh(&hiwdg);
     }
+}
+
+// thermal_calibration.c
+// Главный модуль — без него прибор не годен для серьёзной спектроскопии
+
+typedef struct {
+    float alpha;       // линейный коэф дрейфа [1/°C]
+    float beta;        // квадратичный коэф [1/°C²]
+    float T_ref;       // опорная температура калибровки [°C]
+    uint32_t cal_date; // timestamp последней калибровки
+} ThermalCal_t;
+
+static ThermalCal_t thermal_cal;
+static volatile float current_gain_corr = 1.0f;  // обновляется в UpdateTemperature
+
+float ReadTemperature(void) {
+    // Pt1000 (700-102BAA-B00), R_pullup=10k → +3.3V_A
+    // ADC4 с hardware oversampling 256x → эффективные 16 бит
+    uint32_t adc_oversampled = ADC4_Read();        // 16-bit value (12-bit native × 256 average)
+    // Делитель: V_pt = 3.3V × R_pt / (10000 + R_pt)
+    // ADC = 65535 × V_pt / 3.3V (16-bit)
+    // → R_pt = 10000 × adc / (65535 - adc)
+    float r_pt = 10000.0f * adc_oversampled / (65535.0f - adc_oversampled);
+
+    // Callendar-Van Dusen (для T > 0°C):
+    //   R(T) = R0 × (1 + A*T + B*T²),  A=3.9083e-3,  B=-5.775e-7
+    // Решая для T (квадратичное уравнение, для нашего диапазона −50..+100):
+    //   T = (-A + sqrt(A² - 4B × (1 - R/R0))) / (2B)
+    const float R0 = 1000.0f;  // 1кΩ @ 0°C для Pt1000
+    const float A = 3.9083e-3f;
+    const float B = -5.775e-7f;
+    float ratio = r_pt / R0;
+    float disc = A*A - 4.0f*B*(1.0f - ratio);
+    float t_celsius = (-A + sqrtf(disc)) / (2.0f * B);
+    return t_celsius;
+}
+
+void UpdateTemperature(void) {
+    static uint32_t last = 0;
+    if (HAL_GetTick() - last < 100) return;  // 10 Гц
+    last = HAL_GetTick();
+
+    float T = ReadTemperature();
+    float dT = T - thermal_cal.T_ref;
+    // gain ушёл — компенсируем обратной величиной
+    current_gain_corr = 1.0f / (1.0f + thermal_cal.alpha*dT + thermal_cal.beta*dT*dT);
 }
 
 // DSP_processing.c
 // ВНИМАНИЕ: полярность импульсов отрицательная относительно V_PB1_DC = 2.1В
 //          (нечётное число инверсий через тракт). amplitude = baseline - sample.
 
-// Рекомендация v1.3: программный LP-фильтр перед peak detection
-// FIR 8-tap @ fc=500 кГц, Cortex-M4 SMLAD оптимизация
-// Снижает σ от OPAMP3 на ~30%
-static const int16_t fir_lp_coeffs[8] = {
-    // sinc-Hamming, fc=500kHz @ Fs=4MHz, Q15
-    410, 2867, 7782, 12277, 12277, 7782, 2867, 410
-};
-
 void ProcessPulse(uint16_t* samples, int count) {
-    // 0. LP-фильтр (опционально)
-    // ApplyFIR(samples, count, fir_lp_coeffs, 8);
-
     int baseline = ComputeBaseline(samples);
     int peak_idx, peak_val;
     FindPeakNegative(samples, count, &peak_idx, &peak_val);
@@ -600,7 +652,10 @@ void ProcessPulse(uint16_t* samples, int count) {
         return;
     }
 
-    int amplitude = baseline - peak_val;
+    int amplitude_raw = baseline - peak_val;
+    // === Температурная коррекция (главное!) ===
+    int amplitude = (int)(amplitude_raw * current_gain_corr);
+
     int channel = ApplyEnergyCalibration(amplitude);
 
     if (channel >= 0 && channel < 8192) {
@@ -608,7 +663,42 @@ void ProcessPulse(uint16_t* samples, int count) {
         total_count++;
     }
 }
+
+// peak_tracker.c
+// Периодически отслеживает положение известного фонового пика (K-40 1461 кэВ)
+// Если ушёл — автоматически корректирует gain offset
+
+void PeakTracker_Update(void) {
+    static uint32_t last = 0;
+    if (HAL_GetTick() - last < 60000) return;  // раз в минуту
+
+    int k40_ch = FitPeakInRange(spectrum, K40_CH_EXPECTED-100, K40_CH_EXPECTED+100);
+    if (k40_ch > 0) {
+        float drift_pct = 100.0f * (k40_ch - K40_CH_EXPECTED) / K40_CH_EXPECTED;
+        if (fabsf(drift_pct) > 1.0f) {
+            // дрейф > 1% → авто-коррекция
+            thermal_cal.T_ref += drift_pct / thermal_cal.alpha / 100.0f;
+            Flash_SaveThermalCal(&thermal_cal);
+        }
+        if (fabsf(drift_pct) > 5.0f) {
+            shproto_send_text("WARNING: gain drift > 5%, recalibrate!");
+        }
+    }
+}
 ```
+
+### 8.3. Команды shproto для калибровки
+
+Дополнительные текстовые команды (cmd=0x03 MODE_TEXT) сверх стандартных `-sta/-sto/-rst/-inf`:
+
+| Команда | Действие |
+|---|---|
+| `-tcal_start` | Перейти в режим термокалибровки: писать в журнал (T, ch_peak1, ch_peak2) каждую минуту |
+| `-tcal_stop` | Завершить термокалибровку, оставить буфер во flash |
+| `-tcal_apply <alpha> <beta> <T_ref>` | Записать вычисленные на PC коэффициенты во flash |
+| `-tcal_get` | Вернуть текущие коэффициенты + дату последней калибровки |
+| `-tcal_dump` | Вернуть весь термо-журнал для обработки на PC |
+| `-ecal_set <c0> <c1> <c2> <c3>` | Записать энергетическую калибровку |
 
 ---
 

@@ -95,8 +95,8 @@ USB 5V (+4.75...5.25V, до 500 мА USB 2.0)
 | 14 | HV_ENABLE ← MCU |
 | 15 | HV_CONTROL ← MCU (PWM) |
 | 16 | HV_MONITOR → MCU (ADC) |
-| 17 | NTC_OUT |
-| 18 | NTC_IN |
+| 17 | TSENS_PWR (Pt1000) |
+| 18 | TSENS_IN (Pt1000) |
 | 19 | GND |
 | 20 | NRST |
 | 21 | SWCLK |
