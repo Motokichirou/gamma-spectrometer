@@ -24,3 +24,7 @@ pcb/.old/
 # Windows
 Thumbs.db
 desktop.ini
+
+# CubeIDE build artifacts
+firmware/gamma_stage1/Debug/
+firmware/gamma_stage1/Release/
