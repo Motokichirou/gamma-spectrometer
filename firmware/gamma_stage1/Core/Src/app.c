@@ -18,6 +18,7 @@
 #define SEND_PERIOD_MS    1000u   /* период отправки спектр+статус */
 #define TEST_CPS          500u    /* синтетических событий в секунду */
 #define CHUNK_CHANNELS    512u    /* каналов в одном кадре спектра */
+#define APP_SERIAL        "GS474-0001"   /* серийник для BecqMoni (-cal) */
 
 /* ---- состояние ----------------------------------------------------------- */
 static shproto_rx_t rx;
@@ -101,14 +102,20 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         spectrum_clear();
         send_text("-ok");
     } else if (strncmp(cmd, "-inf", 4) == 0) {
-        /* %f не поддерживается newlib-nano по умолчанию — выводим вручную */
-        char info[64];
+        /* Формат под парсер BecqMoni (deadTimeBtn_Click): split(' '),
+         * [3]=rise int, [5]=fall int, [9]=частота. %f нет в newlib-nano. */
+        char info[80];
         float t = app_port_temperature_c();
         int t10 = (int)(t * 10.0f + (t >= 0.0f ? 0.5f : -0.5f));
         int frac = t10 % 10;
         if (frac < 0) frac = -frac;
-        snprintf(info, sizeof(info), "GammaSpec v0.1 T1 %d.%d", t10 / 10, frac);
+        snprintf(info, sizeof(info), "GammaSpec v0.1 rise 8 fall 8 T1 %d.%d freq 8000000",
+                 t10 / 10, frac);
         send_text(info);
+    } else if (strncmp(cmd, "-cal", 4) == 0) {
+        /* Проверка статуса BecqMoni (TestSerialNumber): ОДИН текстовый кадр,
+         * split("\r\n").Length > 2, предпоследняя строка = серийный номер */
+        send_text("CAL: none\r\n" APP_SERIAL "\r\n");
     }
     /* незнакомые команды молча игнорируем (этап 1) */
 }
