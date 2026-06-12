@@ -82,7 +82,11 @@
   - Всё компилируется чисто ARM GCC из CubeIDE 1.19 (-Wall -Wextra -Werror); протокол протестирован (CRC эталон 0x4B37, раунд-трип, стаффинг)
   - CubeIDE уже установлен у пользователя (C:/ST/STM32CubeIDE_1.19.0)
   - План этапов в firmware/README.md
-  - **СЛЕДУЮЩИЙ ШАГ:** пользователь проходит пошаговую инструкцию (12 шагов, выдана в чате = firmware/README.md): создание проекта gamma_stage1 в CubeIDE → Board Selector NUCLEO-G474RE → 170МГц → LPUART1 600000 + DMA Circular → копирование core/ → 5 блоков в main.c → build → flash → проверка `python firmware/tools/becqmoni_sim.py COM<N>` (ожидаем cps=500, топ-каналы ~1138 и ~101). Затем — настоящий BecqMoni.
+  - **Проект gamma_stage1 СОЗДАН, ИНТЕГРИРОВАН, СОБРАН (2026-06-12/13):**
+    - Путь: `firmware/gamma_stage1/` (в репо). FW-пакет ST заблокирован для RU → STM32Cube_FW_G4 V1.6.1 склонирован с GitHub в `C:/Users/motok/STM32Cube/Repository/`
+    - ⚠ BSP-нюанс: на Nucleo-G474RE VCP = **LPUART1** через `BSP_COM_Init(COM1)` (НЕ USART2!). Вся интеграция в USER CODE секциях main.c: переинициализация 115200→600000, ручной DMA RX (канал DMA1_Ch1, request LPUART1_RX, handle назван hdma_usart2_rx под сгенерированный обработчик в it.c)
+    - Headless-сборка: `stm32cubeidec.exe -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data <tmp> -import 'C:\...\gamma_stage1' -cleanBuild gamma_stage1` (путь с backslash! иначе "No file system for scheme C") — 0 ошибок
+    - **СЛЕДУЮЩИЙ ШАГ: воткнуть Nucleo в USB → прошить** (`firmware/tools/flash_stage1.cmd` или Run в IDE) → проверка `python firmware/tools/becqmoni_sim.py COM6` (VCP был COM6) → настоящий BecqMoni (8192 каналов, 600000)
 
 **Сессия 7 (2026-06-10): AD4084 / DPP-анализ → решение: v1 сейчас, v2 потом**
 - Пользователь предложил рассмотреть внешний АЦП без аналоговой обработки (DPP). Изучены даташиты: LTC2387-18, LTC2387-16, **AD4084** (16-bit 20 MSPS, Rev 0 07/2025) — все в `docs/refs/`
