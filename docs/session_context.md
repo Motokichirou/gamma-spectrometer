@@ -185,9 +185,9 @@
 
 **cmd=0x04** — статус (ТРИГГЕР обновления экрана BecqMoni!):
 ```
-[elapsed_ms 4B LE][cpu_load 2B LE][cps 4B LE][invalid_pulses 4B LE]
+[elapsed 4B LE — ⚠ СЕКУНДЫ, не мс!][cpu_load 2B LE][cps 4B LE][invalid_pulses 4B LE]
 ```
-- elapsed_ms маска 0x7FFFFFF
+- elapsed в СЕКУНДАХ (BecqMoni: `TimeSpan.FromSeconds(ElapsedTime)`; выяснено на железе 2026-06-13 — таймер бежал ×1000), маска 0x7FFFFFF
 - ⚠ BecqMoni обновляет спектр НА ЭКРАНЕ только при получении cmd=0x04 (не 0x01!)
 
 **cmd=0x03** — текстовый ответ (для `-ok`, `-inf`, etc.)

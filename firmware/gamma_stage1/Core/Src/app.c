@@ -70,11 +70,12 @@ static void send_spectrum(void)
     }
 }
 
-/* Статус: [elapsed_ms u32][cpu_load u16][cps u32][invalid_pulses u32] */
+/* Статус: [elapsed u32 СЕКУНДЫ][cpu_load u16][cps u32][invalid_pulses u32]
+ * ⚠ BecqMoni: TimeSpan.FromSeconds(ElapsedTime) — единица именно секунды! */
 static void send_stat(void)
 {
     uint8_t st[14];
-    uint32_t elapsed = acquiring ? (app_port_millis() - t_start_ms) : 0u;
+    uint32_t elapsed = (acquiring ? (app_port_millis() - t_start_ms) : 0u) / 1000u;
     put_u32le(&st[0], elapsed & 0x7FFFFFFu);
     put_u16le(&st[4], 100u);             /* cpu_load: заглушка ~10% (ед. 0.1%?) */
     put_u32le(&st[6], counts_last_sec);  /* cps */

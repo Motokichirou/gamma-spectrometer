@@ -131,11 +131,12 @@ def main():
                         if off + i < CHANNELS:
                             spectrum[off + i] = v
                 elif cmd == CMD_STAT:
+                    # elapsed — в СЕКУНДАХ (BecqMoni: TimeSpan.FromSeconds)
                     elapsed = int.from_bytes(pl[0:4], "little") & 0x7FFFFFF
                     cps = int.from_bytes(pl[6:10], "little")
                     total = sum(spectrum)
                     top = sorted(range(CHANNELS), key=lambda c: spectrum[c], reverse=True)[:3]
-                    print(f"[{elapsed/1000:7.1f}s] cps={cps:5d} total={total:8d} "
+                    print(f"[{elapsed:5d}s] cps={cps:5d} total={total:8d} "
                           f"топ-каналы: {top[0]}({spectrum[top[0]]}) "
                           f"{top[1]}({spectrum[top[1]]}) {top[2]}({spectrum[top[2]]})")
                 elif cmd == CMD_TEXT:
