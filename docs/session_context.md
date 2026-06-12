@@ -86,7 +86,11 @@
     - Путь: `firmware/gamma_stage1/` (в репо). FW-пакет ST заблокирован для RU → STM32Cube_FW_G4 V1.6.1 склонирован с GitHub в `C:/Users/motok/STM32Cube/Repository/`
     - ⚠ BSP-нюанс: на Nucleo-G474RE VCP = **LPUART1** через `BSP_COM_Init(COM1)` (НЕ USART2!). Вся интеграция в USER CODE секциях main.c: переинициализация 115200→600000, ручной DMA RX (канал DMA1_Ch1, request LPUART1_RX, handle назван hdma_usart2_rx под сгенерированный обработчик в it.c)
     - Headless-сборка: `stm32cubeidec.exe -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data <tmp> -import 'C:\...\gamma_stage1' -cleanBuild gamma_stage1` (путь с backslash! иначе "No file system for scheme C") — 0 ошибок
-    - **СЛЕДУЮЩИЙ ШАГ: воткнуть Nucleo в USB → прошить** (`firmware/tools/flash_stage1.cmd` или Run в IDE) → проверка `python firmware/tools/becqmoni_sim.py COM6` (VCP был COM6) → настоящий BecqMoni (8192 каналов, 600000)
+    - **✅ ЭТАП 1 ЗАВЕРШЁН (2026-06-13, ночь):** плата прошита и отвечает по shproto на COM6: -sta/-sto/-rst/-inf → -ok, спектр 500 cps, пики на каналах 101 и 1138 как задумано
+    - **Эпопея прошивки (диагноз для истории): виноват был USB-кабель.** Симптомы: чтение/SRAM-запись работают, пакетные операции (flash erase/program, апгрейд ST-Link) рвут связь («Unable to get core ID», «Fail reading CTRL/STAT», «corrupted firmware data»). Перепробовано: режимы UR/HWrst, частоты до 50кГц, ELF/BIN, CubeProgrammer 2.20/2.18, OpenOCD, ручное стирание регистрами. Замена кабеля — всё заработало с первого раза
+    - Полезные пути: прошивка = `firmware/tools/flash_stage1.cmd`; headless-сборка см. выше; тест = `PYTHONIOENCODING=utf-8 python -u firmware/tools/becqmoni_sim.py COM6`
+    - ⚠ ST-Link остался на старой прошивке V3J9 (апгрейд падал из-за кабеля) — повторить апгрейд с новым кабелем (Help → ST-LINK Upgrade или STLinkUpgrade.jar), не критично
+    - **СЛЕДУЮЩИЙ ШАГ: подключить настоящий BecqMoni** (COM6, 600000 бод, 8192 каналов) → увидеть спектр в GUI. Затем этап 2: DAC→ADC петля, реальный peak detect
 
 **Сессия 7 (2026-06-10): AD4084 / DPP-анализ → решение: v1 сейчас, v2 потом**
 - Пользователь предложил рассмотреть внешний АЦП без аналоговой обработки (DPP). Изучены даташиты: LTC2387-18, LTC2387-16, **AD4084** (16-bit 20 MSPS, Rev 0 07/2025) — все в `docs/refs/`
