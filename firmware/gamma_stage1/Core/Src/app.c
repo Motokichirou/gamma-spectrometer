@@ -90,8 +90,9 @@ static void handle_text(const uint8_t *pl, uint16_t len)
     cmd[len] = '\0';
 
     if (strncmp(cmd, "-sta", 4) == 0) {
-        acquiring  = true;
-        t_start_ms = app_port_millis();
+        acquiring     = true;
+        t_start_ms    = app_port_millis();
+        t_last_gen_ms = t_start_ms;   /* иначе генератор "догонит" всё время простоя */
         send_text("-ok");
     } else if (strncmp(cmd, "-sto", 4) == 0) {
         acquiring = false;
