@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app.h"
+void stage2_init(void);   /* stage2_hw.c: DAC→ADC→DSP тракт */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -173,6 +174,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   vcp_init_600000();   /* после BSP_COM_Init: 115200 → 600000 + DMA RX */
+  stage2_init();       /* DAC→(перемычка A2-A0)→ADC→DSP */
   app_init();
   while (1)
   {

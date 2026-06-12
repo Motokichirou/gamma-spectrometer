@@ -227,5 +227,18 @@ void EXTI15_10_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/* ADC1 DMA (этап 2): hdma_adc1 определён в stage2_hw.c */
+extern DMA_HandleTypeDef hdma_adc1;
 
+void DMA1_Channel2_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&hdma_adc1);
+}
+
+/* TIM7 — пуассоновский планировщик DAC-импульсов (stage2_hw.c) */
+void TIM7_DAC_IRQHandler(void)
+{
+    extern void stage2_tim7_isr(void);
+    stage2_tim7_isr();
+}
 /* USER CODE END 1 */

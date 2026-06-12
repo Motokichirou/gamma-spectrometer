@@ -25,8 +25,9 @@ static shproto_rx_t rx;
 static bool         acquiring;
 static uint32_t     t_start_ms;       /* момент -sta */
 static uint32_t     t_last_send_ms;
-static uint32_t     t_last_gen_ms;
+static uint32_t     t_last_gen_ms;    /* для дефолтного (синтетического) источника */
 static uint32_t     counts_last_sec;  /* для поля cps */
+static uint32_t     invalid_total;    /* отбраковка PUR (поле invalid_pulses) */
 
 /* буфер сборки кадра: худший случай — все байты стаффятся */
 static uint8_t txbuf[2u * (CHUNK_CHANNELS * 4u + 2u + 3u) + 3u];
@@ -79,7 +80,7 @@ static void send_stat(void)
     put_u32le(&st[0], elapsed & 0x7FFFFFFu);
     put_u16le(&st[4], 100u);             /* cpu_load: заглушка ~10% (ед. 0.1%?) */
     put_u32le(&st[6], counts_last_sec);  /* cps */
-    put_u32le(&st[10], 0u);              /* invalid_pulses */
+    put_u32le(&st[10], invalid_total);   /* invalid_pulses (PUR) */
     send_frame(SHPROTO_CMD_STAT, st, sizeof(st));
 }
 
@@ -101,6 +102,7 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         send_text("-ok");
     } else if (strncmp(cmd, "-rst", 4) == 0) {
         spectrum_clear();
+        invalid_total = 0;
         send_text("-ok");
     } else if (strncmp(cmd, "-inf", 4) == 0) {
         /* Формат под парсер BecqMoni (deadTimeBtn_Click): split(' '),
@@ -121,6 +123,33 @@ static void handle_text(const uint8_t *pl, uint16_t len)
     /* незнакомые команды молча игнорируем (этап 1) */
 }
 
+/* ---- API источника событий ------------------------------------------------ */
+bool app_is_acquiring(void)
+{
+    return acquiring;
+}
+
+void app_count_events(uint32_t n)
+{
+    counts_last_sec += n;
+}
+
+void app_count_invalid(uint32_t n)
+{
+    invalid_total += n;
+}
+
+/* Дефолтный источник — синтетический генератор этапа 1.
+ * Этап 2 переопределяет (сильное определение в stage2_hw.c). */
+__attribute__((weak)) void app_source_poll(uint32_t now)
+{
+    if (acquiring && (now - t_last_gen_ms) >= 100u) {
+        t_last_gen_ms += 100u;
+        spectrum_test_accumulate(TEST_CPS / 10u);
+        app_count_events(TEST_CPS / 10u);
+    }
+}
+
 /* ---- публичный API -------------------------------------------------------- */
 void app_init(void)
 {
@@ -130,6 +159,7 @@ void app_init(void)
     t_last_send_ms  = app_port_millis();
     t_last_gen_ms   = t_last_send_ms;
     counts_last_sec = 0;
+    invalid_total   = 0;
 }
 
 void app_rx_feed(const uint8_t *data, size_t n)
@@ -147,12 +177,8 @@ void app_poll(void)
 {
     uint32_t now = app_port_millis();
 
-    /* генерация тестовых событий — порциями каждые 100 мс */
-    if (acquiring && (now - t_last_gen_ms) >= 100u) {
-        t_last_gen_ms += 100u;
-        spectrum_test_accumulate(TEST_CPS / 10u);
-        counts_last_sec += TEST_CPS / 10u;
-    }
+    /* источник событий (синтетика по умолчанию / DAC+ADC+DSP на этапе 2) */
+    app_source_poll(now);
 
     /* раз в секунду: полный спектр + статус (статус — триггер отрисовки) */
     if ((now - t_last_send_ms) >= SEND_PERIOD_MS) {
