@@ -14,6 +14,17 @@ public:
 
     enum class State { Disconnected, Connecting, Connected, Acquiring, Error };
 
+    // результат самотеста ENC (разбор текстового отчёта -tst enc)
+    struct EncPoint { int amp = 0; float ch = 0.0f, sig = 0.0f, fwhm = 0.0f; };
+    struct EncResult {
+        bool  running = false;
+        bool  valid   = false;
+        int   n       = 0;
+        EncPoint pts[8];
+        float k = 0.0f, b = 0.0f, inl = 0.0f, r2 = 0.0f;
+    };
+    EncResult enc;
+
     // данные
     uint32_t spectrum[CHANNELS] = { 0 };
     uint32_t elapsed_s = 0, cps = 0, invalid = 0;
@@ -57,4 +68,5 @@ private:
     double last_ka_ = 0.0;
     void on_frame(const shproto::Frame& f);
     void log_add(int dir, const std::string& s);
+    void parse_enc(const std::string& t);
 };

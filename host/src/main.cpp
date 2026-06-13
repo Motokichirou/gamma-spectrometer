@@ -14,6 +14,7 @@
 
 #include "device.h"
 #include "theme.h"
+#include "host_app.h"
 
 // --- DirectX 11 ---
 static ID3D11Device*           g_pd3dDevice = nullptr;
@@ -34,6 +35,8 @@ static bool   g_quit = false;
 static int    g_port_sel = 0;
 static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
+static bool   g_open_help = false;
+static float  gLeftW = 300.0f, gRightW = 340.0f, gConnH = 276.0f, gConsoleH = 190.0f;
 static float  g_spec_x[Device::CHANNELS];
 static float  g_spec_y[Device::CHANNELS];
 
@@ -104,6 +107,35 @@ static bool BeginPanel(const char* id, ImVec2 pos, ImVec2 size)
     return ImGui::Begin(id, nullptr, f);
 }
 
+static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+// Раздвижной разделитель: тонкое окно поверх стыка панелей. Возвращает дельту
+// перетаскивания (по X для вертикального, по Y для горизонтального).
+static float Splitter(const char* id, ImVec2 pos, ImVec2 size, bool vertical)
+{
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(size);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGuiWindowFlags f = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
+                         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    ImGui::Begin(id, nullptr, f);
+    ImGui::InvisibleButton("s", size);
+    bool active = ImGui::IsItemActive();
+    bool hovered = ImGui::IsItemHovered();
+    if (active || hovered) {
+        ImGui::SetMouseCursor(vertical ? ImGuiMouseCursor_ResizeEW : ImGuiMouseCursor_ResizeNS);
+        ImU32 col = theme::U32(active ? theme::c_accent : theme::c_accent_line);
+        ImGui::GetWindowDrawList()->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), col);
+    }
+    float d = active ? (vertical ? ImGui::GetIO().MouseDelta.x : ImGui::GetIO().MouseDelta.y) : 0.0f;
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+    return d;
+}
+
 static ImVec4 StateColor()
 {
     using namespace theme;
@@ -154,10 +186,17 @@ static void PanelConnection(ImVec2 pos, ImVec2 size)
         if (ImGui::Button("Обновить порты", ImVec2(-1, 0)))
             g_dev.refresh_ports();
     } else {
-        if (DangerButton("Отключить", ImVec2(-1, 26)))
-            g_dev.disconnect();
+        if (!g_dev.acquiring) {
+            if (PrimaryButton("Старт набора (-sta)", ImVec2(-1, 26)))
+                g_dev.start();
+        } else {
+            if (DangerButton("Стоп набора (-sto)", ImVec2(-1, 26)))
+                g_dev.stop();
+        }
         if (ImGui::Button("Сброс спектра (-rst)", ImVec2(-1, 0)))
             g_dev.reset_spectrum();
+        if (DangerButton("Отключить", ImVec2(-1, 0)))
+            g_dev.disconnect();
     }
 
     ImGui::Separator();
@@ -266,14 +305,17 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     ImVec2 avail = ImGui::GetContentRegionAvail();
     if (ImPlot::BeginPlot("##plot", avail,
                           ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-        ImPlot::SetupAxes("канал", "счёт");
+        // X — навигация мышью (колесо/перетаскивание). Y — авто-подгон под данные,
+        // поэтому спектр виден и в линейном, и в лог-масштабе.
+        // Shift: колесо масштабирует Y (X на это время фиксируется).
+        bool shift = ImGui::GetIO().KeyShift;
+        ImPlot::SetupAxis(ImAxis_X1, "канал", shift ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None);
+        ImPlot::SetupAxis(ImAxis_Y1, "счёт",  shift ? ImPlotAxisFlags_None : ImPlotAxisFlags_AutoFit);
+        if (g_log_scale) ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
+        // нельзя уехать за пределы данных: X в [0..8192], Y не ниже нуля
+        ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, (double)Device::CHANNELS);
+        ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, g_log_scale ? 0.1 : 0.0, 1.0e12);
         ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
-        if (g_log_scale) {
-            ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, 1, 100000, ImPlotCond_Once);
-        } else {
-            ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 5000, ImPlotCond_Once);
-        }
         ImPlot::PushStyleColor(ImPlotCol_Line, c_trace);
         ImPlot::PlotLine("спектр", g_spec_x, g_spec_y, Device::CHANNELS);
         ImPlot::PopStyleColor();
@@ -336,8 +378,11 @@ static void PanelSelftest(ImVec2 pos, ImVec2 size)
     bool conn = (g_dev.state == Device::State::Connected ||
                  g_dev.state == Device::State::Acquiring);
     ImGui::BeginDisabled(!conn);
-    if (PrimaryButton("Прогон ENC", ImVec2(-1, 26)))
+    if (PrimaryButton("Прогон ENC", ImVec2(-1, 26))) {
+        g_dev.enc = Device::EncResult{};
+        g_dev.enc.running = true;
         g_dev.send_cmd("-tst enc");
+    }
     ImGui::EndDisabled();
 
     Caption("Тест-генератор");
@@ -345,6 +390,13 @@ static void PanelSelftest(ImVec2 pos, ImVec2 size)
     ImGui::SameLine(); if (ImGui::Button("off"))  g_dev.send_cmd("-tst off");
     ImGui::SameLine(); if (ImGui::Button("stat")) g_dev.send_cmd("-tst stat");
     ImGui::Separator();
+
+    const Device::EncResult& e = g_dev.enc;
+    if (e.running) {
+        ImGui::PushStyleColor(ImGuiCol_Text, c_accent);
+        ImGui::TextUnformatted("идёт прогон ~6 c…");
+        ImGui::PopStyleColor();
+    }
 
     if (ImGui::BeginTable("enc", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
         ImGui::PushFont(font_small);
@@ -355,22 +407,75 @@ static void PanelSelftest(ImVec2 pos, ImVec2 size)
         ImGui::TableHeadersRow();
         ImGui::PopFont();
         ImGui::PushFont(font_mono);
-        for (int r = 0; r < 5; r++) {
+        int rows = e.valid ? e.n : 5;
+        for (int i = 0; i < rows; i++) {
             ImGui::TableNextRow();
-            for (int c = 0; c < 4; c++) { ImGui::TableSetColumnIndex(c); ImGui::TextDisabled("—"); }
+            if (e.valid) {
+                const Device::EncPoint& p = e.pts[i];
+                ImGui::TableSetColumnIndex(0); ImGui::Text("%d", p.amp);
+                ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", p.ch);
+                ImGui::TableSetColumnIndex(2); ImGui::Text("%.2f", p.sig);
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("%.2f", p.ch > 0 ? 100.0f * p.fwhm / p.ch : 0.0f);
+            } else {
+                for (int c = 0; c < 4; c++) { ImGui::TableSetColumnIndex(c); ImGui::TextDisabled("—"); }
+            }
         }
         ImGui::PopFont();
         ImGui::EndTable();
     }
 
     ImGui::PushFont(font_mono);
-    ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-    ImGui::TextUnformatted("k = —   INL = —   R² = —");
-    ImGui::PopStyleColor(); ImGui::PopFont();
+    if (e.valid) {
+        ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
+        ImGui::Text("k=%.4f ch/code", e.k);
+        ImGui::PopStyleColor();
+        ImGui::Text("INL=%.3f%%FS   R²=%.4f", e.inl, e.r2);
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
+        ImGui::TextUnformatted("k = —   INL = —   R² = —");
+        ImGui::PopStyleColor();
+    }
+    ImGui::PopFont();
 
-    ImGui::Spacing();
-    ImGui::TextDisabled("Отчёт ENC приходит в консоль;");
-    ImGui::TextDisabled("разбор в таблицу/графики — следующий шаг.");
+    if (e.valid && e.n >= 2) {
+        static float ax[8], cy[8], fy[8], lx[2], ly[2];
+        for (int i = 0; i < e.n; i++) {
+            ax[i] = (float)e.pts[i].amp;
+            cy[i] = e.pts[i].ch;
+            fy[i] = e.pts[i].ch > 0 ? 100.0f * e.pts[i].fwhm / e.pts[i].ch : 0.0f;
+        }
+        lx[0] = ax[0]; lx[1] = ax[e.n - 1];
+        ly[0] = e.k * lx[0] + e.b; ly[1] = e.k * lx[1] + e.b;
+
+        ImGui::Spacing();
+        Caption("Линейность: центроид vs код");
+        if (ImPlot::BeginPlot("##lin", ImVec2(-1, 130),
+                              ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            ImPlot::SetupAxes("код", "канал");
+            ImPlot::PushStyleColor(ImPlotCol_Line, c_accent);
+            ImPlot::PlotLine("фит", lx, ly, 2);
+            ImPlot::PopStyleColor();
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_trace2, 1.0f, c_trace2);
+            ImPlot::PlotScatter("точки", ax, cy, e.n);
+            ImPlot::EndPlot();
+        }
+        Caption("FWHM, % vs код");
+        if (ImPlot::BeginPlot("##fwhm", ImVec2(-1, 130),
+                              ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            ImPlot::SetupAxes("код", "FWHM %");
+            ImPlot::PushStyleColor(ImPlotCol_Line, c_warn);
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, c_warn, 1.0f, c_warn);
+            ImPlot::PlotLine("fwhm", ax, fy, e.n);
+            ImPlot::PopStyleColor();
+            ImPlot::EndPlot();
+        }
+    } else if (!e.running) {
+        ImGui::Spacing();
+        ImGui::TextDisabled("Нажми «Прогон ENC» — таблица и");
+        ImGui::TextDisabled("графики заполнятся (~6 c).");
+    }
+
     ImGui::End();
 }
 
@@ -398,6 +503,7 @@ static void MenuBar()
         if (ImGui::MenuItem("Прогон ENC")) g_dev.send_cmd("-tst enc");
         ImGui::EndMenu();
     }
+    if (ImGui::MenuItem("Справка")) g_open_help = true;
     ImGui::BeginMenu("Калибровка", false);
     ImGui::BeginMenu("Высокое напряжение", false);
     ImGui::BeginMenu("Термокалибровка", false);
@@ -440,6 +546,87 @@ static void StatusBar(ImVec2 pos, ImVec2 size)
     ImGui::PopStyleVar();
 }
 
+static void HelpSection(const char* h)
+{
+    ImGui::Spacing();
+    ImGui::PushFont(theme::font_small);
+    ImGui::PushStyleColor(ImGuiCol_Text, theme::c_accent);
+    ImGui::TextUnformatted(h);
+    ImGui::PopStyleColor(); ImGui::PopFont();
+    ImGui::Separator();
+}
+
+static void DrawHelp()
+{
+    if (g_open_help) { ImGui::OpenPopup("Справка по настройке"); g_open_help = false; }
+
+    ImVec2 c = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(710, 580), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Справка по настройке", nullptr)) return;
+
+    ImGui::BeginChild("helpbody", ImVec2(0, -36), false);
+
+    HelpSection("1. Подключение");
+    ImGui::TextWrapped(
+        "Подключи прибор по USB — появится виртуальный COM-порт (600000 бод, 8N1). "
+        "В панели «Подключение» нажми «Обновить порты», выбери COM и «Подключить». "
+        "При подключении пульт сам шлёт -inf и -cal — серийник и версия прошивки "
+        "появятся в полях ниже.");
+
+    HelpSection("2. Набор спектра");
+    ImGui::TextWrapped(
+        "Команды/чипы: -sta старт набора, -sto стоп, -rst сброс. Гистограмма на 8192 "
+        "канала рисуется в центре; переключатель Лин/Лог меняет шкалу Y.");
+
+    HelpSection("3. Телеметрия");
+    ImGui::TextWrapped(
+        "Время набора, скорость счёта (cps), доля отбракованных (наложения/шум) и "
+        "суммарный счёт. В наборе cps подсвечивается акцентом.");
+
+    HelpSection("4. Тест-генератор (диагностика без источника)");
+    ImGui::TextWrapped(
+        "-tst spec — встроенное распределение Cs-137; -tst mono <amp> [период_мкс] — "
+        "моно-линия; -tst off — выключить. По умолчанию генератор ВЫКЛЮЧЕН: на боевой "
+        "плате вход АЦП — реальный сигнал ФЭУ, и генератор не должен стартовать сам.");
+
+    HelpSection("5. Самотест ENC");
+    ImGui::TextWrapped(
+        "«Прогон ENC» гоняет 5 амплитуд и считает линейность k (кан/код), INL (%FS) и "
+        "FWHM по точкам. Отчёт приходит в консоль.");
+
+    HelpSection("6. Консоль shproto");
+    ImGui::TextWrapped(
+        "Лог кадров (TX/RX), чипы быстрых команд и поле ввода. Протокол shproto — "
+        "контракт с BecqMoni, вручную его править не нужно.");
+
+    HelpSection("7. BecqMoni и порт");
+    ImGui::TextWrapped(
+        "Для повседневного просмотра спектров прибор подключается в BecqMoni (тот же COM, "
+        "shproto). Этот пульт — для наладки/диагностики/калибровки. ВАЖНО: один COM-порт "
+        "держит одна программа — при работе пульта закрой BecqMoni, и наоборот.");
+
+    HelpSection("8. Командная строка (автоматизация)");
+    ImGui::PushFont(theme::font_mono);
+    ImGui::TextWrapped(
+        "gammapult list\n"
+        "gammapult info    --port COM6\n"
+        "gammapult acquire --port COM6 --seconds 30 --gen spec --out spec.csv\n"
+        "gammapult enc     --port COM6\n"
+        "gammapult cmd     --port COM6 --send \"-inf\"");
+    ImGui::PopFont();
+
+    HelpSection("9. Высокое напряжение / Термокалибровка");
+    ImGui::TextWrapped(
+        "В разработке. ВВ (0…−1500 В) — с явной индикацией опасности; термокалибровка — "
+        "запись спектров по температуре и расчёт компенсации усиления.");
+
+    ImGui::EndChild();
+    ImGui::Separator();
+    if (ImGui::Button("Закрыть", ImVec2(110, 0))) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
 static void DrawApp()
 {
     MenuBar();
@@ -454,11 +641,17 @@ static void DrawApp()
 
     float innerX = area.x + p, innerY = area.y + p;
     float innerW = asz.x - 2 * p, innerH = asz.y - 2 * p;
-    float leftW = 300, rightW = 340;
-    float centerW = innerW - leftW - rightW - 2 * g;
-    float connH = 250, telemetryH = innerH - connH - g;
-    float consoleH = 190, spectrumH = innerH - consoleH - g;
 
+    // раздвижные границы — ограничения
+    gLeftW    = clampf(gLeftW, 180.0f, innerW - gRightW - 2 * g - 260.0f);
+    gRightW   = clampf(gRightW, 200.0f, innerW - gLeftW - 2 * g - 260.0f);
+    gConnH    = clampf(gConnH, 150.0f, innerH - 150.0f);
+    gConsoleH = clampf(gConsoleH, 110.0f, innerH - 220.0f);
+
+    float leftW = gLeftW, rightW = gRightW;
+    float centerW = innerW - leftW - rightW - 2 * g;
+    float connH = gConnH, telemetryH = innerH - connH - g;
+    float consoleH = gConsoleH, spectrumH = innerH - consoleH - g;
     float lx = innerX, cx = innerX + leftW + g, rx = cx + centerW + g;
 
     PanelConnection(ImVec2(lx, innerY),                  ImVec2(leftW, connH));
@@ -467,13 +660,21 @@ static void DrawApp()
     PanelConsole   (ImVec2(cx, innerY + spectrumH + g),  ImVec2(centerW, consoleH));
     PanelSelftest  (ImVec2(rx, innerY),                  ImVec2(rightW, innerH));
 
+    // раздвижные разделители (поверх стыков панелей)
+    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),            ImVec2(6, innerH), true);
+    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                    ImVec2(6, innerH), true);
+    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),        ImVec2(centerW, 6), false);
+    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),            ImVec2(leftW, 6), false);
+
     StatusBar(ImVec2(vp->Pos.x, vp->Pos.y + vp->Size.y - statusH),
               ImVec2(vp->Size.x, statusH));
+
+    DrawHelp();
 }
 
 // ================= main =================
 
-int main(int, char**)
+int run_gui()
 {
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
                        GetModuleHandle(nullptr), nullptr, nullptr, nullptr,

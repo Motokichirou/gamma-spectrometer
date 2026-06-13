@@ -5,6 +5,7 @@
 //   gammacli enc     --port COMx
 //   gammacli cmd     --port COMx --send "-inf" [--read S]
 #include "device.h"
+#include "host_app.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -45,7 +46,7 @@ static void usage()
            "  gammacli cmd     --port COMx --send \"-inf\" [--read S]\n");
 }
 
-int main(int argc, char** argv)
+int run_cli(int argc, char** argv)
 {
     if (argc < 2) { usage(); return 1; }
     std::string sub = argv[1];

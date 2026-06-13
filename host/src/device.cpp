@@ -1,6 +1,7 @@
 // device.cpp — см. device.h
 #include "device.h"
 #include <chrono>
+#include <cstdio>
 
 static double now_sec()
 {
@@ -58,23 +59,22 @@ void Device::send_cmd(const std::string& cmd)
     auto fr = shproto::build_text(cmd);
     serial_.write(fr.data(), (int)fr.size());
     log_add(1, cmd);
+
+    // Состояние набора синхронизируем независимо от способа отправки
+    // (кнопка «Старт/Стоп» или чип консоли -sta/-sto).
+    if (cmd == "-sta") {
+        acquiring = true;
+        if (state == State::Connected) state = State::Acquiring;
+        status_text = "Связь · набор";
+    } else if (cmd == "-sto") {
+        acquiring = false;
+        if (state == State::Acquiring) state = State::Connected;
+        status_text = "Связь установлена · простой";
+    }
 }
 
-void Device::start()
-{
-    send_cmd("-sta");
-    acquiring = true;
-    state = State::Acquiring;
-    status_text = "Связь · набор";
-}
-
-void Device::stop()
-{
-    send_cmd("-sto");
-    acquiring = false;
-    if (state == State::Acquiring) state = State::Connected;
-    status_text = "Связь установлена · простой";
-}
+void Device::start() { send_cmd("-sta"); }
+void Device::stop()  { send_cmd("-sto"); }
 
 void Device::reset_spectrum()
 {
@@ -126,6 +126,8 @@ void Device::on_frame(const shproto::Frame& f)
             }
             if (!acc.empty() && acc.rfind("CAL", 0) != 0) sn = acc;
             if (!sn.empty()) serial = sn;
+        } else if (t.rfind("ENC test", 0) == 0) {
+            parse_enc(t);
         }
     } else if (f.cmd == shproto::CMD_SPECTRUM) {
         const auto& p = f.payload;
@@ -147,6 +149,46 @@ void Device::on_frame(const shproto::Frame& f)
             invalid   = (uint32_t)(p[10] | (p[11] << 8) | (p[12] << 16) | (p[13] << 24));
         }
     }
+}
+
+void Device::parse_enc(const std::string& t)
+{
+    EncResult r;
+    size_t pos = 0;
+    while (pos < t.size() && r.n < 8) {
+        size_t nl = t.find('\n', pos);
+        std::string line = t.substr(pos, nl == std::string::npos ? std::string::npos : nl - pos);
+        pos = (nl == std::string::npos) ? t.size() : nl + 1;
+        int amp; float ch, sig, fwhm;
+        if (sscanf(line.c_str(), "A=%d: ch=%f sig=%f FWHM=%f", &amp, &ch, &sig, &fwhm) == 4)
+            r.pts[r.n++] = { amp, ch, sig, fwhm };
+    }
+    if (r.n >= 2) {
+        // МНК-прямая ch = k*amp + b, плюс R² и INL (%FS)
+        double sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (int i = 0; i < r.n; i++) {
+            double x = r.pts[i].amp, y = r.pts[i].ch;
+            sx += x; sy += y; sxx += x * x; sxy += x * y;
+        }
+        double den = r.n * sxx - sx * sx;
+        double k = (den != 0.0) ? (r.n * sxy - sx * sy) / den : 0.0;
+        double b = (sy - k * sx) / r.n;
+        double meany = sy / r.n, sstot = 0, ssres = 0, maxdev = 0;
+        for (int i = 0; i < r.n; i++) {
+            double y = r.pts[i].ch, fit = k * r.pts[i].amp + b;
+            sstot += (y - meany) * (y - meany);
+            ssres += (y - fit) * (y - fit);
+            double d = y - fit; if (d < 0) d = -d;
+            if (d > maxdev) maxdev = d;
+        }
+        r.k   = (float)k;
+        r.b   = (float)b;
+        r.r2  = (sstot > 0) ? (float)(1.0 - ssres / sstot) : 1.0f;
+        r.inl = (float)(100.0 * maxdev / 8192.0);
+        r.valid = true;
+    }
+    r.running = false;
+    enc = r;
 }
 
 uint64_t Device::total() const

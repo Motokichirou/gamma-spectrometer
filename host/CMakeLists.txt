@@ -48,29 +48,30 @@ add_library(implot STATIC
 target_include_directories(implot PUBLIC ${implot_SOURCE_DIR})
 target_link_libraries(implot PUBLIC imgui)
 
-add_executable(gamma_host WIN32
-  src/main.cpp
-  src/theme.cpp
-  src/device.cpp
-  src/shproto.cpp
-  src/serial_win.cpp)
-target_link_libraries(gamma_host PRIVATE
-  imgui implot d3d11 dxgi d3dcompiler dwmapi)
-
-if(MSVC)
-  # WIN32-приложение, но точка входа — обычный main()
-  target_link_options(gamma_host PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
-endif()
-
-# Консольный пробник для headless-тестов стека связи (без GUI)
-add_executable(gamma_probe
-  src/probe.cpp
-  src/shproto.cpp
-  src/serial_win.cpp)
-
-# Сервисный CLI для автоматизации (без GUI), поверх класса Device
-add_executable(gammacli
+# Общие модули: CLI-логика + ядро связи
+set(GAMMA_CORE
   src/cli.cpp
   src/device.cpp
   src/shproto.cpp
   src/serial_win.cpp)
+
+# gammapult.exe — двойной режим. Без подкоманды → GUI; с подкомандой → CLI.
+# WINDOWS subsystem (GUI без мерцания); CLI-путь цепляется к родительской консоли.
+add_executable(gammapult WIN32
+  src/entry.cpp
+  src/main.cpp
+  src/theme.cpp
+  ${GAMMA_CORE})
+target_link_libraries(gammapult PRIVATE
+  imgui implot d3d11 dxgi d3dcompiler dwmapi)
+if(MSVC)
+  target_link_options(gammapult PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+endif()
+
+# gammapult.com — консольный двойник (CONSOLE subsystem). cmd при вводе
+# `gammapult …` выбирает .com → полноценный CLI (пайпы, exit-коды, cmd ждёт).
+add_executable(gammapult_com
+  src/entry.cpp
+  ${GAMMA_CORE})
+target_compile_definitions(gammapult_com PRIVATE GAMMAPULT_CONSOLE)
+set_target_properties(gammapult_com PROPERTIES OUTPUT_NAME gammapult SUFFIX ".com")
