@@ -715,7 +715,8 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
     }
 
     if (ImGui::BeginTable("cal", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                          ImGuiTableFlags_ScrollY, ImVec2(0, -96))) {
+                          ImGuiTableFlags_ScrollY,
+                          ImVec2(0, ImGui::GetFrameHeightWithSpacing() * 6.0f))) {
         ImGui::PushFont(font_small);
         ImGui::TableSetupColumn("кэВ");
         ImGui::TableSetupColumn("канал");
@@ -752,7 +753,7 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
         if (to_remove >= 0) { g_cal.erase(g_cal.begin() + to_remove); g_cal_fitted = false; }
     }
 
-    if (PrimaryButton("Фит (4-й порядок)")) FitCalibration();
+    if (PrimaryButton("Выполнить калибровку")) FitCalibration();
     ImGui::SameLine();
     if (ImGui::Button("Очистить")) { g_cal.clear(); g_cal_fitted = false; }
 
@@ -764,8 +765,11 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
         ImGui::Text("e=%.3f  ост.макс=%.2f кэВ", g_cal_c[0], g_cal_maxres);
         ImGui::PopStyleColor();
     } else {
+        int usable = 0;
+        for (auto& p : g_cal) if (p.has_ch && p.energy > 0) usable++;
         ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-        ImGui::TextUnformatted("E=a·x⁴+b·x³+c·x²+d·x+e — после фита");
+        if (usable < 2) ImGui::TextWrapped("E = a·x⁴+b·x³+c·x²+d·x+e\nнужно ≥ 2 точки (канал + кэВ)");
+        else            ImGui::TextUnformatted("нажми «Выполнить калибровку»");
         ImGui::PopStyleColor();
     }
     ImGui::PopFont();
@@ -861,6 +865,10 @@ static void DrawHelp()
 static void DrawApp()
 {
     MenuBar();
+
+    // старт набора несовместим с калибровкой (нужен «замороженный» спектр):
+    // как только пошёл набор — снимаем режим калибровки
+    if (g_dev.acquiring && g_calib_active) g_calib_active = false;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     float menuH = ImGui::GetFrameHeight();
