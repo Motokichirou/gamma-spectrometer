@@ -62,6 +62,8 @@ static double g_cal_c[5]     = { 0, 0, 0, 0, 0 };   // c0..c4: E = Σ cᵢ·ch�
 static double g_cal_maxres   = 0.0;
 static bool   g_sel_active   = false;
 static double g_sel_x0 = 0.0, g_sel_x1 = 0.0;
+static int    g_view_lo = 0, g_view_hi = Device::CHANNELS;   // окно отображаемых каналов
+static bool   g_view_apply = false;
 static float  g_spec_x[Device::CHANNELS];
 static float  g_spec_y[Device::CHANNELS];
 
@@ -408,7 +410,15 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
         // нельзя уехать за пределы данных: X в [0..8192], Y не ниже нуля
         ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, (double)Device::CHANNELS);
         ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, g_log_scale ? 0.1 : 0.0, 1.0e12);
-        ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
+        if (g_view_apply) {            // одноразово выставить окно каналов (дальше можно зумить колесом)
+            int lo = g_view_lo < 0 ? 0 : g_view_lo;
+            int hi = g_view_hi > Device::CHANNELS ? Device::CHANNELS : g_view_hi;
+            if (hi <= lo) hi = lo + 1;
+            ImPlot::SetupAxisLimits(ImAxis_X1, lo, hi, ImPlotCond_Always);
+            g_view_apply = false;
+        } else {
+            ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
+        }
         ImPlot::PushStyleColor(ImPlotCol_Line, c_trace);
         ImPlot::PlotLine("спектр", g_spec_x, g_spec_y, Device::CHANNELS);
         ImPlot::PopStyleColor();
@@ -714,6 +724,17 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
             }
         ImGui::EndCombo();
     }
+
+    // окно отображаемых каналов — зум в нужную область спектра
+    Caption("Окно каналов (вид):");
+    ImGui::SetNextItemWidth(64);
+    ImGui::InputInt("##vlo", &g_view_lo, 0, 0);
+    ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
+    ImGui::SetNextItemWidth(64);
+    ImGui::InputInt("##vhi", &g_view_hi, 0, 0);
+    if (ImGui::SmallButton("Показать окно")) g_view_apply = true;
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Весь спектр")) { g_view_lo = 0; g_view_hi = Device::CHANNELS; g_view_apply = true; }
 
     if (ImGui::BeginTable("cal", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                           ImGuiTableFlags_ScrollY,
