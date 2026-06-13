@@ -41,7 +41,7 @@ bool Device::connect(const std::string& port)
     send_cmd("-sto");
     send_cmd("-inf");
     send_cmd("-cal");
-    send_cmd("-thr 0");   // запрос текущего порога
+    send_cmd("-thr");   // запрос текущего порога (без аргумента = только чтение)
     return true;
 }
 
