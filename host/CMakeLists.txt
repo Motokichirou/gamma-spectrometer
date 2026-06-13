@@ -12,6 +12,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(MSVC)
   add_compile_options(/utf-8 /W3)
+  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
 # --- Dear ImGui + ImPlot тянем из GitHub (как STM32CubeG4) ---
@@ -64,5 +65,12 @@ endif()
 # Консольный пробник для headless-тестов стека связи (без GUI)
 add_executable(gamma_probe
   src/probe.cpp
+  src/shproto.cpp
+  src/serial_win.cpp)
+
+# Сервисный CLI для автоматизации (без GUI), поверх класса Device
+add_executable(gammacli
+  src/cli.cpp
+  src/device.cpp
   src/shproto.cpp
   src/serial_win.cpp)
