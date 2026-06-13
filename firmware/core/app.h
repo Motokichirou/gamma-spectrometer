@@ -30,6 +30,12 @@ void app_source_poll(uint32_t now_ms);
  * -1 = не поддерживается. */
 int app_set_threshold_ch(int channels);
 
+/* Слабые хуки энергокалибровки (канал→кэВ), хранение во flash (этап 2/боевая
+ * плата переопределяют). order = степень полинома, coef[0..order]: E=Σcᵢ·chⁱ.
+ * write: 1=успех; read: 1=есть валидная калибровка, заполняет order/coef. */
+int app_cal_write(int order, const double *coef);
+int app_cal_read(int *order, double *coef);
+
 /* Отправить текстовый кадр (cmd=0x03) — для отчётов самотеста и т.п. */
 void app_send_text(const char *s);
 

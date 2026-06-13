@@ -806,8 +806,17 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
     }
     ImGui::PopFont();
 
-    ImGui::BeginDisabled(true);
-    ImGui::Button("Записать в прибор (скоро)", ImVec2(-1, 0));
+    bool can_write = g_cal_fitted &&
+                     (g_dev.state == Device::State::Connected ||
+                      g_dev.state == Device::State::Acquiring);
+    ImGui::BeginDisabled(!can_write);
+    if (ImGui::Button("Записать в прибор", ImVec2(-1, 0))) {
+        char c[200];
+        snprintf(c, sizeof c, "-wcal 4 %.9e %.9e %.9e %.9e %.9e",
+                 g_cal_c[0], g_cal_c[1], g_cal_c[2], g_cal_c[3], g_cal_c[4]);
+        g_dev.send_cmd(c);
+        g_dev.send_cmd("-cal");   // читаем обратно для подтверждения (в консоль)
+    }
     ImGui::EndDisabled();
 
     ImGui::End();

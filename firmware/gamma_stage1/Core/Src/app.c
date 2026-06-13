@@ -94,7 +94,7 @@ static void send_stat(void)
 /* ---- команды ------------------------------------------------------------- */
 static void handle_text(const uint8_t *pl, uint16_t len)
 {
-    char cmd[32];
+    char cmd[160];   /* вмещает -wcal с 5 коэффициентами */
     if (len >= sizeof(cmd)) len = sizeof(cmd) - 1;
     memcpy(cmd, pl, len);
     cmd[len] = '\0';
@@ -130,10 +130,30 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         if (eff < 0) snprintf(r, sizeof(r), "-err thr");
         else         snprintf(r, sizeof(r), "-ok thr %d", eff);
         send_text(r);
+    } else if (strncmp(cmd, "-wcal", 5) == 0) {
+        /* запись энергокалибровки: -wcal <order> <c0> <c1> ... <cN> */
+        const char *p = cmd + 5;
+        char *end;
+        int order = (int)strtol(p, &end, 10); p = end;
+        double c[5] = { 0, 0, 0, 0, 0 };
+        int n = 0;
+        while (n < 5) { double v = strtod(p, &end); if (end == p) break; c[n++] = v; p = end; }
+        int ok = (order >= 1 && order <= 4 && n >= order + 1) ? app_cal_write(order, c) : 0;
+        send_text(ok ? "-ok cal" : "-err cal");
     } else if (strncmp(cmd, "-cal", 4) == 0) {
-        /* Проверка статуса BecqMoni (TestSerialNumber): ОДИН текстовый кадр,
-         * split("\r\n").Length > 2, предпоследняя строка = серийный номер */
-        send_text("CAL: none\r\n" APP_SERIAL "\r\n");
+        /* Проверка статуса BecqMoni: split("\r\n").Length>2, предпоследняя=серийник.
+         * Если есть сохранённая калибровка — выдаём коэффициенты строкой "CAL: <order> ..". */
+        char r[160];
+        int order; double c[5];
+        if (app_cal_read(&order, c)) {
+            int o = snprintf(r, sizeof r, "CAL: %d", order);
+            for (int i = 0; i <= order && i < 5; i++)
+                o += snprintf(r + o, sizeof(r) - (size_t)o, " %.9g", c[i]);
+            snprintf(r + o, sizeof(r) - (size_t)o, "\r\n" APP_SERIAL "\r\n");
+        } else {
+            snprintf(r, sizeof r, "CAL: none\r\n" APP_SERIAL "\r\n");
+        }
+        send_text(r);
     }
     /* незнакомые команды молча игнорируем (этап 1) */
 }
@@ -170,6 +190,16 @@ __attribute__((weak)) int app_set_threshold_ch(int channels)
 {
     (void)channels;
     return -1;
+}
+
+/* Дефолт: калибровка во flash не поддерживается (этап 1). */
+__attribute__((weak)) int app_cal_write(int order, const double *coef)
+{
+    (void)order; (void)coef; return 0;
+}
+__attribute__((weak)) int app_cal_read(int *order, double *coef)
+{
+    (void)order; (void)coef; return 0;
 }
 
 /* ---- публичный API -------------------------------------------------------- */
