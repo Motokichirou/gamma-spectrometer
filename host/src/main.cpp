@@ -39,7 +39,7 @@ static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
 static bool   g_open_help = false;
 static float  gLeftW = 300.0f, gRightW = 340.0f, gConnH = 276.0f, gConsoleH = 190.0f;
-static float  gTeleH = 170.0f;
+static float  gTeleH = 230.0f;
 
 // калибровка энергий (канал → кэВ)
 struct CalPoint { double energy = 0.0; double channel = 0.0; bool has_ch = false; };
@@ -351,6 +351,16 @@ static void PanelTelemetry(ImVec2 pos, ImVec2 size)
         ImGui::PopStyleColor();
     } else {
         StatusDot(c_text_dim); Caption("Набор остановлен");
+    }
+
+    ImGui::Separator();
+    Caption("Порог детектора, каналов:");
+    ImGui::SetNextItemWidth(72);
+    ImGui::InputInt("##thr", &g_dev.threshold_ch, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Применить##thr")) {
+        char c[24]; snprintf(c, sizeof(c), "-thr %d", g_dev.threshold_ch);
+        g_dev.send_cmd(c);
     }
     ImGui::End();
 }

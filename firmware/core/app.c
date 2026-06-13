@@ -14,6 +14,7 @@
 #include "selftest.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* ---- настройки ---------------------------------------------------------- */
 #define SEND_PERIOD_MS    1000u   /* период отправки спектр+статус */
@@ -123,6 +124,12 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         send_text(info);
     } else if (strncmp(cmd, "-tst", 4) == 0) {
         selftest_command(cmd + 4);
+    } else if (strncmp(cmd, "-thr", 4) == 0) {
+        int eff = app_set_threshold_ch(atoi(cmd + 4));   /* каналы; <=0 — запрос */
+        char r[32];
+        if (eff < 0) snprintf(r, sizeof(r), "-err thr");
+        else         snprintf(r, sizeof(r), "-ok thr %d", eff);
+        send_text(r);
     } else if (strncmp(cmd, "-cal", 4) == 0) {
         /* Проверка статуса BecqMoni (TestSerialNumber): ОДИН текстовый кадр,
          * split("\r\n").Length > 2, предпоследняя строка = серийный номер */
@@ -156,6 +163,13 @@ __attribute__((weak)) void app_source_poll(uint32_t now)
         spectrum_test_accumulate(TEST_CPS / 10u);
         app_count_events(TEST_CPS / 10u);
     }
+}
+
+/* Дефолт: порог не настраивается (этап 1). Этап 2 (stage2_hw.c) переопределяет. */
+__attribute__((weak)) int app_set_threshold_ch(int channels)
+{
+    (void)channels;
+    return -1;
 }
 
 /* ---- публичный API -------------------------------------------------------- */

@@ -263,6 +263,18 @@ void app_source_poll(uint32_t now)
     }
 }
 
+/* Порог DSP из ПК (команда -thr), значение в КАНАЛАХ. emit = 2*amp, значит
+ * 1 код АЦП = 2 канала → порог_кодов = каналы/2. channels<=0 — только запрос. */
+int app_set_threshold_ch(int channels)
+{
+    if (channels > 0) {
+        uint16_t codes = (uint16_t)(channels / 2);
+        if (codes < 1u) codes = 1u;
+        dsp.threshold = codes;
+    }
+    return (int)dsp.threshold * 2;
+}
+
 /* ---- ISR половинок ADC-буфера ---- */
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc)
 {

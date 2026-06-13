@@ -2,6 +2,7 @@
 #include "device.h"
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 
 static double now_sec()
 {
@@ -40,6 +41,7 @@ bool Device::connect(const std::string& port)
     send_cmd("-sto");
     send_cmd("-inf");
     send_cmd("-cal");
+    send_cmd("-thr 0");   // запрос текущего порога
     return true;
 }
 
@@ -128,6 +130,9 @@ void Device::on_frame(const shproto::Frame& f)
             if (!sn.empty()) serial = sn;
         } else if (t.rfind("ENC test", 0) == 0) {
             parse_enc(t);
+        } else if (t.rfind("-ok thr", 0) == 0) {
+            int v = atoi(t.c_str() + 7);
+            if (v > 0) threshold_ch = v;
         }
     } else if (f.cmd == shproto::CMD_SPECTRUM) {
         const auto& p = f.payload;
