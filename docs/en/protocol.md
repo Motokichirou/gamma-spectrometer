@@ -1,5 +1,9 @@
 # shproto / AtomSpectra Protocol
 
+<!-- README-I18N:START -->
+[Русский](../ru/protocol.md) | **English**
+<!-- README-I18N:END -->
+
 The instrument speaks the **shproto** serial protocol, compatible with
 [BecqMoni](https://github.com/Am6er/BecqMoni) and [nanopro](https://github.com/Am6er/nanopro).
 It enumerates as a virtual COM port (FT231X) at **600 000 bps, 8N1**.

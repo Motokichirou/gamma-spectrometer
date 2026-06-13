@@ -1,5 +1,9 @@
 # Simulations & Noise Budget
 
+<!-- README-I18N:START -->
+[Русский](../ru/simulations.md) | **English**
+<!-- README-I18N:END -->
+
 The analog chain was validated in LTspice before layout. All three simulations are
 complete; the source decks and Python analysis scripts live in `simulation/`.
 

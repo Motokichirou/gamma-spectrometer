@@ -1,5 +1,9 @@
 # Hardware Overview
 
+<!-- README-I18N:START -->
+[Русский](../ru/hardware.md) | **English**
+<!-- README-I18N:END -->
+
 The instrument is a cylindrical stack of four Ø45 mm boards mounted directly
 behind a NaI(Tl) Ø63×63 mm scintillator coupled to a Hamamatsu R1307
 photomultiplier tube (PMT). A single USB-C cable exits the end cap and carries

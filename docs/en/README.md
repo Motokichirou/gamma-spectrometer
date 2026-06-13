@@ -1,4 +1,8 @@
-# Documentation (English)
+# Documentation
+
+<!-- README-I18N:START -->
+[Русский](../ru/README.md) | **English**
+<!-- README-I18N:END -->
 
 English documentation set for the NaI(Tl) gamma spectrometer.
 For the project overview, see the root [README](../../README.en.md).

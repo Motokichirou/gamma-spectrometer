@@ -1,5 +1,9 @@
 # Firmware
 
+<!-- README-I18N:START -->
+[Русский](../ru/firmware.md) | **English**
+<!-- README-I18N:END -->
+
 The STM32G474 firmware acquires shaped pulses with the ADC, detects and measures
 each pulse, accumulates an 8192-channel histogram, and streams it to a host over
 the [shproto protocol](protocol.md) so that [BecqMoni](https://github.com/Am6er/BecqMoni)
