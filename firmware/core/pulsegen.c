@@ -113,7 +113,7 @@ static uint32_t mean_period;
 static uint16_t baseline;
 static uint32_t rng_state = 0xC0FFEE42u;
 
-static volatile pg_mode_t cur_mode = PG_SPECTRUM;
+static volatile pg_mode_t cur_mode = PG_OFF;   /* при старте генератор ВЫКЛ; включается командой -tst spec|mono|enc */
 static volatile uint16_t  mono_amp;
 static volatile uint32_t  mono_period;
 

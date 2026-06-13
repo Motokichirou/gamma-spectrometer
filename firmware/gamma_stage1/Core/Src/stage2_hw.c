@@ -246,8 +246,8 @@ void stage2_tim7_isr(void)
     }
 
     __HAL_DMA_DISABLE(&hdma_dac1);   /* DAC включён, держит baseline */
-    pulsegen_fill(dac_table);
-    dac_fire();
+    if (pulsegen_fill(dac_table) != 0u)
+        dac_fire();                  /* PG_OFF: fill вернул 0, таблица старая — не стрелять */
     __HAL_TIM_SET_AUTORELOAD(&htim7, pulsegen_next_delay_us() - 1u);
 }
 
