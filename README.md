@@ -1,34 +1,34 @@
-# NaI(Tl) Gamma Spectrometer
+# Гамма-спектрометр на NaI(Tl)
 
-Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal and Hamamatsu R1307 PMT, with a USB-C interface compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (shproto protocol).
+Портативный цилиндрический гамма-спектрометр на кристалле NaI(Tl) Ø63×63 мм и ФЭУ Hamamatsu R1307, с интерфейсом USB-C, совместимым с [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (протокол shproto).
 
 ---
 
-## Key Specifications
+## Ключевые характеристики
 
-| Parameter | Value |
+| Параметр | Значение |
 |---|---|
-| Detector | NaI(Tl) Ø63×63 mm |
-| PMT | Hamamatsu R1307 (8-stage, Ø76 mm) |
-| Energy range | 50 keV – 3.5 MeV |
-| Target FWHM @ Cs-137 | 6.0–6.5 % |
-| Spectrum channels | 8192 |
-| Count rate | up to ~30 000 cps |
-| MCU | STM32G474 @ 170 MHz (12-bit ADC, 4 Msps) |
-| HV supply | 0 … −1500 V (MAX1847 + 8-stage CW multiplier) |
-| Interface | USB-C → UART 600 kbps (FT231X), shproto protocol |
-| Power | USB 5 V, ~370 mA |
-| Form factor | Cylindrical stack, Ø45 mm boards |
+| Детектор | NaI(Tl) Ø63×63 мм |
+| ФЭУ | Hamamatsu R1307 (8 каскадов, Ø76 мм) |
+| Диапазон энергий | 50 кэВ – 3.5 МэВ |
+| Целевое FWHM @ Cs-137 | 6.0–6.5 % |
+| Каналов спектра | 8192 |
+| Скорость счёта | до ~30 000 имп/с |
+| МК | STM32G474 @ 170 МГц (12-бит АЦП, 4 Мвыб/с) |
+| ВВ питание | 0 … −1500 В (MAX1847 + 8-ступенчатый умножитель CW) |
+| Интерфейс | USB-C → UART 600 кбит/с (FT231X), протокол shproto |
+| Питание | USB 5 В, ~370 мА |
+| Форм-фактор | Цилиндрический стек, платы Ø45 мм |
 
 ---
 
-## Hardware Architecture
+## Аппаратная архитектура
 
-### Board Stack (bottom → top)
+### Стек плат (снизу → вверх)
 
 ```
  ┌─────────────────────────────────────────┐
- │  USB/Power board  Ø45 mm               │  ← USB-C cable
+ │  USB/Power board  Ø45 mm               │  ← кабель USB-C
  │  LP5907 · AMS1117 · TPS60400 · FT231X  │
  ├─────────────────────────────────────────┤
  │  HV board         Ø45 mm               │
@@ -37,116 +37,116 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  │  MCU board        Ø45 mm               │
  │  STM32G474 · CR-RC² shaper · ADC · SPI │
  ├─────────────────────────────────────────┤
- │  Divider board    Ø42–45 mm            │  ← Hamamatsu R1307 + NaI(Tl)
+ │  Divider board    Ø42–45 mm            │  ← ФЭУ Hamamatsu R1307 + NaI(Tl)
  │  R1307 divider · MMBTA42 buffers       │
  │  AD8000 CFA (×−15, BW = 99 MHz)        │
  └─────────────────────────────────────────┘
 ```
 
-Inter-board connections:
-- **Signal**: RG-178 coax + U.FL (Divider → MCU, ±431 mV for Cs-137)
-- **±5 V_A power**: JST PH 3-pin (MCU → Divider)
-- **−HV**: shielded ≥5 kV wire along stack edge (HV → Divider)
-- **All other signals**: 2×N 2.54 mm pin headers
+Межплатные соединения:
+- **Сигнал**: коаксиал RG-178 + U.FL (делитель → МК, ±431 мВ для Cs-137)
+- **Питание ±5 В_A**: JST PH 3-пин (МК → делитель)
+- **−HV**: экранированный провод ≥5 кВ вдоль края стека (ВВ → делитель)
+- **Все прочие сигналы**: pin-header 2×N с шагом 2.54 мм
 
-### Signal Chain
+### Цепь сигнала
 
 ```
-NaI(Tl) + R1307             Divider board                 MCU board
+NaI(Tl) + R1307            Плата делителя                 Плата МК
 ─────────────    ─────────────────────────────   ──────────────────────────────────
- Scintillation →  Divider (7.72 MΩ chain)     →  CR  (OPAMP1, τ=1 µs)
- τ_decay=230 ns   Active buffers (Dy6/7/8)        RC  (OPAMP2, τ=510 ns)
- I_anode(Cs-137)  AD8000 ×(−15), BW=99 MHz    →  PGA ×4 (OPAMP3)
-  = 0.94 mA       V_out = −431 mV (Cs-137)        V_ADC = 2.116 V baseline
-                                                   ADC1_IN12, 4 Msps
-                                                   8192-ch histogram → USB
+ Сцинтилляция →   Делитель (цепочка 7.72 МОм)   →  CR  (OPAMP1, τ=1 мкс)
+ τ_спада=230 нс   Активные буферы (Dy6/7/8)        RC  (OPAMP2, τ=510 нс)
+ I_анода(Cs-137)  AD8000 ×(−15), BW=99 МГц      →  PGA ×4 (OPAMP3)
+  = 0.94 мА       V_вых = −431 мВ (Cs-137)         V_ADC = baseline 2.116 В
+                                                   ADC1_IN12, 4 Мвыб/с
+                                                   гистограмма 8192 кан. → USB
 ```
 
-**ADC polarity:** pulses are negative w.r.t. baseline 2.116 V → `amplitude = baseline − sample`
+**Полярность АЦП:** импульсы отрицательны относительно baseline 2.116 В → `amplitude = baseline − sample`
 
-### Energy Calibration (simulated, G474 OPAMP model)
+### Калибровка энергии (по симуляции, модель OPAMP G474)
 
-| Source | Energy | ADC channel / 8192 |
+| Источник | Энергия | Канал АЦП / 8192 |
 |---|---|---|
-| Am-241 | 59.5 keV | 101 |
-| Cs-137 | 662 keV | 1138 |
-| Co-60 | 1.33 MeV | 2277 |
-| Tl-208 | 2.61 MeV | 4470 |
-| Ceiling | 3.5 MeV | 6021 |
+| Am-241 | 59.5 кэВ | 101 |
+| Cs-137 | 662 кэВ | 1138 |
+| Co-60 | 1.33 МэВ | 2277 |
+| Tl-208 | 2.61 МэВ | 4470 |
+| Потолок | 3.5 МэВ | 6021 |
 
 ---
 
-## Project Status
+## Статус проекта
 
-| Task | Status |
+| Задача | Статус |
 |---|---|
-| Schematic — USB/Power board | ✅ Done (ERC 0) |
-| Schematic — HV board | ✅ Done (ERC 0) |
-| Schematic — MCU board | ✅ Done (ERC 0) |
-| Schematic — Divider board | ✅ Done (ERC 0) |
-| LTspice sim1: AD8000 stability | ✅ Done (BW=99 MHz, peaking<0.5 dB) |
-| LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
-| LTspice sim3: noise budget | ✅ Done (σ=94.4 µV rms, 0.31 ch rms) |
-| BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 79 R / 28 MPN, all active) |
-| PCB layout — all boards | 🔲 Not started |
-| STM32 firmware | 🔲 Not started |
-| Host software (BecqMoni compat.) | 🔲 Not started |
+| Схема — плата USB/питания | ✅ Готово (ERC 0) |
+| Схема — плата ВВ | ✅ Готово (ERC 0) |
+| Схема — плата МК | ✅ Готово (ERC 0) |
+| Схема — плата делителя | ✅ Готово (ERC 0) |
+| LTspice sim1: устойчивость AD8000 | ✅ Готово (BW=99 МГц, peaking<0.5 дБ) |
+| LTspice sim2: шейпер CR-RC² | ✅ Готово (PF=0.202, ширина импульса ~1.5 мкс) |
+| LTspice sim3: бюджет шумов | ✅ Готово (σ=94.4 мкВ rms, 0.31 кан. rms) |
+| BOM с MPN + footprint | ✅ Готово (81 конд. / 17 MPN, 79 R / 28 MPN, все активные) |
+| Разводка PCB — все платы | 🔲 Не начато |
+| Прошивка STM32 | 🚧 Этапы 1–2 + самотест работают на Nucleo (shproto, реальная гистограмма); этап 3 — на боевой плате |
+| ПО на PC (совместимость с BecqMoni) | 🔲 Не начато |
 
 ---
 
-## Repository Structure
+## Структура репозитория
 
 ```
 gamma-spectrometer/
 ├── docs/
-│   ├── adc_mcu_board.md              # MCU board v1.6 — full technical doc
-│   ├── divider_board.md              # Divider + AD8000 board
-│   ├── usb_power_board.md            # USB/Power board overview
-│   ├── usb_power_board_schematic.md  # USB/Power board — detailed schematic
-│   ├── hv_board_schematic.md         # HV board — detailed schematic
-│   ├── cheatsheet_mistakes.md        # Design rules & past mistakes log
-│   └── refs/                         # Datasheets
-├── firmware/                         # STM32G474 firmware (not started)
-├── host/                             # PC software — BecqMoni/shproto (not started)
+│   ├── adc_mcu_board.md              # Плата МК v1.6 — полная техническая документация
+│   ├── divider_board.md              # Плата делителя + AD8000
+│   ├── usb_power_board.md            # Плата USB/питания — обзор
+│   ├── usb_power_board_schematic.md  # Плата USB/питания — детальная схема
+│   ├── hv_board_schematic.md         # Плата ВВ — детальная схема
+│   ├── cheatsheet_mistakes.md        # Правила проверки и журнал прошлых ошибок
+│   └── refs/                         # Даташиты
+├── firmware/                         # Прошивка STM32G474 (этапы 1–2 на Nucleo работают)
+├── host/                             # ПО на PC — BecqMoni/shproto (не начато)
 ├── pcb/
-│   └── gamma_spectrometer/           # KiCad project (all 4 boards)
+│   └── gamma_spectrometer/           # Проект KiCad (все 4 платы)
 └── simulation/
-    ├── models/                       # SPICE models (opamp_g474, AD8000)
-    ├── scripts/                      # Python analysis scripts
-    ├── sim1_ad8000.cir               # AD8000 stability & bandwidth
-    ├── sim2_shaper.cir               # CR-RC² pulse shaper
-    └── sim3_noise.cir                # Full noise budget
+    ├── models/                       # SPICE-модели (opamp_g474, AD8000)
+    ├── scripts/                      # Python-скрипты анализа
+    ├── sim1_ad8000.cir               # Устойчивость и полоса AD8000
+    ├── sim2_shaper.cir               # Формирователь импульсов CR-RC²
+    └── sim3_noise.cir                # Полный бюджет шумов
 ```
 
 ---
 
-## Noise Budget (sim3)
+## Бюджет шумов (sim3)
 
-| Contribution | FWHM |
+| Вклад | FWHM |
 |---|---|
-| PMT R1307 + NaI(Tl) statistics | 6.3 % |
-| HV ripple (typical) | 0.3–0.5 % |
-| ADC nonlinearity (12-bit, ENOB ~10.5) | 0.1 % |
-| Electronics noise (σ = 94.4 µV rms) | **0.064 %** |
-| **Total** | **~6.32 %** |
+| Статистика ФЭУ R1307 + NaI(Tl) | 6.3 % |
+| Пульсации ВВ (типично) | 0.3–0.5 % |
+| Нелинейность АЦП (12-бит, ENOB ~10.5) | 0.1 % |
+| Шум электроники (σ = 94.4 мкВ rms) | **0.064 %** |
+| **Итого** | **~6.32 %** |
 
-Electronics noise is **two orders of magnitude below** PMT statistics — resolution is PMT-limited, not electronics-limited.
-
----
-
-## Protocol: shproto / AtomSpectra
-
-Compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) and [nanopro](https://github.com/Am6er/nanopro).
-
-- UART 600 000 bps, 8N1
-- Frame: `0xFE | CMD | PAYLOAD (byte-stuffed) | CRC16-MODBUS | 0xA5`
-- Cmd `0x01`: spectrum (up to 8192 × 32-bit channels)
-- Cmd `0x04`: status (elapsed ms, CPS, invalid pulses)
-- Keep-alive: `0xFF` from PC every ~1 s
+Шум электроники **на два порядка ниже** статистики ФЭУ — разрешение ограничено ФЭУ, а не электроникой.
 
 ---
 
-## License
+## Протокол: shproto / AtomSpectra
 
-Hardware design files (KiCad, LTspice) — [CERN OHL-S v2](https://ohwr.org/cern_ohl_s_v2.txt)  
-Software (firmware, host) — [MIT](https://opensource.org/licenses/MIT)
+Совместим с [BecqMoni](https://github.com/Am6er/BecqMoni) и [nanopro](https://github.com/Am6er/nanopro).
+
+- UART 600 000 бит/с, 8N1
+- Кадр: `0xFE | CMD | PAYLOAD (с байт-стаффингом) | CRC16-MODBUS | 0xA5`
+- Cmd `0x01`: спектр (до 8192 × 32-битных каналов)
+- Cmd `0x04`: статус (прошедшее время, CPS, число невалидных импульсов)
+- Keep-alive: `0xFF` от ПК каждую ~1 с
+
+---
+
+## Лицензия
+
+Файлы аппаратного дизайна (KiCad, LTspice) — [CERN OHL-S v2](https://ohwr.org/cern_ohl_s_v2.txt)  
+ПО (прошивка, host) — [MIT](https://opensource.org/licenses/MIT)
