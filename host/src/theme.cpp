@@ -41,7 +41,14 @@ void LoadFonts(ImGuiIO& io)
 {
     const char* SEGOE   = "C:\\Windows\\Fonts\\segoeui.ttf";
     const char* CONSOLA = "C:\\Windows\\Fonts\\consola.ttf";
-    const ImWchar* cyr = io.Fonts->GetGlyphRangesCyrillic();
+    static const ImWchar ranges[] = {
+        0x0020, 0x00FF,   // Latin + Latin-1 (² · ° ±)
+        0x0370, 0x03FF,   // греческий (Σ σ μ)
+        0x0400, 0x04FF,   // кириллица
+        0x2010, 0x2027,   // тире/кавычки (—)
+        0
+    };
+    const ImWchar* cyr = ranges;
 
     font_ui = io.Fonts->AddFontFromFileTTF(SEGOE, 15.0f, nullptr, cyr);
     if (!font_ui) {                       // нет системного шрифта — дефолт на всё (ASCII)

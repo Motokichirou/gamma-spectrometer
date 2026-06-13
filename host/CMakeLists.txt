@@ -50,6 +50,7 @@ target_link_libraries(implot PUBLIC imgui)
 add_executable(gamma_host WIN32
   src/main.cpp
   src/theme.cpp
+  src/device.cpp
   src/shproto.cpp
   src/serial_win.cpp)
 target_link_libraries(gamma_host PRIVATE
