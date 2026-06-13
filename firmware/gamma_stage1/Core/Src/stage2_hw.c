@@ -16,11 +16,12 @@
 #include "dsp.h"
 #include "pulsegen.h"
 #include "spectrum.h"
+#include "selftest.h"
 
 #define ADC_BUF_LEN     8192u    /* кольцевой буфер ADC, сэмплов */
 #define DAC_BASELINE    200u     /* DAC-коды покоя (≈160 мВ) */
-#define DSP_THRESHOLD   30u      /* порог детектора, ADC-коды */
-#define DSP_MIN_WIDTH   3u       /* сэмплов */
+#define DSP_THRESHOLD   45u      /* порог: 5 сигма шума железа (sigma~9 ADC-кодов) */
+#define DSP_MIN_WIDTH   8u       /* сэмплов (режет шумовые иглы и осколки фронта) */
 #define DSP_MAX_WIDTH   250u     /* сэмплов (~88 мкс @ 2.83 Мвыб/с) */
 #define DSP_FIT_M       8u       /* окно LSQ-фита = 17 точек (широкий пик этапа 2);
                                     боевая плата @4Мвыб/с: 3 (7 точек) */
@@ -41,6 +42,7 @@ static uint32_t last_rejected;
 /* ---- callback детектора: валидный импульс → гистограмма ---- */
 static void emit_cb(uint16_t amplitude_half_lsb)
 {
+    selftest_feed(amplitude_half_lsb);   /* статистика самотеста (если активна) */
     if (app_is_acquiring()) {
         /* dsp выдаёт амплитуду в половинах LSB = готовый канал 0..8190 */
         uint32_t ch = amplitude_half_lsb;

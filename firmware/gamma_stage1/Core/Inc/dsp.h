@@ -39,6 +39,8 @@ typedef struct {
     bool     in_pulse;
     bool     falling;
     bool     pileup;
+    bool     armed;          /* гистерезис: новый триггер только после спада < thr/2 */
+    int16_t  fall_min;       /* минимум спада (для детекта повторного роста) */
     uint16_t width;
     uint16_t prev_dev;
     int16_t  peak;

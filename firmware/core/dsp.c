@@ -22,6 +22,8 @@ void dsp_init(dsp_t *d, int8_t polarity, uint16_t threshold,
     d->in_pulse      = false;
     d->falling       = false;
     d->pileup        = false;
+    d->armed         = true;
+    d->fall_min      = 0;
     d->width         = 0;
     d->prev_dev      = 0;
     d->peak          = 0;
@@ -117,7 +119,7 @@ void dsp_process(dsp_t *d, const uint16_t *samples, size_t n)
         int32_t dev = pol * (s - (baseline_q8 >> 8));
 
         if (!d->in_pulse) {
-            if (dev > thr) {
+            if (d->armed && dev > thr) {
                 d->in_pulse = true;
                 d->falling  = false;
                 d->pileup   = false;
@@ -126,11 +128,16 @@ void dsp_process(dsp_t *d, const uint16_t *samples, size_t n)
                 d->imax     = 0;
                 d->buf_len  = 1;
                 d->buf[0]   = (int16_t)dev;
-                d->prev_dev = (uint16_t)dev;
-            } else if (dev > -thr) {
-                /* EMA только в коридоре ±threshold: ни импульсы, ни провалы
-                 * входа не утаскивают baseline */
-                baseline_q8 += ((s << 8) - baseline_q8) >> 8;
+            } else {
+                /* гистерезис: взвод триггера после спада ниже thr/2 —
+                 * хвост импульса + шум не рождают призрачных событий */
+                if (dev < thr / 2)
+                    d->armed = true;
+                if (dev > -thr && dev <= thr) {
+                    /* EMA только в коридоре: ни импульсы, ни провалы
+                     * входа не утаскивают baseline */
+                    baseline_q8 += ((s << 8) - baseline_q8) >> 8;
+                }
             }
         } else {
             d->width++;
@@ -139,27 +146,41 @@ void dsp_process(dsp_t *d, const uint16_t *samples, size_t n)
                 d->buf[d->buf_len] = (int16_t)((dev > -32768 && dev < 32767)
                                                ? dev : 0);
                 if (dev > (int32_t)d->peak) {
-                    if (d->falling)
-                        d->pileup = true;        /* рост после спада */
                     d->peak = (int16_t)dev;
                     d->imax = d->buf_len;
+                    if (!d->pileup)
+                        d->falling = false;   /* новый максимум = ещё растём */
                 }
                 d->buf_len++;
             }
 
-            if (!d->falling && dev < ((int32_t)d->peak * 3) / 4) {
-                d->falling = true;
-            } else if (d->falling &&
-                       dev > (int32_t)d->prev_dev + thr &&
-                       dev > ((int32_t)d->peak * 3) / 5) {
-                d->pileup = true;                /* повторный рост на хвосте */
+            /* ретриггер-логика только для развитого пика (>=2*thr):
+             * иначе шум на раннем подъёме даёт ложный pile-up */
+            if ((int32_t)d->peak >= 2 * thr) {
+                if (!d->falling && dev < ((int32_t)d->peak * 3) / 4) {
+                    d->falling  = true;
+                    d->fall_min = (int16_t)dev;
+                } else if (d->falling) {
+                    if (dev < (int32_t)d->fall_min) {
+                        d->fall_min = (int16_t)dev;
+                    } else {
+                        int32_t rise_thr = thr;
+                        if ((int32_t)d->peak / 4 > rise_thr)
+                            rise_thr = (int32_t)d->peak / 4;
+                        if (dev > (int32_t)d->fall_min + rise_thr &&
+                            dev > ((int32_t)d->peak * 3) / 5)
+                            d->pileup = true;   /* повторный рост от минимума спада */
+                    }
+                }
             }
 
             if (d->width > d->max_width) {
                 d->in_pulse = false;
+                d->armed    = false;
                 d->rejected++;
             } else if (dev < thr) {
                 d->in_pulse = false;
+                d->armed    = false;   /* взвод — только после спада < thr/2 */
                 if (!d->pileup && d->width >= d->min_width) {
                     d->accepted++;
                     if (d->emit)
@@ -168,8 +189,6 @@ void dsp_process(dsp_t *d, const uint16_t *samples, size_t n)
                     d->rejected++;
                 }
             }
-
-            d->prev_dev = (dev > 0) ? (uint16_t)dev : 0u;
         }
     }
 

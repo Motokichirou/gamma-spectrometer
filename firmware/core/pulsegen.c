@@ -113,6 +113,22 @@ static uint32_t mean_period;
 static uint16_t baseline;
 static uint32_t rng_state = 0xC0FFEE42u;
 
+static volatile pg_mode_t cur_mode = PG_SPECTRUM;
+static volatile uint16_t  mono_amp;
+static volatile uint32_t  mono_period;
+
+void pulsegen_set_mode(pg_mode_t mode, uint16_t amp, uint32_t period_us)
+{
+    mono_amp    = amp;
+    mono_period = (period_us >= 60u) ? period_us : 60u;
+    cur_mode    = mode;
+}
+
+pg_mode_t pulsegen_mode(void)
+{
+    return cur_mode;
+}
+
 static uint32_t rng(void)
 {
     rng_state = rng_state * 1664525u + 1013904223u;
@@ -151,7 +167,12 @@ static uint16_t next_amplitude(void)
 
 uint16_t pulsegen_fill(uint32_t *table)
 {
-    uint16_t amp = next_amplitude();
+    uint16_t amp;
+    switch (cur_mode) {
+    case PG_SPECTRUM: amp = next_amplitude(); break;
+    case PG_MONO:     amp = mono_amp;         break;
+    default:          return 0;               /* OFF */
+    }
     for (uint32_t k = 0; k < PULSEGEN_TABLE_LEN; k++) {
         uint32_t v = baseline + (uint32_t)(shape[k] * (float)amp + 0.5f);
         table[k] = (v > 4095u) ? 4095u : v;
@@ -161,6 +182,10 @@ uint16_t pulsegen_fill(uint32_t *table)
 
 uint32_t pulsegen_next_delay_us(void)
 {
+    if (cur_mode == PG_MONO)
+        return mono_period;          /* фиксированный период: без наложений */
+    if (cur_mode == PG_OFF)
+        return 1000u;                /* холостой тик */
     float d = -(float)mean_period * logf(rng_uf());
     if (d < 60.0f) d = 60.0f;         /* импульс 48 мкс + возврат к baseline */
     if (d > 60000.0f) d = 60000.0f;

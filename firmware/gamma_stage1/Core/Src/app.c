@@ -11,6 +11,7 @@
 #include "app.h"
 #include "shproto.h"
 #include "spectrum.h"
+#include "selftest.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -43,6 +44,11 @@ static void send_frame(uint8_t cmd, const uint8_t *pl, size_t len)
 static void send_text(const char *s)
 {
     send_frame(SHPROTO_CMD_TEXT, (const uint8_t *)s, strlen(s));
+}
+
+void app_send_text(const char *s)
+{
+    send_text(s);
 }
 
 static void put_u16le(uint8_t *p, uint16_t v)
@@ -115,6 +121,8 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         snprintf(info, sizeof(info), "GammaSpec v0.1 rise 8 fall 8 T1 %d.%d freq 8000000",
                  t10 / 10, frac);
         send_text(info);
+    } else if (strncmp(cmd, "-tst", 4) == 0) {
+        selftest_command(cmd + 4);
     } else if (strncmp(cmd, "-cal", 4) == 0) {
         /* Проверка статуса BecqMoni (TestSerialNumber): ОДИН текстовый кадр,
          * split("\r\n").Length > 2, предпоследняя строка = серийный номер */
@@ -155,6 +163,7 @@ void app_init(void)
 {
     shproto_rx_init(&rx);
     spectrum_clear();
+    selftest_init();
     acquiring       = false;
     t_last_send_ms  = app_port_millis();
     t_last_gen_ms   = t_last_send_ms;
@@ -179,6 +188,7 @@ void app_poll(void)
 
     /* источник событий (синтетика по умолчанию / DAC+ADC+DSP на этапе 2) */
     app_source_poll(now);
+    selftest_poll(now);
 
     /* раз в секунду: полный спектр + статус (статус — триггер отрисовки) */
     if ((now - t_last_send_ms) >= SEND_PERIOD_MS) {

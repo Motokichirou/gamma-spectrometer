@@ -25,6 +25,9 @@ void app_count_invalid(uint32_t n);     /* отбракованные (поле 
  * синтетический генератор этапа 1. Этап 2 (stage2_hw.c) переопределяет. */
 void app_source_poll(uint32_t now_ms);
 
+/* Отправить текстовый кадр (cmd=0x03) — для отчётов самотеста и т.п. */
+void app_send_text(const char *s);
+
 /* === порт: реализуется в main.c === */
 void     app_port_uart_send(const uint8_t *data, size_t n);  /* блокирующая отправка */
 uint32_t app_port_millis(void);                               /* HAL_GetTick() */
