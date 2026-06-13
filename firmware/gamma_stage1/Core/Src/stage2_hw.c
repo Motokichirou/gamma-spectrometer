@@ -20,7 +20,7 @@
 
 #define ADC_BUF_LEN     8192u    /* кольцевой буфер ADC, сэмплов */
 #define DAC_BASELINE    200u     /* DAC-коды покоя (≈160 мВ) */
-#define DSP_THRESHOLD   45u      /* порог: 5 сигма шума железа (sigma~9 ADC-кодов) */
+#define DSP_THRESHOLD   25u      /* 50 каналов (≈2.8σ) — оптимум на петле Nucleo; меняется -thr */
 #define DSP_MIN_WIDTH   8u       /* сэмплов (режет шумовые иглы и осколки фронта) */
 #define DSP_MAX_WIDTH   250u     /* сэмплов (~88 мкс @ 2.83 Мвыб/с) */
 #define DSP_FIT_M       8u       /* окно LSQ-фита = 17 точек (широкий пик этапа 2);

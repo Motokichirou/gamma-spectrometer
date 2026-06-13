@@ -30,7 +30,7 @@ public:
     uint32_t elapsed_s = 0, cps = 0, invalid = 0;
     uint32_t crc_err = 0;
     bool acquiring = false;
-    int  threshold_ch = 90;   // порог DSP, каналов (команда -thr)
+    int  threshold_ch = 50;   // порог DSP, каналов (команда -thr); дефолт прошивки
 
     // идентификация (из -inf / -cal)
     std::string fw_info;     // строка ответа -inf
