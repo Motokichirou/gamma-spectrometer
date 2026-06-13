@@ -51,8 +51,17 @@ Notes:
 | `-sto` | Stop acquisition |
 | `-rst` | Reset the spectrum |
 | `-inf` | Report device info |
-| `-cal` | Report calibration / serial (used for the connection check) |
+| `-cal` | Energy calibration in BecqMoni format (see below); a bare `-cal` also serves as the connection check |
+| `-cal <i> <hex>` | Write calibration word `i` (0..10), replies `-ok` |
 | `-tst …` | Built-in self-test (see [firmware.md](firmware.md)) |
+| `-thr <channels>` | DSP threshold in channels (no argument = query); replies `-ok thr <channels>` |
+| `-wcal <order> <c0..cN>` | Write the energy calibration in human-readable form (our format), `order = 1..4` |
+| `-rcal` | Read the calibration in our format: `CAL: <order> c0 c1 …\r\n<serial>\r\n` |
+| `-calclr` | Erase the stored calibration |
+
+> `-thr`/`-wcal`/`-rcal`/`-calclr` are **application-level** commands of our device and
+> the `gammapult` service tool. They do not change the shproto frame format. `-cal` is
+> BecqMoni-compatible (see below).
 
 ## BecqMoni connection handshake
 
@@ -67,3 +76,47 @@ A couple of BecqMoni behaviors that the firmware must satisfy:
   device tab.
 
 A reference host implementation lives in `firmware/tools/becqmoni_sim.py`.
+
+## BecqMoni energy calibration (`-cal`)
+
+BecqMoni can read and write the energy calibration (channel→keV polynomial) directly
+to the device. The protocol was recovered by reversing the real exchange and is
+implemented in firmware (`cal_store.c`) — the "Write to device" / "Read from device"
+buttons work.
+
+**Calibration model:** five IEEE-754 `double` coefficients `c0..c4`,
+`E(ch) = c0 + c1·ch + c2·ch² + c3·ch³ + c4·ch⁴`.
+
+**Write** ("Write to device") — 11 `-cal <i> <hex32>` commands, `i = 0..10`, each
+expecting an `-ok` reply:
+
+| Words | Content |
+|---|---|
+| `0,1` | `c0` as a double: even word = high 32 bits, odd word = low 32 bits (big-endian) |
+| `2,3` | `c1` |
+| `4,5` | `c2` |
+| `6,7` | `c3` |
+| `8,9` | `c4` |
+| `10` | checksum |
+
+Reconstruct the double as `u64 = (word[2k] << 32) | word[2k+1]`, then reinterpret the
+bits as `double`.
+
+**Checksum (word 10):** standard **CRC-32** (polynomial `0x04C11DB7`, reflected
+`0xEDB88320`, `init = xorout = 0xFFFFFFFF` — plain zip / `zlib.crc32`), computed over the
+**ASCII string** of words `0..9` formatted as `%08X` (uppercase, 8 digits, no separators —
+80 characters total).
+
+**Read** ("Read from device") — the same bare `-cal`. The device replies with 11 `%08X`
+lines (words 0..10) followed by the serial line:
+
+```
+40240000\r\n00000000\r\n3FE00000\r\n…\r\n<CRC32>\r\nGS474-0001\r\n
+```
+
+BecqMoni parses the 11 words and verifies the CRC-32. The serial is the second-to-last
+line, so the same reply also satisfies the connection check.
+
+> ⚠ If the device holds a calibration with a bad CRC, BecqMoni throws during its
+> pre-read and closes the port. The firmware stores the words verbatim (BecqMoni write)
+> or computes the CRC itself (`-wcal`), so the checksum is always valid.

@@ -40,7 +40,7 @@ bool Device::connect(const std::string& port)
     // идентификация
     send_cmd("-sto");
     send_cmd("-inf");
-    send_cmd("-cal");
+    send_cmd("-rcal");  // наш читаемый формат: "CAL: order c.." + серийник (голый -cal — формат BecqMoni)
     send_cmd("-thr");   // запрос текущего порога (без аргумента = только чтение)
     return true;
 }

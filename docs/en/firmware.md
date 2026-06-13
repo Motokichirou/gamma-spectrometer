@@ -22,10 +22,17 @@ MCU board:
 | `dsp.c/.h` | Pulse detector: baseline tracker, pile-up rejection, quadratic LSQ peak fit |
 | `pulsegen.c/.h` | Test-pulse generator (built-in self-test source) |
 | `selftest.c/.h` | ENC / linearity self-test FSM |
-| `app.c/.h` | Command handling (`-sta/-sto/-rst/-inf/-cal/-tst`) and 1 Hz spectrum + status |
+| `app.c/.h` | Command handling (`-sta/-sto/-rst/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst`) and 1 Hz spectrum + status |
 
 The core talks to hardware through a few port functions (`app_port_uart_send`,
 `app_port_millis`, …) implemented in the board-specific glue.
+
+**Energy calibration** is stored in internal flash (`cal_store.c`, the last 2 KB page,
+Bank2 page 127 dual-bank = `0x0807F800`, magic + CRC16) and **survives a reboot**. It
+keeps the 11 raw BecqMoni-format words; the `-cal`/CRC-32 protocol is described in
+[protocol.md](protocol.md). It can be written from BecqMoni ("Write to device") or by our
+tool (`-wcal`); read back via `-cal` (BecqMoni format) or `-rcal` (our format). On stage 1
+(no flash) the calibration hooks are empty stubs.
 
 ## Development stages
 

@@ -16,7 +16,7 @@
 
 Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal and Hamamatsu R1307 PMT, with a USB-C interface compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (shproto protocol).
 
-> 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [simulations](docs/en/simulations.md)
+> 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md) · [simulations](docs/en/simulations.md)
 
 ---
 
@@ -105,8 +105,8 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | LTspice sim3: noise budget | ✅ Done (σ=94.4 µV rms, 0.31 ch rms) |
 | BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 79 R / 28 MPN, all active) |
 | PCB layout — all boards | 🔲 Not started |
-| STM32 firmware | 🚧 Stages 1–2 + self-test running on Nucleo (shproto, real histogram); stage 3 on the target board |
-| Host software (BecqMoni compat.) | 🔲 Not started |
+| STM32 firmware | 🚧 Stages 1–2 + self-test + energy calibration in flash running on Nucleo (shproto, real histogram); stage 3 on the target board |
+| Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
 
 ---
 
@@ -124,7 +124,7 @@ gamma-spectrometer/
 │   ├── cheatsheet_mistakes.md        # Design rules & past mistakes log
 │   └── refs/                         # Datasheets
 ├── firmware/                         # STM32G474 firmware (stages 1–2 run on Nucleo)
-├── host/                             # PC software — BecqMoni/shproto (not started)
+├── host/                             # PC software `gammapult` (Win32/ImGui, GUI + CLI)
 ├── pcb/
 │   └── gamma_spectrometer/           # KiCad project (all 4 boards)
 └── simulation/

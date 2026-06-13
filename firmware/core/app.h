@@ -36,6 +36,13 @@ int app_set_threshold_ch(int channels);
 int app_cal_write(int order, const double *coef);
 int app_cal_read(int *order, double *coef);
 
+/* Протокол энергокалибровки BecqMoni: 11 «сырых» 32-битных слов.
+ * stage_word — приём одного слова `-cal <i> <hex>` (копится, шьётся по приходу
+ * всех 11). read_words — отдать сохранённые 11 слов (1=есть валидные). */
+int app_cal_stage_word(int idx, uint32_t word);
+int app_cal_read_words(uint32_t w[11]);
+int app_cal_clear(void);      /* стереть сохранённую калибровку (1=успех) */
+
 /* Отправить текстовый кадр (cmd=0x03) — для отчётов самотеста и т.п. */
 void app_send_text(const char *s);
 

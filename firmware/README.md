@@ -4,9 +4,13 @@
 
 | Этап | Железо | Цель | Статус |
 |---|---|---|---|
-| **1** | Nucleo-G474RE | shproto через VCP → BecqMoni рисует тестовый спектр | 🔧 в работе |
-| 2 | Nucleo-G474RE | DAC→ADC петля: синтетические импульсы, peak detect, реальная гистограмма | — |
-| 3 | Боевая MCU board | OPAMP-шейпер, реальные импульсы, HV, Pt1000-термокомпенсация | — |
+| **1** | Nucleo-G474RE | shproto через VCP → BecqMoni рисует тестовый спектр | ✅ работает |
+| **2** | Nucleo-G474RE | DAC→ADC петля: синтетические импульсы, peak detect, реальная гистограмма | ✅ работает |
+| 3 | Боевая MCU board | OPAMP-шейпер, реальные импульсы, HV, Pt1000-термокомпенсация | ⏳ ждёт железа |
+
+Дополнительно реализованы: подсистема самотеста (`-tst`), настраиваемый порог DSP
+(`-thr`) и энергокалибровка во flash (`-cal`/`-rcal`/`-wcal`, совместимая с BecqMoni —
+см. [docs/ru/protocol.md](../docs/ru/protocol.md)).
 
 ## Структура
 
@@ -14,16 +18,22 @@
 firmware/
 ├── core/                 # Переносимые модули (без HAL — компилируются где угодно)
 │   ├── shproto.h/.c      # Протокол BecqMoni: CRC16 MODBUS, стаффинг, парсер, билдер
-│   ├── spectrum.h/.c     # Гистограмма 8192 + тестовый генератор (Cs-137 + Am-241 + фон)
-│   └── app.h/.c          # Логика: -sta/-sto/-rst/-inf, отправка спектра+статуса 1 Гц
+│   ├── spectrum.h/.c     # Гистограмма 8192
+│   ├── dsp.h/.c          # Детектор импульсов: baseline, pile-up, LSQ-фит вершины
+│   ├── pulsegen.h/.c     # Генератор тест-импульсов (источник самотеста)
+│   ├── selftest.h/.c     # FSM самотеста ENC / линейности
+│   └── app.h/.c          # Команды (-sta/-sto/-rst/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst) + спектр/статус 1 Гц
+├── gamma_stage1/         # Проект CubeIDE (Nucleo): клей HAL, stage2_hw.c (DAC/ADC/DSP), cal_store.c (flash)
 ├── nucleo_stage1/
 │   └── main_glue.c       # Шаблон интеграции в CubeMX-проект (копировать в USER CODE)
+├── tools/                # becqmoni_sim.py, flash_stage1.cmd
 └── README.md
 ```
 
-`core/` не зависит от HAL — связь с железом через 3 функции-порта (`app_port_uart_send`,
-`app_port_millis`, `app_port_temperature_c`), которые реализуются в main.c.
-Этот же код без изменений поедет на боевую плату.
+`core/` не зависит от HAL — связь с железом через функции-порты (`app_port_uart_send`,
+`app_port_millis`, `app_port_temperature_c`), которые реализуются в main.c. Слабые хуки
+калибровки переопределяются в `cal_store.c`. Этот же код без изменений поедет на боевую
+плату.
 
 ## Этап 1 — пошаговая инструкция
 
@@ -74,15 +84,21 @@ Build (молоток) → Run (зелёная стрелка). Прошивае
 Стаффинг: 0xFE/0xFD/0xA5 внутри кадра → 0xFD + ~байт
 CRC16 MODBUS (init 0xFFFF, poly 0xA001) по нестаффленным CMD+PAYLOAD
 CMD: 0x01 спектр [offset u16][ch u32 ×N]; 0x03 текст; 0x04 статус (триггер отрисовки!)
-Статус: [elapsed_ms u32][cpu_load u16][cps u32][invalid u32]
+Статус: [elapsed_СЕК u32][cpu_load u16][cps u32][invalid u32]  (elapsed в СЕКУНДАХ!)
 ```
 
 Полная спецификация: `docs/session_context.md` → «Протокол shproto».
 
-## Дальше (этап 2)
+## Этап 2 — выполнено ✅
 
-- DAC1 (PA4) генерирует ступеньки → внешняя RC → ADC1 ловит
-- DMA ADC 4 Мвыб/с, кольцевой буфер
-- Peak detector: baseline, FindPeakNegative, pile-up rejection
-- Замена `spectrum_test_accumulate()` на реальные события
-- Архитектура DSP и термокомпенсация: `docs/adc_mcu_board.md` раздел 8
+Петля DAC→ADC замкнута целиком на кристалле Nucleo (перемычка PA4/A2 → PA0/A0):
+TIM7 (пуассон) → DAC1+DMA (форма CR-RC²) → ADC1 circular DMA @2.83 Мвыб/с → DSP
+(`dsp.c`: baseline, pile-up, LSQ-фит вершины) → гистограмма. Подробности и архитектура
+термокомпенсации — в [docs/ru/firmware.md](../docs/ru/firmware.md) и
+`docs/adc_mcu_board.md` (раздел 8).
+
+## Дальше (этап 3)
+
+- Перенос на боевую MCU board: внутренние OPAMP-шейпер CR-RC², реальные импульсы ФЭУ.
+- Термокомпенсация по Pt1000 (g(T)), управление ВВ.
+- Сервисное ПО `gammapult` (см. [host/README.md](../host/README.md)).

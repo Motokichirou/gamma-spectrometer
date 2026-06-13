@@ -850,7 +850,7 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
         for (int i = 0; i <= g_cal_order && i < 5; i++)
             o += snprintf(c + o, sizeof(c) - (size_t)o, " %.9e", g_cal_c[i]);
         g_dev.send_cmd(c);
-        g_dev.send_cmd("-cal");   // читаем обратно для подтверждения (в консоль)
+        g_dev.send_cmd("-rcal");  // читаем обратно для подтверждения (в консоль)
     }
     ImGui::EndDisabled();
 

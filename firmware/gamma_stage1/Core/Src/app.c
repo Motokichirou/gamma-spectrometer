@@ -140,9 +140,9 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         while (n < 5) { double v = strtod(p, &end); if (end == p) break; c[n++] = v; p = end; }
         int ok = (order >= 1 && order <= 4 && n >= order + 1) ? app_cal_write(order, c) : 0;
         send_text(ok ? "-ok cal" : "-err cal");
-    } else if (strncmp(cmd, "-cal", 4) == 0) {
-        /* Проверка статуса BecqMoni: split("\r\n").Length>2, предпоследняя=серийник.
-         * Если есть сохранённая калибровка — выдаём коэффициенты строкой "CAL: <order> ..". */
+    } else if (strncmp(cmd, "-rcal", 5) == 0) {
+        /* Читаемый формат для НАШЕГО сервисного тула (gammapult), не для BecqMoni:
+         * "CAL: <order> c0 c1 ..\r\n<серийник>\r\n" либо "CAL: none\r\n..". */
         char r[160];
         int order; double c[5];
         if (app_cal_read(&order, c)) {
@@ -154,6 +154,48 @@ static void handle_text(const uint8_t *pl, uint16_t len)
             snprintf(r, sizeof r, "CAL: none\r\n" APP_SERIAL "\r\n");
         }
         send_text(r);
+    } else if (strncmp(cmd, "-calclr", 7) == 0) {
+        send_text(app_cal_clear() ? "-ok cal cleared" : "-err cal");
+    } else if (strncmp(cmd, "-cal", 4) == 0) {
+        /* Протокол энергокалибровки BecqMoni:
+         *  - голый "-cal"     : проверка связи И «Читать с устройства» (одна команда).
+         *                       split("\r\n").Length>2, предпоследняя строка = серийник.
+         *                       Если калибровка есть — отдаём 11 слов (по строке) + серийник.
+         *  - "-cal <i> <hex>" : запись слова i (0..10), ответ "-ok".
+         *  - "-cal <i>"       : чтение одного слова i в hex. */
+        const char *p = cmd + 4;
+        while (*p == ' ') p++;
+        if (*p == '\0') {
+            char r[200];
+            uint32_t w[11];
+            if (app_cal_read_words(w)) {
+                int o = 0;
+                for (int i = 0; i < 11; i++)
+                    o += snprintf(r + o, sizeof(r) - (size_t)o, "%08lX\r\n",
+                                  (unsigned long)w[i]);
+                snprintf(r + o, sizeof(r) - (size_t)o, APP_SERIAL "\r\n");
+            } else {
+                snprintf(r, sizeof r, "CAL: none\r\n" APP_SERIAL "\r\n");
+            }
+            send_text(r);
+        } else {
+            char *end;
+            long idx = strtol(p, &end, 10);
+            while (*end == ' ') end++;
+            if (idx < 0 || idx > 10) {
+                send_text("-err cal");
+            } else if (*end != '\0') {
+                uint32_t word = (uint32_t)strtoul(end, NULL, 16);
+                app_cal_stage_word((int)idx, word);
+                send_text("-ok");
+            } else {
+                uint32_t w[11];
+                char r[16];
+                snprintf(r, sizeof r, "%08lX",
+                         app_cal_read_words(w) ? (unsigned long)w[idx] : 0UL);
+                send_text(r);
+            }
+        }
     }
     /* незнакомые команды молча игнорируем (этап 1) */
 }
@@ -200,6 +242,18 @@ __attribute__((weak)) int app_cal_write(int order, const double *coef)
 __attribute__((weak)) int app_cal_read(int *order, double *coef)
 {
     (void)order; (void)coef; return 0;
+}
+__attribute__((weak)) int app_cal_stage_word(int idx, uint32_t word)
+{
+    (void)idx; (void)word; return 0;
+}
+__attribute__((weak)) int app_cal_read_words(uint32_t w[11])
+{
+    (void)w; return 0;
+}
+__attribute__((weak)) int app_cal_clear(void)
+{
+    return 0;
 }
 
 /* ---- публичный API -------------------------------------------------------- */
