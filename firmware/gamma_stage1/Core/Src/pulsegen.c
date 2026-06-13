@@ -108,6 +108,16 @@ static const uint16_t invcdf[INVCDF_LEN] = {
     1980, 2263, 2662, 4072,
 };
 
+#include "invcdf_ra.h"   /* invcdf_ra[1024] — Ra-226, сгенерировано из радий.xml */
+
+/* активный распределитель амплитуд для PG_SPECTRUM (Cs по умолчанию) */
+static const uint16_t * volatile active_cdf = invcdf;
+
+void pulsegen_set_spectrum(uint8_t which)
+{
+    active_cdf = which ? invcdf_ra : invcdf;
+}
+
 static float    shape[PULSEGEN_TABLE_LEN];
 static uint32_t mean_period;
 static uint16_t baseline;
@@ -160,8 +170,9 @@ static uint16_t next_amplitude(void)
     uint32_t r = rng();
     uint32_t idx = (r >> 16) % (INVCDF_LEN - 1u);
     uint32_t frac = r & 0xFFFFu;
-    uint32_t a = invcdf[idx];
-    uint32_t b = invcdf[idx + 1u];
+    const uint16_t *t = active_cdf;
+    uint32_t a = t[idx];
+    uint32_t b = t[idx + 1u];
     return (uint16_t)(a + (((b - a) * frac) >> 16));
 }
 

@@ -152,6 +152,14 @@ bool selftest_command(const char *args)
         return true;
     }
     if (strncmp(args, "spec", 4) == 0) {
+        pulsegen_set_spectrum(0);          /* Cs-137 (черника) */
+        pulsegen_set_mode(PG_SPECTRUM, 0, 0);
+        st.active = false;
+        app_send_text("-ok");
+        return true;
+    }
+    if (strncmp(args, "ra", 2) == 0) {
+        pulsegen_set_spectrum(1);          /* Ra-226 (радий.xml) */
         pulsegen_set_mode(PG_SPECTRUM, 0, 0);
         st.active = false;
         app_send_text("-ok");

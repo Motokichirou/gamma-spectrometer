@@ -461,7 +461,7 @@ static void PanelConsole(ImVec2 pos, ImVec2 size)
     PanelHeader("КОНСОЛЬ · shproto");
 
     const char* chips[] = { "-sta", "-sto", "-rst", "-inf", "-cal",
-                            "-tst spec", "-tst off", "-tst enc" };
+                            "-tst spec", "-tst ra", "-tst off", "-tst enc" };
     ImGui::PushFont(font_small);
     for (int i = 0; i < (int)(sizeof(chips) / sizeof(chips[0])); i++) {
         if (i) ImGui::SameLine();
@@ -517,6 +517,7 @@ static void PanelSelftest(ImVec2 pos, ImVec2 size)
 
     Caption("Тест-генератор");
     if (ImGui::Button("spec"))  g_dev.send_cmd("-tst spec");
+    ImGui::SameLine(); if (ImGui::Button("ra"))   g_dev.send_cmd("-tst ra");
     ImGui::SameLine(); if (ImGui::Button("off"))  g_dev.send_cmd("-tst off");
     ImGui::SameLine(); if (ImGui::Button("stat")) g_dev.send_cmd("-tst stat");
     ImGui::Separator();

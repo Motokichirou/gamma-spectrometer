@@ -23,6 +23,10 @@ void pulsegen_init(uint32_t mean_period_us, uint16_t dac_baseline);
 void pulsegen_set_mode(pg_mode_t mode, uint16_t mono_amp, uint32_t mono_period_us);
 pg_mode_t pulsegen_mode(void);
 
+/* Распределение амплитуд для PG_SPECTRUM: 0 = Cs-137 (черника), 1 = Ra-226
+ * (радий.xml). По умолчанию 0. Указатель меняется атомарно (Cortex-M4). */
+void pulsegen_set_spectrum(uint8_t which);
+
 /* Заполнить таблицу очередного импульса (масштабированная форма + baseline).
  * Возвращает амплитуду в DAC-кодах; 0 = режим OFF, не стрелять. */
 uint16_t pulsegen_fill(uint32_t *table);  /* uint32: DAC DHR на AHB2 требует 32-битных DMA-записей */
