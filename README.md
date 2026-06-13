@@ -1,6 +1,22 @@
-# Гамма-спектрометр на NaI(Tl)
+<h1 align="center">Гамма-спектрометр на NaI(Tl)</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/MCU-STM32G474-blue" alt="MCU">
+  <img src="https://img.shields.io/badge/детектор-NaI(Tl)%20%C3%9863%C3%9763-green" alt="Detector">
+  <img src="https://img.shields.io/badge/ФЭУ-Hamamatsu%20R1307-green" alt="PMT">
+  <img src="https://img.shields.io/badge/протокол-shproto-orange" alt="Protocol">
+  <img src="https://img.shields.io/badge/статус-в%20разработке-yellow" alt="Status">
+  <img src="https://img.shields.io/badge/HW-CERN--OHL--S--2.0-lightgrey" alt="HW License">
+  <img src="https://img.shields.io/badge/SW-MIT-lightgrey" alt="SW License">
+</p>
+
+<!-- README-I18N:START -->
+<p align="center"><b>Русский</b> | <a href="./README.en.md">English</a></p>
+<!-- README-I18N:END -->
 
 Портативный цилиндрический гамма-спектрометр на кристалле NaI(Tl) Ø63×63 мм и ФЭУ Hamamatsu R1307, с интерфейсом USB-C, совместимым с [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (протокол shproto).
+
+> 📚 **Документация:** [обзор аппаратной части](docs/en/hardware.md) · [прошивка](docs/en/firmware.md) · [протокол shproto](docs/en/protocol.md) · [симуляции](docs/en/simulations.md) (англ.)
 
 ---
 
