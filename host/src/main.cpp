@@ -58,6 +58,8 @@ static std::vector<CalPoint> g_cal;
 static bool   g_calib_active = false;
 static int    g_cal_isotope  = 0;
 static bool   g_cal_fitted   = false;
+static int    g_cal_order    = 2;       // степень полинома 1..4 (как PolynomialOrder в BecqMoni)
+static bool   g_cal_valid    = false;   // прошла ли проверка монотонности (BecqMoni CheckCalibration)
 static double g_cal_c[5]     = { 0, 0, 0, 0, 0 };   // c0..c4: E = Σ cᵢ·chⁱ (сырые каналы)
 static double g_cal_maxres   = 0.0;
 static bool   g_sel_active   = false;
@@ -196,7 +198,22 @@ static double FindCentroid(double cx0, double cx1)
     return den > 0 ? num / den : (double)(a + b) / 2.0;
 }
 
-// МНК-фит полинома 4-го порядка E(ch)=Σcᵢ·chⁱ. Фитим в нормированной
+// Проверка валидности (порт BecqMoni CheckCalibration): энергия должна монотонно
+// возрастать по каналам 0..N и лежать в пределах [-1000, 100000] кэВ.
+static bool CheckCalibration()
+{
+    double prev = -1.0e18;
+    for (int ch = 0; ch <= Device::CHANNELS; ch++) {
+        double d = (double)ch;
+        double e = g_cal_c[0] + d * (g_cal_c[1] + d * (g_cal_c[2] + d * (g_cal_c[3] + d * g_cal_c[4])));
+        if (e <= -1000.0 || e >= 100000.0) return false;
+        if (ch > 0 && e < prev) return false;
+        prev = e;
+    }
+    return true;
+}
+
+// МНК-фит полинома выбранной степени E(ch)=Σcᵢ·chⁱ. Фитим в нормированной
 // переменной xn=ch/CHANNELS (обусловленность), затем cᵢ = aᵢ / CHANNELSⁱ.
 static void FitCalibration()
 {
@@ -206,7 +223,7 @@ static void FitCalibration()
     g_cal_fitted = false;
     if (n < 2) return;
 
-    int deg = 4; if (deg > n - 1) deg = n - 1;
+    int deg = g_cal_order; if (deg > n - 1) deg = n - 1; if (deg < 1) deg = 1;
     int m = deg + 1;
     const double S = (double)Device::CHANNELS;
     double A[5][6];
@@ -240,6 +257,7 @@ static void FitCalibration()
         if (d > g_cal_maxres) g_cal_maxres = d;
     }
     g_cal_fitted = true;
+    g_cal_valid  = CheckCalibration();
 }
 
 // ================= панели =================
@@ -785,6 +803,11 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
         if (to_remove >= 0) { g_cal.erase(g_cal.begin() + to_remove); g_cal_fitted = false; }
     }
 
+    ImGui::SetNextItemWidth(150);
+    const char* orders[] = { "1 — линейный", "2 — квадратичный", "3 — кубический", "4 — 4-й порядок" };
+    int oi = g_cal_order - 1;
+    if (ImGui::Combo("Порядок", &oi, orders, 4)) { g_cal_order = oi + 1; g_cal_fitted = false; }
+
     if (PrimaryButton("Выполнить калибровку")) FitCalibration();
     ImGui::SameLine();
     if (ImGui::Button("Очистить")) { g_cal.clear(); g_cal_fitted = false; }
@@ -806,14 +829,26 @@ static void PanelCalibration(ImVec2 pos, ImVec2 size)
     }
     ImGui::PopFont();
 
-    bool can_write = g_cal_fitted &&
+    if (g_cal_fitted) {
+        if (g_cal_valid) {
+            ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
+            ImGui::TextUnformatted("калибровка валидна (монотонна)");
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, c_danger);
+            ImGui::TextWrapped("НЕ валидна: немонотонна — понизь порядок или добавь точки");
+        }
+        ImGui::PopStyleColor();
+    }
+
+    bool can_write = g_cal_fitted && g_cal_valid &&
                      (g_dev.state == Device::State::Connected ||
                       g_dev.state == Device::State::Acquiring);
     ImGui::BeginDisabled(!can_write);
     if (ImGui::Button("Записать в прибор", ImVec2(-1, 0))) {
-        char c[200];
-        snprintf(c, sizeof c, "-wcal 4 %.9e %.9e %.9e %.9e %.9e",
-                 g_cal_c[0], g_cal_c[1], g_cal_c[2], g_cal_c[3], g_cal_c[4]);
+        char c[220];
+        int o = snprintf(c, sizeof c, "-wcal %d", g_cal_order);
+        for (int i = 0; i <= g_cal_order && i < 5; i++)
+            o += snprintf(c + o, sizeof(c) - (size_t)o, " %.9e", g_cal_c[i]);
         g_dev.send_cmd(c);
         g_dev.send_cmd("-cal");   // читаем обратно для подтверждения (в консоль)
     }
