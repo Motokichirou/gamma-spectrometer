@@ -11,6 +11,8 @@
 #include <tchar.h>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
+#include <vector>
 
 #include "device.h"
 #include "theme.h"
@@ -37,6 +39,29 @@ static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
 static bool   g_open_help = false;
 static float  gLeftW = 300.0f, gRightW = 340.0f, gConnH = 276.0f, gConsoleH = 190.0f;
+static float  gTeleH = 170.0f;
+
+// калибровка энергий (канал → кэВ)
+struct CalPoint { double energy = 0.0; double channel = 0.0; bool has_ch = false; };
+struct Isotope  { const char* name; int n; double e[8]; };
+static const Isotope ISOTOPES[] = {
+    { "— нет —", 0, { 0 } },
+    { "Am-241",  1, { 59.5 } },
+    { "Cs-137",  1, { 661.7 } },
+    { "Co-60",   2, { 1173.2, 1332.5 } },
+    { "Lu-176",  3, { 88.0, 201.8, 306.8 } },
+    { "Ra-226",  5, { 186.2, 295.2, 351.9, 609.3, 1120.3 } },
+    { "Th-232",  5, { 238.6, 338.3, 583.2, 911.2, 2614.5 } },
+};
+static const int N_ISO = (int)(sizeof(ISOTOPES) / sizeof(ISOTOPES[0]));
+static std::vector<CalPoint> g_cal;
+static bool   g_calib_active = false;
+static int    g_cal_isotope  = 0;
+static bool   g_cal_fitted   = false;
+static double g_cal_c[5]     = { 0, 0, 0, 0, 0 };   // c0..c4: E = Σ cᵢ·chⁱ (сырые каналы)
+static double g_cal_maxres   = 0.0;
+static bool   g_sel_active   = false;
+static double g_sel_x0 = 0.0, g_sel_x1 = 0.0;
 static float  g_spec_x[Device::CHANNELS];
 static float  g_spec_y[Device::CHANNELS];
 
@@ -147,6 +172,72 @@ static ImVec4 StateColor()
     case Device::State::Error:        return c_danger;
     }
     return c_text_dim;
+}
+
+// Центр пика в диапазоне каналов [cx0..cx1]: вычитаем линейный фон по краям,
+// берём взвешенный центроид → суб-канальный центр.
+static double FindCentroid(double cx0, double cx1)
+{
+    int a = (int)floor(cx0 < cx1 ? cx0 : cx1);
+    int b = (int)ceil (cx0 < cx1 ? cx1 : cx0);
+    if (a < 0) a = 0;
+    if (b > Device::CHANNELS - 1) b = Device::CHANNELS - 1;
+    if (b <= a) return (double)a;
+    double bg0 = (double)g_dev.spectrum[a], bg1 = (double)g_dev.spectrum[b];
+    double num = 0, den = 0;
+    for (int i = a; i <= b; i++) {
+        double bg = bg0 + (bg1 - bg0) * (double)(i - a) / (double)(b - a);
+        double w = (double)g_dev.spectrum[i] - bg;
+        if (w < 0) w = 0;
+        num += (double)i * w; den += w;
+    }
+    return den > 0 ? num / den : (double)(a + b) / 2.0;
+}
+
+// МНК-фит полинома 4-го порядка E(ch)=Σcᵢ·chⁱ. Фитим в нормированной
+// переменной xn=ch/CHANNELS (обусловленность), затем cᵢ = aᵢ / CHANNELSⁱ.
+static void FitCalibration()
+{
+    double X[16], Y[16]; int n = 0;
+    for (auto& p : g_cal)
+        if (p.has_ch && p.energy > 0 && n < 16) { X[n] = p.channel; Y[n] = p.energy; n++; }
+    g_cal_fitted = false;
+    if (n < 2) return;
+
+    int deg = 4; if (deg > n - 1) deg = n - 1;
+    int m = deg + 1;
+    const double S = (double)Device::CHANNELS;
+    double A[5][6];
+    for (int r = 0; r < m; r++) { for (int c = 0; c <= m; c++) A[r][c] = 0; }
+    for (int k = 0; k < n; k++) {
+        double xn = X[k] / S, pw[5]; pw[0] = 1;
+        for (int j = 1; j < m; j++) pw[j] = pw[j - 1] * xn;
+        for (int r = 0; r < m; r++) {
+            for (int c = 0; c < m; c++) A[r][c] += pw[r] * pw[c];
+            A[r][m] += pw[r] * Y[k];
+        }
+    }
+    for (int col = 0; col < m; col++) {                 // Гаусс с выбором ведущего
+        int piv = col;
+        for (int r = col + 1; r < m; r++) if (fabs(A[r][col]) > fabs(A[piv][col])) piv = r;
+        for (int c = 0; c <= m; c++) { double t = A[col][c]; A[col][c] = A[piv][c]; A[piv][c] = t; }
+        if (fabs(A[col][col]) < 1e-12) return;
+        for (int r = 0; r < m; r++) if (r != col) {
+            double f = A[r][col] / A[col][col];
+            for (int c = col; c <= m; c++) A[r][c] -= f * A[col][c];
+        }
+    }
+    for (int i = 0; i < 5; i++) g_cal_c[i] = 0;
+    for (int i = 0; i < m; i++) g_cal_c[i] = (A[i][m] / A[i][i]) / pow(S, (double)i);
+
+    g_cal_maxres = 0;
+    for (auto& p : g_cal) if (p.has_ch && p.energy > 0) {
+        double ch = p.channel;
+        double e = g_cal_c[0] + ch * (g_cal_c[1] + ch * (g_cal_c[2] + ch * (g_cal_c[3] + ch * g_cal_c[4])));
+        double d = fabs(e - p.energy);
+        if (d > g_cal_maxres) g_cal_maxres = d;
+    }
+    g_cal_fitted = true;
 }
 
 // ================= панели =================
@@ -303,6 +394,8 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     }
 
     ImVec2 avail = ImGui::GetContentRegionAvail();
+    // в режиме калибровки ЛКМ свободна под выделение (пан уводим на среднюю кнопку)
+    ImPlot::GetInputMap().Pan = g_calib_active ? ImGuiMouseButton_Middle : ImGuiMouseButton_Left;
     if (ImPlot::BeginPlot("##plot", avail,
                           ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
         // X — навигация мышью (колесо/перетаскивание). Y — авто-подгон под данные,
@@ -319,6 +412,43 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
         ImPlot::PushStyleColor(ImPlotCol_Line, c_trace);
         ImPlot::PlotLine("спектр", g_spec_x, g_spec_y, Device::CHANNELS);
         ImPlot::PopStyleColor();
+
+        if (g_calib_active) {
+            ImPlotRect lim = ImPlot::GetPlotLimits();
+            if (ImPlot::IsPlotHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                g_sel_active = true;
+                g_sel_x0 = g_sel_x1 = ImPlot::GetPlotMousePos().x;
+            }
+            if (g_sel_active && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                g_sel_x1 = ImPlot::GetPlotMousePos().x;
+            if (g_sel_active && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                g_sel_active = false;
+                if (fabs(g_sel_x1 - g_sel_x0) >= 2.0) {
+                    double c = FindCentroid(g_sel_x0, g_sel_x1);
+                    int tgt = -1;
+                    for (int i = 0; i < (int)g_cal.size(); i++)
+                        if (!g_cal[i].has_ch) { tgt = i; break; }
+                    if (tgt < 0) { g_cal.push_back(CalPoint{}); tgt = (int)g_cal.size() - 1; }
+                    g_cal[tgt].channel = c; g_cal[tgt].has_ch = true;
+                    g_cal_fitted = false;
+                }
+            }
+            ImPlot::PushPlotClipRect();
+            ImDrawList* dl = ImPlot::GetPlotDrawList();
+            if (g_sel_active) {
+                double a = g_sel_x0 < g_sel_x1 ? g_sel_x0 : g_sel_x1;
+                double b = g_sel_x0 < g_sel_x1 ? g_sel_x1 : g_sel_x0;
+                ImVec2 p0 = ImPlot::PlotToPixels(a, lim.Y.Max);
+                ImVec2 p1 = ImPlot::PlotToPixels(b, lim.Y.Min);
+                dl->AddRectFilled(p0, p1, U32(c_accent_sel));
+            }
+            for (size_t i = 0; i < g_cal.size(); i++) if (g_cal[i].has_ch) {
+                ImVec2 t   = ImPlot::PlotToPixels(g_cal[i].channel, lim.Y.Max);
+                ImVec2 btm = ImPlot::PlotToPixels(g_cal[i].channel, lim.Y.Min);
+                dl->AddLine(t, btm, U32(c_cursor), 1.0f);
+            }
+            ImPlot::PopPlotClipRect();
+        }
         ImPlot::EndPlot();
     }
     ImGui::End();
@@ -504,7 +634,10 @@ static void MenuBar()
         ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Справка")) g_open_help = true;
-    ImGui::BeginMenu("Калибровка", false);
+    if (ImGui::MenuItem("Калибровка энергий", nullptr, g_calib_active)) {
+        g_calib_active = !g_calib_active;
+        if (g_calib_active) g_dev.stop();
+    }
     ImGui::BeginMenu("Высокое напряжение", false);
     ImGui::BeginMenu("Термокалибровка", false);
 
@@ -544,6 +677,104 @@ static void StatusBar(ImVec2 pos, ImVec2 size)
     ImGui::PopFont();
     ImGui::End();
     ImGui::PopStyleVar();
+}
+
+static void PanelCalibration(ImVec2 pos, ImVec2 size)
+{
+    using namespace theme;
+    BeginPanel("##calib", pos, size);
+    PanelHeader("КАЛИБРОВКА ЭНЕРГИЙ");
+
+    if (g_calib_active) {
+        ImGui::PushStyleColor(ImGuiCol_Button, c_accent);
+        ImGui::PushStyleColor(ImGuiCol_Text, c_white);
+        if (ImGui::Button("Калибровка энергий: ВКЛ", ImVec2(-1, 24))) g_calib_active = false;
+        ImGui::PopStyleColor(2);
+        Caption("ЛКМ по спектру: выдели пик → центр в таблицу");
+    } else {
+        if (ImGui::Button("Калибровка энергий: выкл", ImVec2(-1, 24))) {
+            g_calib_active = true;
+            g_dev.stop();   // замораживаем спектр (авто -sto)
+        }
+    }
+
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("##iso", ISOTOPES[g_cal_isotope].name)) {
+        for (int i = 0; i < N_ISO; i++)
+            if (ImGui::Selectable(ISOTOPES[i].name, i == g_cal_isotope)) {
+                g_cal_isotope = i;
+                if (i > 0) {                 // предзаполнить энергии изотопа
+                    g_cal.clear();
+                    for (int j = 0; j < ISOTOPES[i].n; j++) {
+                        CalPoint p; p.energy = ISOTOPES[i].e[j]; g_cal.push_back(p);
+                    }
+                    g_cal_fitted = false;
+                }
+            }
+        ImGui::EndCombo();
+    }
+
+    if (ImGui::BeginTable("cal", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                          ImGuiTableFlags_ScrollY, ImVec2(0, -96))) {
+        ImGui::PushFont(font_small);
+        ImGui::TableSetupColumn("кэВ");
+        ImGui::TableSetupColumn("канал");
+        ImGui::TableSetupColumn("ост.");
+        ImGui::TableSetupColumn("");
+        ImGui::TableHeadersRow();
+        ImGui::PopFont();
+        ImGui::PushFont(font_mono);
+        int to_remove = -1;
+        for (int i = 0; i < (int)g_cal.size(); i++) {
+            ImGui::TableNextRow();
+            ImGui::PushID(i);
+            ImGui::TableSetColumnIndex(0);
+            ImGui::SetNextItemWidth(-1);
+            float e = (float)g_cal[i].energy;
+            if (ImGui::InputFloat("##e", &e, 0.0f, 0.0f, "%.1f")) {
+                g_cal[i].energy = e; g_cal_fitted = false;
+            }
+            ImGui::TableSetColumnIndex(1);
+            if (g_cal[i].has_ch) ImGui::Text("%.1f", g_cal[i].channel);
+            else                 ImGui::TextDisabled("—");
+            ImGui::TableSetColumnIndex(2);
+            if (g_cal_fitted && g_cal[i].has_ch && g_cal[i].energy > 0) {
+                double ch = g_cal[i].channel;
+                double ef = g_cal_c[0] + ch * (g_cal_c[1] + ch * (g_cal_c[2] + ch * (g_cal_c[3] + ch * g_cal_c[4])));
+                ImGui::Text("%+.1f", ef - g_cal[i].energy);
+            } else ImGui::TextDisabled("—");
+            ImGui::TableSetColumnIndex(3);
+            if (ImGui::SmallButton("x")) to_remove = i;
+            ImGui::PopID();
+        }
+        ImGui::PopFont();
+        ImGui::EndTable();
+        if (to_remove >= 0) { g_cal.erase(g_cal.begin() + to_remove); g_cal_fitted = false; }
+    }
+
+    if (PrimaryButton("Фит (4-й порядок)")) FitCalibration();
+    ImGui::SameLine();
+    if (ImGui::Button("Очистить")) { g_cal.clear(); g_cal_fitted = false; }
+
+    ImGui::PushFont(font_mono);
+    if (g_cal_fitted) {
+        ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
+        ImGui::Text("a=%.3e b=%.3e", g_cal_c[4], g_cal_c[3]);
+        ImGui::Text("c=%.3e d=%.4f", g_cal_c[2], g_cal_c[1]);
+        ImGui::Text("e=%.3f  ост.макс=%.2f кэВ", g_cal_c[0], g_cal_maxres);
+        ImGui::PopStyleColor();
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
+        ImGui::TextUnformatted("E=a·x⁴+b·x³+c·x²+d·x+e — после фита");
+        ImGui::PopStyleColor();
+    }
+    ImGui::PopFont();
+
+    ImGui::BeginDisabled(true);
+    ImGui::Button("Записать в прибор (скоро)", ImVec2(-1, 0));
+    ImGui::EndDisabled();
+
+    ImGui::End();
 }
 
 static void HelpSection(const char* h)
@@ -645,26 +876,30 @@ static void DrawApp()
     // раздвижные границы — ограничения
     gLeftW    = clampf(gLeftW, 180.0f, innerW - gRightW - 2 * g - 260.0f);
     gRightW   = clampf(gRightW, 200.0f, innerW - gLeftW - 2 * g - 260.0f);
-    gConnH    = clampf(gConnH, 150.0f, innerH - 150.0f);
+    gConnH    = clampf(gConnH, 150.0f, innerH - 320.0f);
+    gTeleH    = clampf(gTeleH, 120.0f, innerH - gConnH - 180.0f);
     gConsoleH = clampf(gConsoleH, 110.0f, innerH - 220.0f);
 
     float leftW = gLeftW, rightW = gRightW;
     float centerW = innerW - leftW - rightW - 2 * g;
-    float connH = gConnH, telemetryH = innerH - connH - g;
+    float connH = gConnH, teleH = gTeleH;
+    float calibH = innerH - connH - teleH - 2 * g;
     float consoleH = gConsoleH, spectrumH = innerH - consoleH - g;
     float lx = innerX, cx = innerX + leftW + g, rx = cx + centerW + g;
 
-    PanelConnection(ImVec2(lx, innerY),                  ImVec2(leftW, connH));
-    PanelTelemetry (ImVec2(lx, innerY + connH + g),      ImVec2(leftW, telemetryH));
-    PanelSpectrum  (ImVec2(cx, innerY),                  ImVec2(centerW, spectrumH));
-    PanelConsole   (ImVec2(cx, innerY + spectrumH + g),  ImVec2(centerW, consoleH));
-    PanelSelftest  (ImVec2(rx, innerY),                  ImVec2(rightW, innerH));
+    PanelConnection (ImVec2(lx, innerY),                         ImVec2(leftW, connH));
+    PanelTelemetry  (ImVec2(lx, innerY + connH + g),             ImVec2(leftW, teleH));
+    PanelCalibration(ImVec2(lx, innerY + connH + g + teleH + g), ImVec2(leftW, calibH));
+    PanelSpectrum   (ImVec2(cx, innerY),                         ImVec2(centerW, spectrumH));
+    PanelConsole    (ImVec2(cx, innerY + spectrumH + g),         ImVec2(centerW, consoleH));
+    PanelSelftest   (ImVec2(rx, innerY),                         ImVec2(rightW, innerH));
 
     // раздвижные разделители (поверх стыков панелей)
-    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),            ImVec2(6, innerH), true);
-    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                    ImVec2(6, innerH), true);
-    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),        ImVec2(centerW, 6), false);
-    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),            ImVec2(leftW, 6), false);
+    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),                     ImVec2(6, innerH), true);
+    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                             ImVec2(6, innerH), true);
+    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),                 ImVec2(centerW, 6), false);
+    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),                     ImVec2(leftW, 6), false);
+    gTeleH    += Splitter("##sp_tc", ImVec2(lx, innerY + connH + g + teleH + g * 0.5f - 3),         ImVec2(leftW, 6), false);
 
     StatusBar(ImVec2(vp->Pos.x, vp->Pos.y + vp->Size.y - statusH),
               ImVec2(vp->Size.x, statusH));
