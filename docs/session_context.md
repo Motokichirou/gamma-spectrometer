@@ -1,6 +1,52 @@
 # Шпаргалка сессии — восстановление контекста после сжатия
 
-> Обновлять перед каждым сжатием. Дата последнего обновления: 2026-05-23 (сессия 5).
+> Обновлять перед каждым сжатием. Дата последнего обновления: 2026-06-13 (сессия 9, ~03:30).
+
+---
+
+## ⚡ БЫСТРЫЙ СТАРТ ПОСЛЕ СЖАТИЯ (состояние на 2026-06-13)
+
+**Где проект:** схемы KiCad готовы (ERC 0, BOM с MPN полный), разводка PCB НЕ начата.
+**Прошивка: этапы 1+2 + самотест РАБОТАЮТ на Nucleo-G474RE** (перемычка A2→A0 на Arduino-гребёнке).
+BecqMoni подключается: COM6, 600000 бод, 8192 канала, статус зелёный, SN GS474-0001.
+
+**Команды разработчика (проверенные):**
+```bash
+# Сборка (headless, IDE не нужна; путь -import строго с backslash!)
+rm -rf /tmp/cube_hb_ws && "C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/stm32cubeidec.exe" \
+  --launcher.suppressErrors -nosplash \
+  -application org.eclipse.cdt.managedbuilder.core.headlessbuild \
+  -data /tmp/cube_hb_ws -import 'C:\gamma-spectrometer\firmware\gamma_stage1' \
+  -build gamma_stage1/Debug
+
+# Прошивка
+"C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_2.2.200.202503041107/tools/bin/STM32_Programmer_CLI.exe" \
+  -c port=SWD mode=UR reset=HWrst -w ".../Debug/gamma_stage1.elf" -v -rst
+
+# Тест протокола (порт должен быть свободен от BecqMoni!)
+PYTHONIOENCODING=utf-8 python -u firmware/tools/becqmoni_sim.py COM6
+```
+
+**Правки кода:** core-модули в `firmware/core/` — ПЕРВОИСТОЧНИК; после правки копировать
+в `firmware/gamma_stage1/Core/Src|Inc/` (cp). main.c/it.c правятся только в USER CODE секциях.
+Python-патчи файлов с кириллицей: писать скрипт во временный .py файл (Write) и запускать
+`python file.py` — heredoc в bash ломает кодировку!
+
+**Отладка на железе (без IDE):** PC ядра → nm+addr2line; переменные → STM32_Programmer_CLI
+-c port=SWD mode=HOTPLUG -r32 <addr> <bytes>; адрес ADC-буфера брать из DMA CMAR (0x40020028),
+не из nm. Дампы под halt бесполезны для волны (таймеры замирают, DAC молчит).
+
+**Самотест:** -tst enc из командной строки BecqMoni → отчёт за ~6с.
+Эталонный результат железа: k=2.0048 ch/code, INL 0.025%FS, FWHM@Cs-экв 0.66%.
+
+**СЛЕДУЮЩИЕ ШАГИ (по приоритету):**
+1. **Разводка PCB** — главный фронт. Порядок: USB/Power (простая) → Divider (Ø42мм,
+   кастомный footprint B14-38 для R1307, HV-зазоры, C_par≤1пФ у VINM) → HV (зазоры,
+   силикон) → MCU (4 слоя, аналог отдельно). Заказ компонентов — BOM готов (bom_fp_work.md).
+2. Этап 3 прошивки (после железа): polarity −1, fit m=3, порог по реальному шуму,
+   Pt1000-термокомпенсация (план: docs/reference_spectra.md), -inf формат с реального AtomSpectra.
+3. Мелочь: фактический рейт генератора ~1.7× от mean_period (разобраться при настройке);
+   выбросы в -tst stat на переходах режимов (артефакт переключения, не влияет на enc).
 
 ---
 
