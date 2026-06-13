@@ -99,18 +99,27 @@ static void handle_text(const uint8_t *pl, uint16_t len)
     memcpy(cmd, pl, len);
     cmd[len] = '\0';
 
+    /* ⚠ ack-и команд — строго "-ok\r\n": приложение AtomSpectra сверяет ответ
+     * ТОЧНО (equals "-ok\r\n"); BecqMoni обрезает по первому \r — совместимо с обоими. */
     if (strncmp(cmd, "-sta", 4) == 0) {
         acquiring     = true;
         t_start_ms    = app_port_millis();
         t_last_gen_ms = t_start_ms;   /* иначе генератор "догонит" всё время простоя */
-        send_text("-ok");
+        send_text("-ok\r\n");
     } else if (strncmp(cmd, "-sto", 4) == 0) {
         acquiring = false;
-        send_text("-ok");
+        send_text("-ok\r\n");
     } else if (strncmp(cmd, "-rst", 4) == 0) {
         spectrum_clear();
         invalid_total = 0;
-        send_text("-ok");
+        send_text("-ok\r\n");
+    } else if (strncmp(cmd, "-stt", 4) == 0) {
+        /* AtomSpectra: запрос состояния. "-ok collecting\r\n" → идёт набор (live);
+         * иначе "-ok\r\n" → остановлен (заморозка экрана). */
+        send_text(acquiring ? "-ok collecting\r\n" : "-ok\r\n");
+    } else if (strncmp(cmd, "-mode", 5) == 0) {
+        /* AtomSpectra шлёт "-mode 0" при подключении. Режим гистограммы — единственный. */
+        send_text("-ok\r\n");
     } else if (strncmp(cmd, "-inf", 4) == 0) {
         /* Формат под парсер BecqMoni (deadTimeBtn_Click): split(' '),
          * [3]=rise int, [5]=fall int, [9]=частота. %f нет в newlib-nano. */
@@ -119,7 +128,10 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         int t10 = (int)(t * 10.0f + (t >= 0.0f ? 0.5f : -0.5f));
         int frac = t10 % 10;
         if (frac < 0) frac = -frac;
-        snprintf(info, sizeof(info), "GammaSpec v0.1 rise 8 fall 8 T1 %d.%d freq 8000000",
+        /* "VERSION <n>" в конце — параметр для AtomSpectra (getParameter, key value);
+         * n ≥ USB_DEVICE_MINIMAL_VERSION(11). Стоит после freq, чтобы не сдвинуть
+         * позиционный парс BecqMoni ([3]=rise,[5]=fall,[9]=freq). */
+        snprintf(info, sizeof(info), "GammaSpec v0.1 rise 8 fall 8 T1 %d.%d freq 8000000 VERSION 100",
                  t10 / 10, frac);
         send_text(info);
     } else if (strncmp(cmd, "-tst", 4) == 0) {
@@ -127,8 +139,8 @@ static void handle_text(const uint8_t *pl, uint16_t len)
     } else if (strncmp(cmd, "-thr", 4) == 0) {
         int eff = app_set_threshold_ch(atoi(cmd + 4));   /* каналы; <=0 — запрос */
         char r[32];
-        if (eff < 0) snprintf(r, sizeof(r), "-err thr");
-        else         snprintf(r, sizeof(r), "-ok thr %d", eff);
+        if (eff < 0) snprintf(r, sizeof(r), "-err thr\r\n");
+        else         snprintf(r, sizeof(r), "-ok thr %d\r\n", eff);
         send_text(r);
     } else if (strncmp(cmd, "-wcal", 5) == 0) {
         /* запись энергокалибровки: -wcal <order> <c0> <c1> ... <cN> */
@@ -139,7 +151,7 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         int n = 0;
         while (n < 5) { double v = strtod(p, &end); if (end == p) break; c[n++] = v; p = end; }
         int ok = (order >= 1 && order <= 4 && n >= order + 1) ? app_cal_write(order, c) : 0;
-        send_text(ok ? "-ok cal" : "-err cal");
+        send_text(ok ? "-ok cal\r\n" : "-err cal\r\n");
     } else if (strncmp(cmd, "-rcal", 5) == 0) {
         /* Читаемый формат для НАШЕГО сервисного тула (gammapult), не для BecqMoni:
          * "CAL: <order> c0 c1 ..\r\n<серийник>\r\n" либо "CAL: none\r\n..". */
@@ -155,39 +167,45 @@ static void handle_text(const uint8_t *pl, uint16_t len)
         }
         send_text(r);
     } else if (strncmp(cmd, "-calclr", 7) == 0) {
-        send_text(app_cal_clear() ? "-ok cal cleared" : "-err cal");
+        send_text(app_cal_clear() ? "-ok cal cleared\r\n" : "-err cal\r\n");
     } else if (strncmp(cmd, "-cal", 4) == 0) {
-        /* Протокол энергокалибровки BecqMoni:
-         *  - голый "-cal"     : проверка связи И «Читать с устройства» (одна команда).
-         *                       split("\r\n").Length>2, предпоследняя строка = серийник.
-         *                       Если калибровка есть — отдаём 11 слов (по строке) + серийник.
-         *  - "-cal <i> <hex>" : запись слова i (0..10), ответ "-ok".
+        /* Протокол энергокалибровки BecqMoni / AtomSpectra:
+         *  - голый "-cal"     : проверка связи + «Читать с устройства» + стартовые
+         *                       метаданные. Ответ — 40 регистров (как у реального
+         *                       прибора AtomSpectra), по строке через \r\n:
+         *                         [0..9]  = 5 коэф. (double, пары hi,lo big-endian)
+         *                         [10]    = CRC32 (zip по ASCII слов 0..9)
+         *                         [11..38]= прочие регистры (хостами не используются)
+         *                         [39]    = идентификатор (серийник)
+         *                       Удовлетворяет: BecqMoni (предпоследняя строка=серийник,
+         *                       слова 0..10), AtomSpectra (ровно 40 токенов, [39]=устр.).
+         *  - "-cal <i> <hex>" : запись слова i (0..10), ответ "-ok\r\n".
          *  - "-cal <i>"       : чтение одного слова i в hex. */
         const char *p = cmd + 4;
         while (*p == ' ') p++;
         if (*p == '\0') {
-            char r[200];
+            char r[480];
             uint32_t w[11];
-            if (app_cal_read_words(w)) {
-                int o = 0;
-                for (int i = 0; i < 11; i++)
-                    o += snprintf(r + o, sizeof(r) - (size_t)o, "%08lX\r\n",
-                                  (unsigned long)w[i]);
-                snprintf(r + o, sizeof(r) - (size_t)o, APP_SERIAL "\r\n");
-            } else {
-                snprintf(r, sizeof r, "CAL: none\r\n" APP_SERIAL "\r\n");
-            }
+            if (!app_cal_read_words(w))
+                for (int i = 0; i < 11; i++) w[i] = 0;   /* нет калибровки → нули */
+            int o = 0;
+            for (int i = 0; i < 11; i++)
+                o += snprintf(r + o, sizeof(r) - (size_t)o, "%08lX\r\n",
+                              (unsigned long)w[i]);
+            for (int i = 11; i < 39; i++)   /* регистры 11..38 — заполнители */
+                o += snprintf(r + o, sizeof(r) - (size_t)o, "00000000\r\n");
+            snprintf(r + o, sizeof(r) - (size_t)o, APP_SERIAL "\r\n");  /* регистр 39 */
             send_text(r);
         } else {
             char *end;
             long idx = strtol(p, &end, 10);
             while (*end == ' ') end++;
             if (idx < 0 || idx > 10) {
-                send_text("-err cal");
+                send_text("-err cal\r\n");
             } else if (*end != '\0') {
                 uint32_t word = (uint32_t)strtoul(end, NULL, 16);
                 app_cal_stage_word((int)idx, word);
-                send_text("-ok");
+                send_text("-ok\r\n");
             } else {
                 uint32_t w[11];
                 char r[16];

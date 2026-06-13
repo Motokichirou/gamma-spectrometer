@@ -47,21 +47,25 @@ Notes:
 
 | Command | Effect |
 |---|---|
-| `-sta` | Start acquisition |
-| `-sto` | Stop acquisition |
-| `-rst` | Reset the spectrum |
-| `-inf` | Report device info |
-| `-cal` | Energy calibration in BecqMoni format (see below); a bare `-cal` also serves as the connection check |
-| `-cal <i> <hex>` | Write calibration word `i` (0..10), replies `-ok` |
+| `-sta` | Start acquisition · replies `-ok\r\n` |
+| `-sto` | Stop acquisition · replies `-ok\r\n` |
+| `-rst` | Reset the spectrum · replies `-ok\r\n` |
+| `-stt` | State query (AtomSpectra): `-ok collecting\r\n` while acquiring, else `-ok\r\n` |
+| `-mode <n>` | Device mode (AtomSpectra sends `-mode 0` on connect) · replies `-ok\r\n` |
+| `-inf` | Report device info (includes `VERSION <n>` for AtomSpectra) |
+| `-cal` | Energy calibration, 40 registers in BecqMoni/AtomSpectra format (see below); a bare `-cal` also serves as the connection check |
+| `-cal <i> <hex>` | Write calibration word `i` (0..10), replies `-ok\r\n` |
 | `-tst …` | Built-in self-test (see [firmware.md](firmware.md)) |
-| `-thr <channels>` | DSP threshold in channels (no argument = query); replies `-ok thr <channels>` |
+| `-thr <channels>` | DSP threshold in channels (no argument = query); replies `-ok thr <channels>\r\n` |
 | `-wcal <order> <c0..cN>` | Write the energy calibration in human-readable form (our format), `order = 1..4` |
 | `-rcal` | Read the calibration in our format: `CAL: <order> c0 c1 …\r\n<serial>\r\n` |
 | `-calclr` | Erase the stored calibration |
 
+> **Command acks are exactly `-ok\r\n`** (or `-err\r\n`): the AtomSpectra app compares the
+> reply exactly, while BecqMoni truncates at the first `\r` — so the format works with both.
+>
 > `-thr`/`-wcal`/`-rcal`/`-calclr` are **application-level** commands of our device and
-> the `gammapult` service tool. They do not change the shproto frame format. `-cal` is
-> BecqMoni-compatible (see below).
+> the `gammapult` service tool. They do not change the shproto frame format.
 
 ## BecqMoni connection handshake
 
@@ -107,15 +111,23 @@ bits as `double`.
 **ASCII string** of words `0..9` formatted as `%08X` (uppercase, 8 digits, no separators —
 80 characters total).
 
-**Read** ("Read from device") — the same bare `-cal`. The device replies with 11 `%08X`
-lines (words 0..10) followed by the serial line:
+**Read** ("Read from device") — the same bare `-cal`. The device replies with **40
+registers** (as the real AtomSpectra device), one per line separated by `\r\n`:
+
+| Registers | Content |
+|---|---|
+| `0..9` | 5 coefficients (hi,lo pairs) |
+| `10` | CRC-32 |
+| `11..38` | other registers (`00000000` fillers, unused by hosts) |
+| `39` | device identifier (serial) |
 
 ```
-40240000\r\n00000000\r\n3FE00000\r\n…\r\n<CRC32>\r\nGS474-0001\r\n
+40240000\r\n00000000\r\n3FE00000\r\n…\r\n<CRC32>\r\n00000000\r\n…(×28)…\r\nGS474-0001\r\n
 ```
 
-BecqMoni parses the 11 words and verifies the CRC-32. The serial is the second-to-last
-line, so the same reply also satisfies the connection check.
+This satisfies three consumers at once: **BecqMoni** (connection check — second-to-last
+line = serial; calibration read — words 0..10), and **AtomSpectra** (startup metadata —
+exactly 40 tokens, register 39 = device; calibration read — words 0..10).
 
 > ⚠ If the device holds a calibration with a bad CRC, BecqMoni throws during its
 > pre-read and closes the port. The firmware stores the words verbatim (BecqMoni write)

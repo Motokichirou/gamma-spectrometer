@@ -22,7 +22,7 @@ MCU board:
 | `dsp.c/.h` | Pulse detector: baseline tracker, pile-up rejection, quadratic LSQ peak fit |
 | `pulsegen.c/.h` | Test-pulse generator (built-in self-test source) |
 | `selftest.c/.h` | ENC / linearity self-test FSM |
-| `app.c/.h` | Command handling (`-sta/-sto/-rst/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst`) and 1 Hz spectrum + status |
+| `app.c/.h` | Command handling (`-sta/-sto/-rst/-stt/-mode/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst`) and 1 Hz spectrum + status |
 
 The core talks to hardware through a few port functions (`app_port_uart_send`,
 `app_port_millis`, …) implemented in the board-specific glue.
