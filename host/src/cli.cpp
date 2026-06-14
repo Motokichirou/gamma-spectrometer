@@ -1,9 +1,9 @@
 // cli.cpp — сервисный CLI для автоматизации (без GUI), поверх класса Device.
-//   gammacli list
-//   gammacli info    --port COMx
-//   gammacli acquire --port COMx --seconds N [--gen spec|mono|off] [--out file.csv]
-//   gammacli enc     --port COMx
-//   gammacli cmd     --port COMx --send "-inf" [--read S]
+//   gammapult list
+//   gammapult info    --port COMx
+//   gammapult acquire --port COMx --seconds N [--gen spec|ra|mono|off] [--out file.csv]
+//   gammapult enc     --port COMx
+//   gammapult cmd     --port COMx --send "-inf" [--read S]
 #include "device.h"
 #include "host_app.h"
 #include <cstdio>
@@ -38,18 +38,20 @@ static void print_rx(Device& d)
 
 static void usage()
 {
-    printf("gammacli — сервисный CLI гамма-спектрометра\n"
-           "  gammacli list\n"
-           "  gammacli info    --port COMx\n"
-           "  gammacli acquire --port COMx --seconds N [--gen spec|mono|off] [--out file.csv]\n"
-           "  gammacli enc     --port COMx\n"
-           "  gammacli cmd     --port COMx --send \"-inf\" [--read S]\n");
+    printf("gammapult — сервисный CLI гамма-спектрометра\n"
+           "  gammapult list\n"
+           "  gammapult info    --port COMx\n"
+           "  gammapult acquire --port COMx --seconds N [--gen spec|ra|mono|off] [--out file.csv]\n"
+           "  gammapult enc     --port COMx\n"
+           "  gammapult cmd     --port COMx --send \"-inf\" [--read S]\n");
 }
 
 int run_cli(int argc, char** argv)
 {
     if (argc < 2) { usage(); return 1; }
     std::string sub = argv[1];
+
+    if (sub == "help" || sub == "--help" || sub == "-h") { usage(); return 0; }
 
     if (sub == "list") {
         for (auto& p : serialport::enumerate()) printf("%s\n", p.c_str());

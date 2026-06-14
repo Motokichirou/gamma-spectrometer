@@ -1,6 +1,6 @@
-// gamma_host — диагностический пульт гамма-спектрометра (v1: связь + диагностика)
+// main.cpp — GUI-режим gammapult: диагностический пульт гамма-спектрометра.
 // Win32 + DirectX 11 + Dear ImGui + ImPlot. Единый .exe без зависимостей.
-// Раскладка — фиксированная (дизайн-спека §4): лево 300 | центр | право 340.
+// Раздвижные панели: связь, телеметрия, калибровка, живой спектр, консоль, самотест.
 
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -997,7 +997,7 @@ int run_gui()
 {
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
                        GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
-                       nullptr, L"gamma_host", nullptr };
+                       nullptr, L"gammapult", nullptr };
     ::RegisterClassExW(&wc);
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"GammaPult - service console",
                                 WS_OVERLAPPEDWINDOW, 80, 60, 1200, 760,
