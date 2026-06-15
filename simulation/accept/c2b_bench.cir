@@ -1,0 +1,54 @@
+* =============================================================
+* c2b_bench.cir  —  ЗАМОРОЖЕННЫЙ стенд приёмки C2b (рейт / пара импульсов)
+* C2, рейт-часть: хвост undershoot предыдущего импульса под следующим.
+* =============================================================
+* !!! ЭТАЛОН — НЕ РЕДАКТИРОВАТЬ. Менять можно только dut_shaper.cir.
+* Пороги (заморожены, утверждены до фикса):
+*   T5      : ошибка амплитуды 2-го импульса (vs одиночный) <= 1 %
+*             ГЕЙТ в разрешённой зоне dt >= 4 мкс; dt=2..3 мкс — pile-up (M1), информативно.
+*   T1-rate : V_max 2-го импульса (его выброс + остаток хвоста 1-го) <= 2.445 В, на всём свипе.
+* Модель: 2 импульса 2.614 МэВ, интервал dt = свип 2..33 мкс (33 = средний @ 30 кимп/с).
+* Амплитуда 2-го мерится от ЛОКАЛЬНОЙ базовой перед ним (как покадровый ComputeBaseline).
+* =============================================================
+
+.lib ../models/opamp_g474.sub
+.include dut_shaper.cir
+
+VDD   VDD   0   DC  3.3
+VREF  VREF  0   DC  2.495
+
+.param tau_d = 230n
+.param Ipk   = 3.69m          ; 2.614 МэВ
+.param t1    = 1u             ; старт 1-го импульса
+.step param dt list 2u 3u 4u 5u 8u 12u 20u 33u
+.param t2 = {t1+dt}           ; старт 2-го импульса
+
+* Два импульса ФЭУ (токи суммируются в узле anode) -> AD8000 x(-15) -> amp_out
+I_pmt1  0  anode  EXP(0 {Ipk} {t1}    5n {t1+5n}    {tau_d})
+I_pmt2  0  anode  EXP(0 {Ipk} {t2}    5n {t2+5n}    {tau_d})
+Rin    anode  0  50
+Rg     anode  0  100
+E_ad8  amp_out  0  0  anode  15
+
+X1  amp_out  adc_in  VDD  VREF  dut_shaper
+
+.save V(adc_in)
+.tran 2n 50u
+
+* === Измерения ===
+* 1-й импульс (изолированный эталон амплитуды)
+.meas TRAN base1  AVG V(adc_in) FROM {t1-300n} TO {t1-50n}
+.meas TRAN vmin1  MIN V(adc_in) FROM {t1}       TO {t1+2u}
+.meas TRAN amp1   param='base1-vmin1'
+* 2-й импульс: локальная базовая перед ним (= покадровый baseline прошивки) + пик
+.meas TRAN lbase2 AVG V(adc_in) FROM {t2-300n} TO {t2-50n}
+.meas TRAN vmin2  MIN V(adc_in) FROM {t2}       TO {t2+2u}
+.meas TRAN amp2   param='lbase2-vmin2'
+.meas TRAN vmax2  MAX V(adc_in) FROM {t2}       TO {t2+12u}
+.meas TRAN t5_err_pct param='100*abs(amp2-amp1)/amp1'
+
+* === PASS/FAIL (1=pass, 0=fail) ===
+.meas TRAN T5_pass     param='abs(amp2-amp1)/amp1 < 0.01 ? 1 : 0'   ; гейт для dt>=4мкс
+.meas TRAN T1rate_pass param='vmax2 < 2.445 ? 1 : 0'
+
+.end
