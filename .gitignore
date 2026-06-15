@@ -32,3 +32,9 @@ firmware/gamma_stage1/Release/
 # Review SPICE outputs (regenerated; keep .cir/.py/.log/.md sources)
 review/sim/*.raw
 review/sim/*.db
+
+# Acceptance bench SPICE outputs (regenerated; keep .cir/.md sources)
+simulation/accept/*.raw
+simulation/accept/*.log
+simulation/accept/*.db
+simulation/accept/*.op.raw

@@ -1,0 +1,46 @@
+* =============================================================
+* dut_shaper.cir  —  DUT (Device Under Test) гамма-спектрометра
+* Тракт шейпера: amp_out (выход AD8000) -> adc_in (вход АЦП)
+* CR (OPAMP1) -> C_couple -> RC (OPAMP2) -> C_buf_in -> PGA x4 (OPAMP3)
+* =============================================================
+* ЭТО ЕДИНСТВЕННЫЙ ФАЙЛ, КОТОРЫЙ ПРАВИТ ФИКС. Стенд (c2*_bench.cir) НЕ менять.
+* Топология скопирована дословно из проектного simulation/sim2_shaper.cir
+* (валидированная модель). Модель ОУ — opamp_g474 (подключается стендом через .lib).
+* =============================================================
+.subckt dut_shaper amp_out adc_in VDD VREF
+
+* --- Делитель смещения A (V_A ~ 0.49 В): IN+ для OPAMP1/OPAMP2 ---
+Ra   VREF     vbias_a  8.2k
+Rb   vbias_a  0        2k
+Ca   vbias_a  0        100n
+
+* --- Делитель смещения B (V_B ~ 0.529 В -> PGA x4 -> 2.116 В): IN+ для OPAMP3 ---
+Rc   VREF     vbias_b  22k
+Rd   vbias_b  0        5.9k
+Cb   vbias_b  0        100n
+
+* --- OPAMP1: CR-дифференциатор (инвертирующий), tau_diff = 10k*100p = 1 мкс ---
+R_cr_in  amp_out  cr_mid  10k
+C_diff   cr_mid   cr_in   100p
+R_diff   cr_out   cr_in   10k
+XU1  vbias_a  cr_in  VDD  0  cr_out  opamp_g474
+
+* --- AC-связь OPAMP1 -> OPAMP2 ---
+C_couple  cr_out  rc_node  100n
+
+* --- OPAMP2: RC-интегратор (инвертирующий), tau_int = 1k*510p = 510 нс ---
+R_int    rc_node  rc_in   1k
+C_int    rc_out   rc_in   510p
+R_stab   rc_out   rc_in   1k
+XU2  vbias_a  rc_in  VDD  0  rc_out  opamp_g474
+
+* --- AC-связь OPAMP2 -> OPAMP3 ---
+C_buf_in  rc_out  pga_inp  100n
+
+* --- OPAMP3: PGA x4 (неинвертирующий) ---
+Rbias_pga  vbias_b  pga_inp  4.65k
+R_pga1   adc_in   pga_inm  30k
+R_pga2   pga_inm  0        10k
+XU3  pga_inp  pga_inm  VDD  0  adc_in  opamp_g474
+
+.ends dut_shaper

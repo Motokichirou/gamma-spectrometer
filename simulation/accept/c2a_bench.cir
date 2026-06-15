@@ -1,0 +1,51 @@
+* =============================================================
+* c2a_bench.cir  —  ЗАМОРОЖЕННЫЙ стенд приёмки C2a (одиночный импульс)
+* Критерий C2: undershoot шейпера / запас под VREF на верхних энергиях.
+* =============================================================
+* !!! ЭТАЛОН ПРИЁМКИ — НЕ РЕДАКТИРОВАТЬ. Менять можно только dut_shaper.cir.
+* Если стенд окажется неверен — это ОТДЕЛЬНАЯ правка с обоснованием,
+* нельзя смешивать с правкой DUT в одном заходе.
+* Пороги (заморожены, утверждены до фикса):
+*   T1: V_max(adc_in) <= 2.445 В  (VREF 2.495 - запас 50 мВ) — нет клиппинга сверху
+*   T2: undershoot <= 15 % пика
+*   T3: V_min(adc_in) >= 0.050 В   — нет клиппинга снизу
+*   Энергии (worst-case): 2.614 МэВ (I=3.69 мА) и 3.5 МэВ потолок (I=4.97 мА)
+* C2a — детерминированный одиночный импульс (клиппинг аналоговый, от фазы АЦП
+* не зависит). Рейт/наложение базовой и T5 — в отдельном стенде c2b (рейт).
+* =============================================================
+
+.lib ../models/opamp_g474.sub
+.include dut_shaper.cir
+
+* --- Фиксированные константы (фикс их НЕ меняет) ---
+VDD   VDD   0   DC  3.3       ; питание ОУ G474
+VREF  VREF  0   DC  2.495     ; TL431DBZ (реальный номинал)
+
+* --- Стимул: импульс ФЭУ (tau_d=230нс NaI) -> AD8000 x(-15) -> amp_out ---
+.param tau_d = 230n
+.step param I_peak list 3.69m 4.97m      ; 2.614 МэВ ; 3.5 МэВ (потолок)
+I_pmt  0  anode  EXP(0 {I_peak} 500n 5n 505n {tau_d})
+Rin    anode  0  50
+Rg     anode  0  100
+E_ad8  amp_out  0  0  anode  15           ; V(amp_out) = -15*V(anode)
+
+* --- DUT ---
+X1  amp_out  adc_in  VDD  VREF  dut_shaper
+
+.save V(adc_in)
+.tran 1n 10u
+
+* === Измерения ===
+.meas TRAN base   AVG V(adc_in) FROM 200n TO 450n     ; базовая (до импульса)
+.meas TRAN vmax   MAX V(adc_in) FROM 450n TO 10u      ; пик выброса (вверх)
+.meas TRAN vmin   MIN V(adc_in) FROM 450n TO 10u      ; пик сигнала (вниз)
+.meas TRAN ampl       param='base-vmin'
+.meas TRAN ushoot_v   param='vmax-base'
+.meas TRAN ushoot_pct param='100*(vmax-base)/(base-vmin)'
+
+* === PASS/FAIL (1=pass, 0=fail) ===
+.meas TRAN T1_vmax_le_2445  param='vmax<2.445 ? 1 : 0'
+.meas TRAN T2_ushoot_le_15  param='(100*(vmax-base)/(base-vmin))<15 ? 1 : 0'
+.meas TRAN T3_vmin_ge_50m   param='vmin>0.050 ? 1 : 0'
+
+.end
