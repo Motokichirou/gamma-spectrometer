@@ -28,3 +28,7 @@ desktop.ini
 # CubeIDE build artifacts
 firmware/gamma_stage1/Debug/
 firmware/gamma_stage1/Release/
+
+# Review SPICE outputs (regenerated; keep .cir/.py/.log/.md sources)
+review/sim/*.raw
+review/sim/*.db

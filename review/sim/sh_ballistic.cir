@@ -1,0 +1,55 @@
+* sh_ballistic.cir — REVIEW: баллистический дефицит CR-RC2 на G474.
+* Заряд анодного импульса ФИКСИРОВАН (Q0 = заряд Cs-137), варьируется только
+* постоянная спада сцинтилляции tau_d. Пик на ADC vs tau_d = баллистический дефицит.
+* tau_d -> 0 (дельта) даёт максимум (весь заряд); tau_d=230нс (NaI) — рабочая точка.
+* Наклон вокруг 230нс = чувствительность амплитуды к дрейфу времени высвечивания.
+.param Aol=100k
+.param GBW=13Meg
+.param Q0=2.115e-10
+.param tau_d=230n
+.step param tau_d list 1n 30n 60n 115n 230n 350n 460n 700n 1000n
+.param I_peak={Q0/tau_d}
+
+VDD VDD 0 DC 3.3
+VREF VREF 0 DC 2.5
+
+I_pmt 0 anode EXP(0 {I_peak} 500n 1n 501n {tau_d})
+Rin anode 0 50
+Rg  anode 0 100
+E_ad8 amp_out 0 0 anode 15
+
+Ra VREF vbias_a 8.2k
+Rb vbias_a 0 2k
+Ca vbias_a 0 100n
+Rc VREF vbias_b 22k
+Rd vbias_b 0 5.9k
+Cb vbias_b 0 100n
+
+R_cr_in amp_out cr_mid 10k
+C_diff  cr_mid cr_in 100p
+R_diff  cr_out cr_in 10k
+XU1 vbias_a cr_in cr_out oa
+
+C_couple cr_out rc_node 100n
+R_int rc_node rc_in 1k
+C_int rc_out rc_in 510p
+R_stab rc_out rc_in 1k
+XU2 vbias_a rc_in rc_out oa
+
+C_buf_in rc_out pga_inp 100n
+Rbias_pga vbias_b pga_inp 4.65k
+R_pga1 adc_in pga_inm 30k
+R_pga2 pga_inm 0 10k
+XU3 pga_inp pga_inm adc_in oa
+
+.subckt oa INP INM OUT
+G1 0 OUT INP INM {Aol}
+R3 OUT 0 1
+C3 OUT 0 {Aol/GBW/6.28318530718}
+.ends
+
+.save V(adc_in)
+.tran 0.5n 8u
+.meas TRAN bl_adc  AVG V(adc_in) FROM 200n TO 400n
+.meas TRAN adc_min MIN V(adc_in) FROM 500n TO 5u
+.end

@@ -1,0 +1,91 @@
+LTspice 26.0.2 for Windows
+Circuit: C:\gamma-spectrometer\review\sim\divider_load.cir
+Start Time: Mon Jun 15 20:33:53 2026
+Options:gmin=1e-13 reltol=1e-5
+
+.step k=0
+solver = Normal
+Maximum thread count: 12
+tnom = 27
+temp = 27
+method = trap
+gmin = 1e-13
+reltol = 1e-05
+Direct Newton iteration succeeded in finding operating point.
+
+.step k=0.5
+Direct Newton iteration succeeded in finding operating point.
+
+.step k=1
+Direct Newton iteration succeeded in finding operating point.
+Total elapsed time: 0.061 seconds.
+
+Files loaded:
+C:\gamma-spectrometer\review\sim\divider_load.cir
+
+
+Measurement: v_cath
+  step	V(cath) 	at
+     1	-1500	4.5e-05
+     2	-1500	4.5e-05
+     3	-1500	4.5e-05
+
+Measurement: v_g
+  step	V(gnode) 	at
+     1	-1354.23828125	4.5e-05
+     2	-1354.85388184	4.5e-05
+     3	-1355.46948242	4.5e-05
+
+Measurement: v_dy1
+  step	V(dy1) 	at
+     1	-1208.47668457	4.5e-05
+     2	-1209.70776367	4.5e-05
+     3	-1210.93884277	4.5e-05
+
+Measurement: v_dy2
+  step	V(dy2) 	at
+     1	-1076.31945801	4.5e-05
+     2	-1078.10864258	4.5e-05
+     3	-1079.89782715	4.5e-05
+
+Measurement: v_dy3
+  step	V(dy3) 	at
+     1	-944.16217041	4.5e-05
+     2	-946.509460449	4.5e-05
+     3	-948.856811523	4.5e-05
+
+Measurement: v_dy4
+  step	V(dy4) 	at
+     1	-812.004943848	4.5e-05
+     2	-814.91027832	4.5e-05
+     3	-817.815795898	4.5e-05
+
+Measurement: v_dy5
+  step	V(dy5) 	at
+     1	-679.84765625	4.5e-05
+     2	-683.311157227	4.5e-05
+     3	-686.774780273	4.5e-05
+
+Measurement: v_dy6
+  step	V(DY6) 	at
+     1	-548.085388184	4.5e-05
+     2	-552.213378906	4.5e-05
+     3	-556.252929688	4.5e-05
+
+Measurement: v_dy7
+  step	V(DY7) 	at
+     1	-388.734100342	4.5e-05
+     2	-393.555999756	4.5e-05
+     3	-398.266174316	4.5e-05
+
+Measurement: v_dy8
+  step	V(DY8) 	at
+     1	-194.405029297	4.5e-05
+     2	-200.057296753	4.5e-05
+     3	-205.571365356	4.5e-05
+
+Measurement: i_load
+  step	I(I8) 	at
+     1	9.99999993923e-09	4.5e-05
+     2	9.55999985308e-06	4.5e-05
+     3	1.91100007214e-05	4.5e-05

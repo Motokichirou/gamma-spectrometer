@@ -1,0 +1,58 @@
+* divider_load.cir — REVIEW: держат ли активные буферы потенциалы Dy6-8 под нагрузкой.
+* Реальная цепочка делителя из нетлиста (R401..R414), 3 NPN-буфера (Q401-403).
+* Нагрузка = средний динодный ток при 30 кимп/с на 2.6 МэВ (I_anode_avg~25.5мкА).
+* k=0 -> только тёмновой ток (10нА); k=1 -> полная нагрузка 30кимп/с.
+* tran со ступенью k => .meas ловит оба шага. Сравнить Dy при k=0 vs k=1.
+.param k=0
+.step param k list 0 0.5 1
+
+Vhv cath 0 -1500
+
+R414 0    midP  499k
+R412 midP cd8   499k
+R410 cd8  cd7   1Meg
+R409 cd7  cd6   820k
+R407 cd6  dy5   680k
+R406 dy5  dy4   680k
+R405 dy4  dy3   680k
+R404 dy3  dy2   680k
+R403 dy2  dy1   680k
+R402 dy1  gnode 750k
+R401 gnode cath 750k
+
+R413 cd8 b8 10k
+R411 cd7 b7 10k
+R408 cd6 b6 10k
+
+* Q n_collector n_base n_emitter
+Q403 midP b8 DY8 QN
+Q402 DY8  b7 DY7 QN
+Q401 DY7  b6 DY6 QN
+
+* тёмновой ток 10нА + k*сигнальный (геометрия delta~4 от анода)
+I8 DY8 0 {10n + k*19.1u}
+I7 DY7 0 {10n + k*4.8u}
+I6 DY6 0 {10n + k*1.2u}
+
+* малые ёмкости для гладкого tran (несущественны для DC)
+C8 DY8 0 1p
+C7 DY7 0 1p
+C6 DY6 0 1p
+
+.model QN NPN(BF=80 IS=1e-15 VAF=120 RB=10 RC=5)
+
+.options gmin=1e-13 reltol=1e-5
+.tran 1u 50u
+* все потенциалы электродов (для полного расчёта усиления в Python)
+.meas TRAN v_cath FIND V(cath) AT 45u
+.meas TRAN v_g    FIND V(gnode) AT 45u
+.meas TRAN v_dy1  FIND V(dy1) AT 45u
+.meas TRAN v_dy2  FIND V(dy2) AT 45u
+.meas TRAN v_dy3  FIND V(dy3) AT 45u
+.meas TRAN v_dy4  FIND V(dy4) AT 45u
+.meas TRAN v_dy5  FIND V(dy5) AT 45u
+.meas TRAN v_dy6  FIND V(DY6) AT 45u
+.meas TRAN v_dy7  FIND V(DY7) AT 45u
+.meas TRAN v_dy8  FIND V(DY8) AT 45u
+.meas TRAN i_load FIND I(I8) AT 45u
+.end

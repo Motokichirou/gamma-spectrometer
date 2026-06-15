@@ -1,0 +1,38 @@
+* divider_passive.cir — REVIEW: пассивный делитель (БЕЗ буферов), та же нагрузка.
+* Сравнение с divider_load.cir (активный): помогают ли транзисторы против DC-просадки?
+* Диноды = отводы цепочки напрямую. Нагрузка та же (k=1 -> 30кимп/с@2.6МэВ).
+.param k=0
+.step param k list 0 1
+
+Vhv cath 0 -1500
+
+R414 0    midP  499k
+R412 midP dy8   499k
+R410 dy8  dy7   1Meg
+R409 dy7  dy6   820k
+R407 dy6  dy5   680k
+R406 dy5  dy4   680k
+R405 dy4  dy3   680k
+R404 dy3  dy2   680k
+R403 dy2  dy1   680k
+R402 dy1  gnode 750k
+R401 gnode cath 750k
+
+I8 dy8 0 {10n + k*19.1u}
+I7 dy7 0 {10n + k*4.8u}
+I6 dy6 0 {10n + k*1.2u}
+C8 dy8 0 1p
+
+.options gmin=1e-13 reltol=1e-5
+.tran 1u 50u
+.meas TRAN v_cath FIND V(cath) AT 45u
+.meas TRAN v_g    FIND V(gnode) AT 45u
+.meas TRAN v_dy1  FIND V(dy1) AT 45u
+.meas TRAN v_dy2  FIND V(dy2) AT 45u
+.meas TRAN v_dy3  FIND V(dy3) AT 45u
+.meas TRAN v_dy4  FIND V(dy4) AT 45u
+.meas TRAN v_dy5  FIND V(dy5) AT 45u
+.meas TRAN v_dy6  FIND V(dy6) AT 45u
+.meas TRAN v_dy7  FIND V(dy7) AT 45u
+.meas TRAN v_dy8  FIND V(dy8) AT 45u
+.end

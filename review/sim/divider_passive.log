@@ -1,0 +1,72 @@
+LTspice 26.0.2 for Windows
+Circuit: C:\gamma-spectrometer\review\sim\divider_passive.cir
+Start Time: Mon Jun 15 20:35:29 2026
+Options:gmin=1e-13 reltol=1e-5
+
+.step k=0
+solver = Normal
+Maximum thread count: 12
+tnom = 27
+temp = 27
+method = trap
+gmin = 1e-13
+reltol = 1e-05
+Direct Newton iteration succeeded in finding operating point.
+
+.step k=1
+Direct Newton iteration succeeded in finding operating point.
+Total elapsed time: 0.030 seconds.
+
+Files loaded:
+C:\gamma-spectrometer\review\sim\divider_passive.cir
+
+
+Measurement: v_cath
+  step	V(cath) 	at
+     1	-1500	4.5e-05
+     2	-1500	4.5e-05
+
+Measurement: v_g
+  step	V(gnode) 	at
+     1	-1354.24255371	4.5e-05
+     2	-1357.35534668	4.5e-05
+
+Measurement: v_dy1
+  step	V(dy1) 	at
+     1	-1208.48498535	4.5e-05
+     2	-1214.71081543	4.5e-05
+
+Measurement: v_dy2
+  step	V(dy2) 	at
+     1	-1076.33154297	4.5e-05
+     2	-1085.37963867	4.5e-05
+
+Measurement: v_dy3
+  step	V(dy3) 	at
+     1	-944.178039551	4.5e-05
+     2	-956.048583984	4.5e-05
+
+Measurement: v_dy4
+  step	V(dy4) 	at
+     1	-812.024597168	4.5e-05
+     2	-826.717468262	4.5e-05
+
+Measurement: v_dy5
+  step	V(dy5) 	at
+     1	-679.871154785	4.5e-05
+     2	-697.386352539	4.5e-05
+
+Measurement: v_dy6
+  step	V(dy6) 	at
+     1	-547.717651367	4.5e-05
+     2	-568.055236816	4.5e-05
+
+Measurement: v_dy7
+  step	V(dy7) 	at
+     1	-388.347930908	4.5e-05
+     2	-411.104949951	4.5e-05
+
+Measurement: v_dy8
+  step	V(dy8) 	at
+     1	-193.984588623	4.5e-05
+     2	-214.892150879	4.5e-05
