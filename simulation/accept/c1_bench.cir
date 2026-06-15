@@ -1,0 +1,40 @@
+* =============================================================
+* c1_bench.cir — ЗАМОРОЖЕННЫЙ стенд приёмки C1 (просадка усиления делителя)
+* =============================================================
+* !!! ЭТАЛОН — НЕ РЕДАКТИРОВАТЬ. Менять можно только dut_divider.cir.
+* Порог T_C1: |Δусиления ФЭУ| <= 1 % при переходе k=0 -> k=1.
+*   k=0 — только тёмновой ток (10 нА); k=1 — полная нагрузка 30 кимп/с @ 2.614 МэВ.
+*   Средние динодные токи (DY8/7/6 = 19.1/4.8/1.2 мкА, δ~4) — worst-case,
+*   из detector_calcs.py (I_anode_avg≈25.5 мкА, I_div/I_anode=7.6).
+* Усиление = Π(зазор)^0.7 по множительным каскадам K→Dy1…Dy7→Dy8 (Dy8→анод исключён);
+* считает замороженный c1_check.py по потенциалам ниже.
+* =============================================================
+
+Vhv  cath  0  -1500
+.param k=0
+.step param k list 0 1
+
+* нагрузка (средние динодные токи): тёмновой + k*сигнал
+I8 DY8 0 {10n + k*19.1u}
+I7 DY7 0 {10n + k*4.8u}
+I6 DY6 0 {10n + k*1.2u}
+C8 DY8 0 1p
+C7 DY7 0 1p
+C6 DY6 0 1p
+
+.include dut_divider.cir
+
+.options gmin=1e-13 reltol=1e-5
+.tran 1u 50u
+
+* потенциалы всех множительных электродов (для c1_check.py)
+.meas TRAN v_cath FIND V(cath) AT 45u
+.meas TRAN v_dy1  FIND V(dy1)  AT 45u
+.meas TRAN v_dy2  FIND V(dy2)  AT 45u
+.meas TRAN v_dy3  FIND V(dy3)  AT 45u
+.meas TRAN v_dy4  FIND V(dy4)  AT 45u
+.meas TRAN v_dy5  FIND V(dy5)  AT 45u
+.meas TRAN v_dy6  FIND V(DY6)  AT 45u
+.meas TRAN v_dy7  FIND V(DY7)  AT 45u
+.meas TRAN v_dy8  FIND V(DY8)  AT 45u
+.end
