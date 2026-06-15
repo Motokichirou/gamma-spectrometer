@@ -22,6 +22,7 @@ Cb   vbias_b  0        100n
 * --- OPAMP1: CR-дифференциатор (инвертирующий), tau_diff = 10k*100p = 1 мкс ---
 R_cr_in  amp_out  cr_mid  10k
 C_diff   cr_mid   cr_in   100p
+R_pz     cr_mid   cr_in   10k       ; ФИКС C2: полюс-нуль || C_diff — выброс 28.6% -> ~5%
 R_diff   cr_out   cr_in   10k
 XU1  vbias_a  cr_in  VDD  0  cr_out  opamp_g474
 
