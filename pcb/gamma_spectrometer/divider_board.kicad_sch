@@ -1563,12 +1563,6 @@
 		(uuid "30eccfb4-494e-4a62-b2a0-088ecad12456")
 	)
 	(junction
-		(at 140.97 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "33d4dee9-5653-4462-9fe0-5c24c8fab7d5")
-	)
-	(junction
 		(at 80.01 73.66)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1593,28 +1587,22 @@
 		(uuid "59c0892d-eb56-4716-a1d1-9ed69de12447")
 	)
 	(junction
-		(at 118.11 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "5ba366ad-a558-48fb-9174-dc397bd1e579")
-	)
-	(junction
 		(at 148.59 33.02)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "61456488-1ed3-4364-909a-9e845331d06e")
 	)
 	(junction
+		(at 148.59 73.66)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "635bcbad-de5b-4a91-89f7-2295c91bafd3")
+	)
+	(junction
 		(at 87.63 73.66)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "657744c1-5d83-4139-a68c-c11731b45096")
-	)
-	(junction
-		(at 125.73 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "686ac2d7-7d44-4013-863f-c06cb35b0192")
 	)
 	(junction
 		(at 264.16 31.75)
@@ -1639,18 +1627,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "7d3ac548-c6aa-461f-ae4a-44b0ece8379e")
-	)
-	(junction
-		(at 133.35 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "80e7a6c6-9587-433d-b5ab-854ebcd743c5")
-	)
-	(junction
-		(at 148.59 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "87a6a711-739b-4648-93b6-f7ef57ceedc4")
 	)
 	(junction
 		(at 72.39 73.66)
@@ -1707,6 +1683,24 @@
 		(uuid "c4b6f820-4a87-47b1-a893-16b91777d8f7")
 	)
 	(junction
+		(at 129.54 73.66)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c4c052ca-03d1-4e41-8049-d1ca43c9c4de")
+	)
+	(junction
+		(at 148.59 53.34)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ca1a5fcc-75a2-4f24-8a60-eb922b35f112")
+	)
+	(junction
+		(at 119.38 73.66)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d0f482c6-0972-4929-bfc7-890ca8dc00ac")
+	)
+	(junction
 		(at 180.34 43.18)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1717,6 +1711,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d7b260ee-a175-44ff-a42a-77dbbf204edf")
+	)
+	(junction
+		(at 139.7 73.66)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ef6b6f56-c789-4c68-aad4-35617c7c6ddd")
 	)
 	(wire
 		(pts
@@ -1770,6 +1770,16 @@
 	)
 	(wire
 		(pts
+			(xy 144.78 53.34) (xy 148.59 53.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "09b48889-fcb6-444d-bc67-74beea01a8c4")
+	)
+	(wire
+		(pts
 			(xy 133.35 43.18) (xy 133.35 45.72)
 		)
 		(stroke
@@ -1780,13 +1790,23 @@
 	)
 	(wire
 		(pts
-			(xy 118.11 73.66) (xy 118.11 81.28)
+			(xy 119.38 73.66) (xy 119.38 81.28)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "11ed29da-bec0-4cbb-b59b-51b60e756179")
+	)
+	(wire
+		(pts
+			(xy 120.65 73.66) (xy 119.38 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1803a05f-7381-49a1-bad0-1282861d14bb")
 	)
 	(wire
 		(pts
@@ -1820,6 +1840,16 @@
 	)
 	(wire
 		(pts
+			(xy 119.38 73.66) (xy 118.11 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "272c555b-6ef4-49a4-928d-f39288e0ce82")
+	)
+	(wire
+		(pts
 			(xy 87.63 73.66) (xy 87.63 81.28)
 		)
 		(stroke
@@ -1847,6 +1877,16 @@
 			(type default)
 		)
 		(uuid "3005c7e7-610e-418a-9c65-1c31a2e646a2")
+	)
+	(wire
+		(pts
+			(xy 148.59 53.34) (xy 148.59 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "30757435-5164-4f28-bd26-0cab7ad15c7a")
 	)
 	(wire
 		(pts
@@ -1900,7 +1940,7 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 69.85) (xy 133.35 73.66)
+			(xy 139.7 68.58) (xy 139.7 73.66)
 		)
 		(stroke
 			(width 0)
@@ -1927,16 +1967,6 @@
 			(type default)
 		)
 		(uuid "3a0c5543-0875-40a9-a877-563f5dee988a")
-	)
-	(wire
-		(pts
-			(xy 125.73 69.85) (xy 125.73 73.66)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3df4ae6b-dac0-444d-b74f-4d5b851609a1")
 	)
 	(wire
 		(pts
@@ -1980,7 +2010,17 @@
 	)
 	(wire
 		(pts
-			(xy 148.59 40.64) (xy 148.59 73.66)
+			(xy 147.32 73.66) (xy 148.59 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4cea0960-b27b-49a5-9932-dddffc8a31e0")
+	)
+	(wire
+		(pts
+			(xy 148.59 40.64) (xy 148.59 53.34)
 		)
 		(stroke
 			(width 0)
@@ -1990,7 +2030,7 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 68.58) (xy 129.54 69.85)
+			(xy 129.54 68.58) (xy 129.54 73.66)
 		)
 		(stroke
 			(width 0)
@@ -2020,26 +2060,6 @@
 	)
 	(wire
 		(pts
-			(xy 140.97 69.85) (xy 144.78 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5682fb46-1668-474b-8d80-4d09aa9fcf98")
-	)
-	(wire
-		(pts
-			(xy 119.38 69.85) (xy 118.11 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "59341f91-fb28-47f7-b285-856e37c36efb")
-	)
-	(wire
-		(pts
 			(xy 133.35 34.29) (xy 133.35 43.18)
 		)
 		(stroke
@@ -2060,7 +2080,7 @@
 	)
 	(wire
 		(pts
-			(xy 118.11 69.85) (xy 118.11 73.66)
+			(xy 119.38 68.58) (xy 119.38 73.66)
 		)
 		(stroke
 			(width 0)
@@ -2117,6 +2137,16 @@
 			(type default)
 		)
 		(uuid "76c806f5-0c29-4e36-8ce0-c81054b8fcc7")
+	)
+	(wire
+		(pts
+			(xy 129.54 73.66) (xy 128.27 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76fffa38-b201-4fac-b8e5-4440226d10a5")
 	)
 	(wire
 		(pts
@@ -2240,16 +2270,6 @@
 	)
 	(wire
 		(pts
-			(xy 140.97 73.66) (xy 140.97 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "927176e2-17c0-44e1-be7f-7f91a8d0f31e")
-	)
-	(wire
-		(pts
 			(xy 64.77 73.66) (xy 64.77 81.28)
 		)
 		(stroke
@@ -2257,6 +2277,16 @@
 			(type default)
 		)
 		(uuid "945096b8-7738-4ba6-b40d-85c7f4987672")
+	)
+	(wire
+		(pts
+			(xy 119.38 81.28) (xy 118.11 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "95a5989b-7ad6-45de-8e14-39e75cd6cd23")
 	)
 	(wire
 		(pts
@@ -2350,16 +2380,6 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 68.58) (xy 139.7 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "af5b6842-d9f8-415d-8741-a55b0841201c")
-	)
-	(wire
-		(pts
 			(xy 110.49 43.18) (xy 110.49 73.66)
 		)
 		(stroke
@@ -2367,6 +2387,16 @@
 			(type default)
 		)
 		(uuid "b0ff52e0-428b-46ee-9544-3c719d0e1f33")
+	)
+	(wire
+		(pts
+			(xy 139.7 73.66) (xy 138.43 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b567707e-900c-4ecc-afea-dc6de32bc937")
 	)
 	(wire
 		(pts
@@ -2490,16 +2520,6 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 69.85) (xy 125.73 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d670ee6f-079f-4705-ae4b-5439d4b5b4f8")
-	)
-	(wire
-		(pts
 			(xy 80.01 34.29) (xy 91.44 34.29)
 		)
 		(stroke
@@ -2507,36 +2527,6 @@
 			(type default)
 		)
 		(uuid "d77b57c5-c101-46a3-9468-dc7fb2269a71")
-	)
-	(wire
-		(pts
-			(xy 119.38 68.58) (xy 119.38 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d865f298-4aa2-4b47-9b4f-ded8417a8088")
-	)
-	(wire
-		(pts
-			(xy 144.78 69.85) (xy 144.78 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d92fa0a4-3c32-481f-8346-ea42c9a6b02f")
-	)
-	(wire
-		(pts
-			(xy 139.7 69.85) (xy 133.35 69.85)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dca16d79-fb11-413f-bd88-3d8163d841bf")
 	)
 	(wire
 		(pts
@@ -2607,6 +2597,16 @@
 			(type default)
 		)
 		(uuid "f729a252-0b91-4f69-a754-e28188a60fb7")
+	)
+	(wire
+		(pts
+			(xy 130.81 73.66) (xy 129.54 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f7c5af2b-d0ec-4f20-a2df-8479b2010f41")
 	)
 	(wire
 		(pts
@@ -3466,7 +3466,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 137.16 73.66 90)
+		(at 143.51 73.66 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3474,15 +3474,15 @@
 		(dnp no)
 		(uuid "3e1bf8ab-796e-49e3-8777-ed147aeac73b")
 		(property "Reference" "R412"
-			(at 137.16 71.374 90)
+			(at 143.51 71.374 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "499k"
-			(at 137.16 73.66 90)
+		(property "Value" "1M"
+			(at 143.51 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3490,7 +3490,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 137.16 75.438 90)
+			(at 143.51 75.438 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3499,7 +3499,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 137.16 73.66 0)
+			(at 143.51 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3508,7 +3508,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 137.16 73.66 0)
+			(at 143.51 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3517,7 +3517,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 137.16 73.66 90)
+			(at 143.51 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3526,7 +3526,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 137.16 73.66 90)
+			(at 143.51 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3534,8 +3534,8 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "RC1206FR-07499KL"
-			(at 137.16 73.66 90)
+		(property "PN" "RC1206FR-071ML"
+			(at 143.51 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3543,8 +3543,8 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07499KL"
-			(at 137.16 73.66 90)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071ML"
+			(at 143.51 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3835,109 +3835,6 @@
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
 					(reference "#+5V_A0401")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 144.78 73.66 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "585f18c5-cd63-4bce-910b-90d376cdb757")
-		(property "Reference" "R414"
-			(at 144.78 71.12 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "499k"
-			(at 144.78 73.66 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 144.78 75.438 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 144.78 73.66 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 144.78 73.66 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 144.78 73.66 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 144.78 73.66 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "RC1206FR-07499KL"
-			(at 144.78 73.66 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07499KL"
-			(at 144.78 73.66 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "b2319a2b-2ec6-4727-bea4-30078c66eb0e")
-		)
-		(pin "2"
-			(uuid "e2680b95-e3a9-47be-8ef6-5e77ffb9bc75")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "R414")
 					(unit 1)
 				)
 			)
@@ -5217,7 +5114,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 121.92 73.66 90)
+		(at 124.46 73.66 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5225,7 +5122,7 @@
 		(dnp no)
 		(uuid "a6d49aec-3a8a-4d9b-96ae-473f4314be8f")
 		(property "Reference" "R409"
-			(at 121.92 71.628 90)
+			(at 124.46 71.628 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5233,7 +5130,7 @@
 			)
 		)
 		(property "Value" "820k"
-			(at 121.92 73.66 90)
+			(at 124.46 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5241,7 +5138,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 121.92 75.438 90)
+			(at 124.46 75.438 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5250,7 +5147,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 121.92 73.66 0)
+			(at 124.46 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5259,7 +5156,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 121.92 73.66 0)
+			(at 124.46 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5268,7 +5165,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 121.92 73.66 90)
+			(at 124.46 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5277,7 +5174,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 121.92 73.66 90)
+			(at 124.46 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5286,7 +5183,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07820KL"
-			(at 121.92 73.66 90)
+			(at 124.46 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5295,7 +5192,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07820KL"
-			(at 121.92 73.66 90)
+			(at 124.46 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6895,7 +6792,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 129.54 73.66 90)
+		(at 134.62 73.66 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6903,7 +6800,7 @@
 		(dnp no)
 		(uuid "eff23f02-263a-4bc5-b5c2-74f5fb495907")
 		(property "Reference" "R410"
-			(at 129.54 71.374 90)
+			(at 134.62 71.374 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6911,7 +6808,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 129.286 73.66 90)
+			(at 134.366 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6919,7 +6816,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 129.54 75.438 90)
+			(at 134.62 75.438 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6928,7 +6825,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 129.54 73.66 0)
+			(at 134.62 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6937,7 +6834,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 129.54 73.66 0)
+			(at 134.62 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6946,7 +6843,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 129.54 73.66 90)
+			(at 134.62 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6955,7 +6852,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 129.54 73.66 90)
+			(at 134.62 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6964,7 +6861,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-071ML"
-			(at 129.54 73.66 90)
+			(at 134.62 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6973,7 +6870,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071ML"
-			(at 129.54 73.66 90)
+			(at 134.62 73.66 90)
 			(effects
 				(font
 					(size 1.27 1.27)
