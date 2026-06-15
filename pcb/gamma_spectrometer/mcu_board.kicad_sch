@@ -3713,6 +3713,12 @@
 		(uuid "1f6e1f26-8c16-4e6e-88ba-3f35723a4d05")
 	)
 	(junction
+		(at 351.79 138.43)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2acb50d0-e620-46cc-bcfd-de62a77086e9")
+	)
+	(junction
 		(at 396.24 173.99)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3723,12 +3729,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "34866c90-4065-4073-896e-973b3b31c67f")
-	)
-	(junction
-		(at 344.17 130.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3815d0d4-9a16-4bd1-a4fb-7382ee0454cd")
 	)
 	(junction
 		(at 223.52 139.7)
@@ -3753,6 +3753,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "5e0d13c9-8a6f-4f05-a5c1-e638af548630")
+	)
+	(junction
+		(at 344.17 138.43)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "65e5b1a7-068f-45a3-95b9-2baea822176e")
 	)
 	(junction
 		(at 213.36 130.81)
@@ -3797,10 +3803,10 @@
 		(uuid "b1d968cf-d170-4dd7-80ec-7e0e9342ead6")
 	)
 	(junction
-		(at 344.17 138.43)
+		(at 334.01 138.43)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "bb94e706-77d8-4715-8b74-27bac04878fe")
+		(uuid "baa1e89d-f75c-4bc8-9107-3e4f335c57e0")
 	)
 	(junction
 		(at 223.52 147.32)
@@ -3843,6 +3849,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f6c451b6-10a8-4874-aef2-6e1db8b1a4cb")
+	)
+	(junction
+		(at 334.01 130.81)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fa5c88bc-fae2-469d-93ad-42c02b0aa390")
 	)
 	(junction
 		(at 345.44 162.56)
@@ -4130,7 +4142,7 @@
 	)
 	(wire
 		(pts
-			(xy 344.17 119.38) (xy 344.17 130.81)
+			(xy 337.82 119.38) (xy 337.82 130.81)
 		)
 		(stroke
 			(width 0)
@@ -4320,7 +4332,7 @@
 	)
 	(wire
 		(pts
-			(xy 359.41 138.43) (xy 364.49 138.43)
+			(xy 351.79 138.43) (xy 364.49 138.43)
 		)
 		(stroke
 			(width 0)
@@ -4367,6 +4379,16 @@
 			(type default)
 		)
 		(uuid "7a9503df-2120-4b18-a2b5-50e1ae4cf70b")
+	)
+	(wire
+		(pts
+			(xy 344.17 130.81) (xy 344.17 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7f7df0c1-3b78-4424-89d8-ffdbeeb9ec01")
 	)
 	(wire
 		(pts
@@ -4450,6 +4472,16 @@
 	)
 	(wire
 		(pts
+			(xy 334.01 130.81) (xy 337.82 130.81)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a0cd79f5-1228-409b-9796-56e06f6bf4da")
+	)
+	(wire
+		(pts
 			(xy 262.89 123.19) (xy 265.43 123.19)
 		)
 		(stroke
@@ -4480,7 +4512,7 @@
 	)
 	(wire
 		(pts
-			(xy 341.63 135.89) (xy 341.63 130.81)
+			(xy 331.47 135.89) (xy 331.47 130.81)
 		)
 		(stroke
 			(width 0)
@@ -4550,7 +4582,7 @@
 	)
 	(wire
 		(pts
-			(xy 359.41 119.38) (xy 344.17 119.38)
+			(xy 359.41 119.38) (xy 337.82 119.38)
 		)
 		(stroke
 			(width 0)
@@ -4567,6 +4599,16 @@
 			(type default)
 		)
 		(uuid "be83b35d-93c7-45e2-acb5-935e13697f54")
+	)
+	(wire
+		(pts
+			(xy 351.79 130.81) (xy 351.79 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bedf34cd-ad31-4326-a8bd-2d8b378c32ef")
 	)
 	(wire
 		(pts
@@ -4630,6 +4672,16 @@
 	)
 	(wire
 		(pts
+			(xy 334.01 138.43) (xy 344.17 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dcfe6f03-b2f5-4edd-9f12-8605194043f2")
+	)
+	(wire
+		(pts
 			(xy 306.07 148.59) (xy 288.29 148.59)
 		)
 		(stroke
@@ -4640,7 +4692,7 @@
 	)
 	(wire
 		(pts
-			(xy 341.63 130.81) (xy 344.17 130.81)
+			(xy 331.47 130.81) (xy 334.01 130.81)
 		)
 		(stroke
 			(width 0)
@@ -4670,7 +4722,7 @@
 	)
 	(wire
 		(pts
-			(xy 288.29 138.43) (xy 344.17 138.43)
+			(xy 288.29 138.43) (xy 334.01 138.43)
 		)
 		(stroke
 			(width 0)
@@ -4680,7 +4732,7 @@
 	)
 	(wire
 		(pts
-			(xy 288.29 135.89) (xy 341.63 135.89)
+			(xy 288.29 135.89) (xy 331.47 135.89)
 		)
 		(stroke
 			(width 0)
@@ -4717,16 +4769,6 @@
 			(type default)
 		)
 		(uuid "f1f3c3f6-6fe4-4f0d-af2e-75f14cf1abd0")
-	)
-	(wire
-		(pts
-			(xy 344.17 138.43) (xy 351.79 138.43)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f1f606cc-2c2d-484f-a178-d74988e6dd71")
 	)
 	(wire
 		(pts
@@ -5234,7 +5276,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 355.6 138.43 270)
+		(at 347.98 138.43 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5242,7 +5284,7 @@
 		(dnp no)
 		(uuid "04d8e4cb-fbf3-4d26-9475-63e4b294360f")
 		(property "Reference" "C315"
-			(at 355.092 135.128 90)
+			(at 347.472 135.128 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5250,7 +5292,7 @@
 			)
 		)
 		(property "Value" "100pF"
-			(at 355.346 133.35 90)
+			(at 347.726 133.35 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5258,7 +5300,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
-			(at 351.79 139.3952 0)
+			(at 344.17 139.3952 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5267,7 +5309,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 355.6 138.43 0)
+			(at 347.98 138.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5276,7 +5318,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 355.6 138.43 0)
+			(at 347.98 138.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5285,7 +5327,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 355.6 138.43 90)
+			(at 347.98 138.43 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5294,7 +5336,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 355.6 138.43 90)
+			(at 347.98 138.43 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5303,7 +5345,7 @@
 			)
 		)
 		(property "PN" "CC0603JRNPO9BN101"
-			(at 355.6 138.43 90)
+			(at 347.98 138.43 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5312,7 +5354,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRNPO9BN101"
-			(at 355.6 138.43 90)
+			(at 347.98 138.43 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7263,6 +7305,92 @@
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
 					(reference "#PWR0306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 347.98 130.81 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6d15f452-29c3-4d7f-b027-a31a49d4d57d")
+		(property "Reference" "R314"
+			(at 347.98 124.46 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "10k"
+			(at 347.98 127 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 347.98 132.588 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 347.98 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 347.98 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "PN" "RC0603FR-0710KL"
+			(at 347.98 130.81 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
+			(at 347.98 130.81 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b2375ced-b8e0-4310-833a-240d9d507f1e")
+		)
+		(pin "2"
+			(uuid "674b2214-5eb5-4555-af65-87b107a9c427")
+		)
+		(instances
+			(project ""
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
+					(reference "R314")
 					(unit 1)
 				)
 			)
@@ -10572,7 +10700,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 344.17 134.62 0)
+		(at 334.01 134.62 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -10581,7 +10709,7 @@
 		(fields_autoplaced yes)
 		(uuid "cbff22a4-7608-4854-8b2c-375d59f74c5c")
 		(property "Reference" "R305"
-			(at 346.71 133.3499 0)
+			(at 336.55 133.3499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10590,7 +10718,7 @@
 			)
 		)
 		(property "Value" "10k"
-			(at 346.71 135.8899 0)
+			(at 336.55 135.8899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10599,7 +10727,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 342.392 134.62 90)
+			(at 332.232 134.62 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10608,7 +10736,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10617,7 +10745,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10626,7 +10754,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10635,7 +10763,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10644,7 +10772,7 @@
 			)
 		)
 		(property "PN" "RC0603FR-0710KL"
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10653,7 +10781,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
-			(at 344.17 134.62 0)
+			(at 334.01 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
