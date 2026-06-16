@@ -1,7 +1,7 @@
 (export (version "E")
   (design
     (source "C:\\gamma-spectrometer\\pcb\\gamma_spectrometer\\gamma_spectrometer.kicad_sch")
-    (date "2026-06-15T23:28:38+0300")
+    (date "2026-06-16T23:55:35+0300")
     (tool "Eeschema 9.0.7")
     (sheet (number "1") (name "/") (tstamps "/")
       (title_block
@@ -5240,12 +5240,12 @@
       (node (ref "J101") (pin "A7") (pinfunction "A7") (pintype "unspecified"))
       (node (ref "J101") (pin "B7") (pinfunction "B7") (pintype "unspecified"))
       (node (ref "U103") (pin "9") (pinfunction "USBDM") (pintype "bidirectional"))
-      (node (ref "U_ESD101") (pin "2") (pinfunction "I/O1") (pintype "passive")))
+      (node (ref "U_ESD101") (pin "3") (pinfunction "I/O2") (pintype "passive")))
     (net (code "17") (name "/USB_Power_Board/D_P") (class "Default")
       (node (ref "J101") (pin "A6") (pinfunction "A6") (pintype "unspecified"))
       (node (ref "J101") (pin "B6") (pinfunction "B6") (pintype "unspecified"))
       (node (ref "U103") (pin "8") (pinfunction "USBDP") (pintype "bidirectional"))
-      (node (ref "U_ESD101") (pin "3") (pinfunction "I/O2") (pintype "passive")))
+      (node (ref "U_ESD101") (pin "2") (pinfunction "I/O1") (pintype "passive")))
     (net (code "18") (name "AMP_OUT") (class "Default")
       (node (ref "C415") (pin "1") (pintype "passive"))
       (node (ref "R309") (pin "1") (pintype "passive"))

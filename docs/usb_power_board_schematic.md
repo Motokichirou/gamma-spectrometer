@@ -57,7 +57,7 @@ USB-C J1 (JAE DX07S024WJ3R400)
 **Компоненты:**
 - **J1**: JAE DX07S024WJ3R400 — USB-C вертикальный SMD, монтаж в центре платы
 - **F1**: Bourns MF-MSMF050-2 — PTC 500мА самовосстанавливающийся предохранитель
-- **U_ESD**: PRTR5V0U2X (SOT-363) — TVS на линии D+/D−, 3.3V клэмп
+- **U_ESD**: PRTR5V0U2X (SOT143B, 4 вывода) — двойной rail-to-rail ESD-массив на D+/D− (даташит `docs/refs/PRTR5V0U2X-1320589.pdf`)
 - **R_CC101, R_CC102**: 5.1 кОм 0402 × 2 — идентификация USB device (не Host/PD)
 
 **Подключение пинов J1 (DX07S024WJ3R400):**
@@ -69,8 +69,8 @@ USB-C J1 (JAE DX07S024WJ3R400)
 | 25, 26, 27, 28 | SHIELD | GND |
 | A5 | CC1 | R_CC1 → GND |
 | B5 | CC2 | R_CC2 → GND |
-| A6, B6 | D+ | net D_P → U_ESD I/O2 |
-| A7, B7 | D− | net D_N → U_ESD I/O1 |
+| A6, B6 | D+ | net D_P → U_ESD I/O1 (пин 2) |
+| A7, B7 | D− | net D_N → U_ESD I/O2 (пин 3) |
 | A8, B8 | SBU1/2 | No Connect |
 | A2,A3,A10,A11,B2,B3,B10,B11 | SuperSpeed TX/RX | No Connect |
 
