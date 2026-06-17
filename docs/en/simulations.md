@@ -24,7 +24,7 @@ With `Rfb = 1.5 kΩ`, `Cfb = 1 pF`, `Cpar = 1 pF`:
 
 PGA ×4, with the DC-bias divider giving `V_out_DC = 2.13 V` baseline.
 The ballistic-deficit-corrected peaking factor is `PF = 0.202` (the G474 OPAMP
-GBW of 13 MHz reduces the ideal 0.36).
+GBW of 13 MHz slightly reduces the ideal-opamp 0.209; the earlier "0.36" was an analytic-calc error).
 
 Resulting energy → channel mapping (of 8192):
 
