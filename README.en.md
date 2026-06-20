@@ -103,8 +103,8 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | LTspice sim1: AD8000 stability | ✅ Done (BW=99 MHz, peaking<0.5 dB) |
 | LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
 | LTspice sim3: noise budget | ✅ Done (σ=94.4 µV rms, 0.31 ch rms) |
-| BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 79 R / 28 MPN, all active) |
-| PCB layout — all boards | 🔲 Not started |
+| BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 67 R, all active) |
+| PCB layout | 🚧 USB & HV routed (DRC electrically clean, schematic parity 0), inter-board bus placed (USB+HV); MCU and divider pending |
 | STM32 firmware | 🚧 Stages 1–2 + self-test + energy calibration in flash running on Nucleo (shproto, real histogram); stage 3 on the target board |
 | Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
 
