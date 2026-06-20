@@ -1527,12 +1527,6 @@
 		(uuid "04b4531b-8a07-46d1-92ac-b912c18536f1")
 	)
 	(junction
-		(at 285.75 53.34)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0a4585e4-00ae-459e-aedc-16edb5edd4ad")
-	)
-	(junction
 		(at 180.34 38.1)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1551,10 +1545,10 @@
 		(uuid "16b52b16-4014-4568-8362-96f5650b359e")
 	)
 	(junction
-		(at 275.59 50.8)
+		(at 186.69 16.51)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "1fa23e36-3d57-4eb5-a206-cabc3193550f")
+		(uuid "2ddf7b12-926b-4df0-90f7-d1d951b2914d")
 	)
 	(junction
 		(at 124.46 53.34)
@@ -1623,6 +1617,12 @@
 		(uuid "787e0083-bc1c-49ea-89eb-d648a40e40c8")
 	)
 	(junction
+		(at 186.69 24.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7b83c911-5d01-4ba2-a588-771c30aa205e")
+	)
+	(junction
 		(at 110.49 43.18)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1657,12 +1657,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "ba442dd9-66b0-4b68-bba5-4868d7804562")
-	)
-	(junction
-		(at 267.97 50.8)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "bbe8010b-185f-46af-8438-e5a5c33156c8")
 	)
 	(junction
 		(at 102.87 73.66)
@@ -1713,6 +1707,12 @@
 		(uuid "d7b260ee-a175-44ff-a42a-77dbbf204edf")
 	)
 	(junction
+		(at 180.34 33.02)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e4ad9c20-4f53-4ee0-9d64-877df8cab2d6")
+	)
+	(junction
 		(at 139.7 73.66)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -1720,7 +1720,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 50.8) (xy 267.97 38.1)
+			(xy 267.97 38.1) (xy 267.97 57.15)
 		)
 		(stroke
 			(width 0)
@@ -1800,6 +1800,16 @@
 	)
 	(wire
 		(pts
+			(xy 186.69 16.51) (xy 187.96 16.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "14a15232-17de-4b3f-9b12-f6f5a1b9b6ba")
+	)
+	(wire
+		(pts
 			(xy 120.65 73.66) (xy 119.38 73.66)
 		)
 		(stroke
@@ -1810,23 +1820,13 @@
 	)
 	(wire
 		(pts
-			(xy 177.8 33.02) (xy 186.69 33.02)
+			(xy 177.8 33.02) (xy 180.34 33.02)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "1e4f5b9b-7619-498f-842c-10af6f53564f")
-	)
-	(wire
-		(pts
-			(xy 285.75 53.34) (xy 285.75 54.61)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "23f8d065-0229-40ca-a553-cfd8f038b02b")
 	)
 	(wire
 		(pts
@@ -1867,16 +1867,6 @@
 			(type default)
 		)
 		(uuid "2f9e8f5f-0b2f-4488-acac-826cbb1fc85d")
-	)
-	(wire
-		(pts
-			(xy 290.83 53.34) (xy 290.83 16.51)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3005c7e7-610e-418a-9c65-1c31a2e646a2")
 	)
 	(wire
 		(pts
@@ -1970,6 +1960,16 @@
 	)
 	(wire
 		(pts
+			(xy 184.15 24.13) (xy 186.69 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3b40eca9-d7e9-43f8-82b9-e65be0a2198f")
+	)
+	(wire
+		(pts
 			(xy 95.25 73.66) (xy 95.25 81.28)
 		)
 		(stroke
@@ -1987,6 +1987,16 @@
 			(type default)
 		)
 		(uuid "4271224d-4fc4-411b-b96d-6c8d52ef9e3d")
+	)
+	(wire
+		(pts
+			(xy 186.69 24.13) (xy 187.96 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4a7eb0ff-2dc1-4ebc-99bf-77fa3fbf31f3")
 	)
 	(wire
 		(pts
@@ -2037,16 +2047,6 @@
 			(type default)
 		)
 		(uuid "53adaaae-919d-47f8-913a-99ff82d67029")
-	)
-	(wire
-		(pts
-			(xy 186.69 16.51) (xy 186.69 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "554c4b51-f76c-49fb-93ac-94332d89ef11")
 	)
 	(wire
 		(pts
@@ -2210,16 +2210,6 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 50.8) (xy 267.97 50.8)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8af16f77-9b18-476a-aecd-bf5b8bc0792c")
-	)
-	(wire
-		(pts
 			(xy 110.49 38.1) (xy 110.49 43.18)
 		)
 		(stroke
@@ -2250,13 +2240,13 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 50.8) (xy 278.13 50.8)
+			(xy 180.34 33.02) (xy 186.69 33.02)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "907954a7-c1bc-403e-b98c-7db2da530713")
+		(uuid "8d75aadc-2c01-474f-a538-6002927bd47b")
 	)
 	(wire
 		(pts
@@ -2320,13 +2310,13 @@
 	)
 	(wire
 		(pts
-			(xy 290.83 16.51) (xy 186.69 16.51)
+			(xy 186.69 13.97) (xy 180.34 13.97)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "ab1f24d4-e00c-4b2b-beed-b4d6006dd582")
+		(uuid "aa472e22-3516-4f07-9af5-da576a2be114")
 	)
 	(wire
 		(pts
@@ -2340,16 +2330,6 @@
 	)
 	(wire
 		(pts
-			(xy 285.75 50.8) (xy 285.75 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ac31ebb8-ed30-4c6d-8f5a-5abe9019cedd")
-	)
-	(wire
-		(pts
 			(xy 80.01 73.66) (xy 80.01 34.29)
 		)
 		(stroke
@@ -2357,6 +2337,16 @@
 			(type default)
 		)
 		(uuid "ad248cbd-3b8b-4c65-a564-0de1280e1bfc")
+	)
+	(wire
+		(pts
+			(xy 186.69 16.51) (xy 186.69 13.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad937bcd-379c-4a4c-a464-8deca10cd723")
 	)
 	(wire
 		(pts
@@ -2440,16 +2430,6 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 54.61) (xy 278.13 54.61)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bd9f31aa-edd3-4650-80d8-ebac4bafc7c5")
-	)
-	(wire
-		(pts
 			(xy 87.63 73.66) (xy 87.63 35.56)
 		)
 		(stroke
@@ -2477,16 +2457,6 @@
 			(type default)
 		)
 		(uuid "ca637ded-6d4c-40ba-bc03-03f565291684")
-	)
-	(wire
-		(pts
-			(xy 290.83 53.34) (xy 285.75 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d1534029-69d3-4c83-88e9-93ce6ef3462a")
 	)
 	(wire
 		(pts
@@ -2530,13 +2500,33 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 54.61) (xy 275.59 50.8)
+			(xy 186.69 30.48) (xy 186.69 24.13)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "e94e7cda-e931-454c-8ba3-8fd618953105")
+		(uuid "e1821b60-ff78-47d6-92c6-1b06518489fc")
+	)
+	(wire
+		(pts
+			(xy 184.15 16.51) (xy 186.69 16.51)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e1d4ee7d-3e45-4476-bafc-b23c6d59c96c")
+	)
+	(wire
+		(pts
+			(xy 180.34 13.97) (xy 180.34 33.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e635af84-2fac-4c44-b37c-473f90273dfe")
 	)
 	(wire
 		(pts
@@ -2607,16 +2597,6 @@
 			(type default)
 		)
 		(uuid "f7c5af2b-d0ec-4f20-a2df-8479b2010f41")
-	)
-	(wire
-		(pts
-			(xy 267.97 50.8) (xy 267.97 57.15)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fc800054-c6c5-469e-8a0d-35124a008b09")
 	)
 	(wire
 		(pts
@@ -4012,7 +3992,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 281.94 54.61 90)
+		(at 184.15 20.32 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4020,7 +4000,7 @@
 		(dnp no)
 		(uuid "6a5b4c30-1845-4d6a-ab9a-722a28db61e1")
 		(property "Reference" "R417"
-			(at 281.94 60.198 90)
+			(at 179.832 19.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4028,7 +4008,7 @@
 			)
 		)
 		(property "Value" "1.5k"
-			(at 281.94 57.658 90)
+			(at 179.832 21.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4036,7 +4016,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 281.94 56.388 90)
+			(at 182.372 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4045,7 +4025,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 281.94 54.61 0)
+			(at 184.15 20.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4054,7 +4034,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 281.94 54.61 0)
+			(at 184.15 20.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4063,7 +4043,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 281.94 54.61 90)
+			(at 184.15 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4072,7 +4052,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 281.94 54.61 90)
+			(at 184.15 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4081,7 +4061,7 @@
 			)
 		)
 		(property "PN" "RC0603FR-071K5L"
-			(at 281.94 54.61 90)
+			(at 184.15 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4090,7 +4070,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-071K5L"
-			(at 281.94 54.61 90)
+			(at 184.15 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6998,7 +6978,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 281.94 50.8 90)
+		(at 187.96 20.32 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7007,23 +6987,25 @@
 		(fields_autoplaced yes)
 		(uuid "fae5541d-8e4b-4b4a-bcd9-ed62d09da2f3")
 		(property "Reference" "C415"
-			(at 281.94 43.18 90)
+			(at 191.77 19.0499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
 		(property "Value" "1pF"
-			(at 281.94 45.72 90)
+			(at 191.77 21.5899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric_Pad0.74x0.62mm_HandSolder"
-			(at 285.75 49.8348 0)
+			(at 186.9948 16.51 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7032,7 +7014,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 281.94 50.8 0)
+			(at 187.96 20.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7041,7 +7023,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 281.94 50.8 0)
+			(at 187.96 20.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7050,7 +7032,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 281.94 50.8 90)
+			(at 187.96 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7059,7 +7041,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 281.94 50.8 90)
+			(at 187.96 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7068,7 +7050,7 @@
 			)
 		)
 		(property "PN" "GRM1555C1H1R0WA01D"
-			(at 281.94 50.8 90)
+			(at 187.96 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7077,7 +7059,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM1555C1H1R0WA01D"
-			(at 281.94 50.8 90)
+			(at 187.96 20.32 90)
 			(effects
 				(font
 					(size 1.27 1.27)
