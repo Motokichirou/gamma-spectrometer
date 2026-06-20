@@ -1,0 +1,61 @@
+* =============================================================
+* sim_tia_real.cir — TIA на ОФИЦИАЛЬНОЙ модели ADA4817 (ADI rev2.1)
+* Сравнение шума с sim3 (AD8000-инвертор) и sim_tia (поведенческая).
+* =============================================================
+* Фронт-енд: ADA4817 как трансимпеданс. Rf||Cf между FB(пин)↔−IN,
+* нагрузка/сигнал — с OUT (как в железе, FB внутри = выход).
+* Шейпер CR-RC²-PGA и DC-смещения идентичны sim3.
+* =============================================================
+.lib models/opamp_g474_noise.sub
+.inc models/ada4817.cir
+
+* SUPPLIES
+VDD   VDD   0   DC  3.3
+VREF  VREF  0   DC  2.5
+VCC   VCC   0   DC  5
+VEE   VEE   0   DC  -5
+
+* ВХОД: ФЭУ = источник тока в виртуальную землю (−IN)
+I_pmt  0  inn  AC 1  DC 0
+Cin    inn  0   10p
+
+* TIA обратная связь: Rf||Cf между FB(105) и −IN(101)
+Rf     fb   inn   499
+Cf     fb   inn   3p
+
+* ADA4817:  +IN(0)  −IN(inn)  V+(VCC)  V−(VEE)  OUT(amp_out)  FB(fb)  PD(VCC=вкл)
+X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
+
+* =============================================================
+* DC BIAS DIVIDERS (2.5V) — идентично sim3
+* =============================================================
+Ra   VREF  vbias_a  8.2k
+Rb   vbias_a  0     2k
+Ca   vbias_a  0     100n
+Rc   VREF  vbias_b  22k
+Rd   vbias_b  0     5.9k
+Cb   vbias_b  0     100n
+
+* OPAMP1: CR
+R_cr_in  amp_out  cr_mid  10k
+C_diff   cr_mid   cr_in   100p
+R_diff   cr_out   cr_in   10k
+XU1  vbias_a  cr_in  VDD  0  cr_out  opamp_g474_noise
+C_couple  cr_out   rc_node  100n
+
+* OPAMP2: RC
+R_int    rc_node   rc_in   1k
+C_int    rc_out    rc_in   510p
+R_stab   rc_out    rc_in   1k
+XU2  vbias_a  rc_in  VDD  0  rc_out  opamp_g474_noise
+C_buf_in  rc_out  pga_inp  100n
+Rbias_pga  vbias_b  pga_inp  4.65k
+
+* OPAMP3: PGA x4
+R_pga1   adc_in   pga_inm  30k
+R_pga2   pga_inm  0        10k
+XU3  pga_inp  pga_inm  VDD  0  adc_in  opamp_g474_noise
+
+.noise V(adc_in) I_pmt dec 100 1 2Meg
+.backanno
+.end

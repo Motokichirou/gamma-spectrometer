@@ -1,0 +1,84 @@
+* =============================================================
+* sim_tia.cir  —  АЛЬТЕРНАТИВА: TIA на ADA4817 вместо AD8000-инвертора
+* Сравнение шума фронт-енда с sim3_noise.cir (тот же шейпер).
+* =============================================================
+*
+* Цель: σ_total на V(adc_in) — сравнить с sim3 (AD8000-инвертор, 94.4 мкВ).
+* Изменён ТОЛЬКО фронт-енд: AD8000 (инвертор ×15, noise gain ~11)
+*   -> ADA4817 как трансимпеданс (TIA), noise gain ≈1.
+* Шейпер CR-RC²-PGA и DC-смещения — идентичны sim3 (изолируем эффект).
+*
+* ADA4817-1 (даташит): VFB FET, GBW~1ГГц, e_n=4нВ/√Гц, i_n=2.5фА/√Гц,
+*   C_in(CM)=1.3пФ. i_n*Rf=1.2пВ — пренебрежимо (FET).
+*
+.lib models/opamp_g474_noise.sub
+
+* =============================================================
+* SUPPLIES
+* =============================================================
+VDD   VDD   0   DC  3.3
+VREF  VREF  0   DC  2.5
+
+* =============================================================
+* ВХОД: ФЭУ = источник тока, втекает в инвертирующий узел (виртуальная земля).
+* AC 1 A для расчёта S/N; DC 0 -> цепь в рабочей точке от делителей.
+* =============================================================
+I_pmt  0  inn  AC 1  DC 0
+
+* Входная ёмкость: анод R1307 (~6.5п) + монтаж (~2п) + ADA4817 CM (1.3п) ≈ 10п
+Cin    inn   0      10p
+
+* ADA4817 e_n=4нВ/√Гц -> R_eq=(4e-9)^2/(4kT)=966 Ом (шумовой, в сенс-пути, тока нет)
+R_en   inn   inn_s  966
+
+* TIA: обратная связь Rf||Cf между выходом и инвертирующим входом
+Rf     amp_out  inn   499
+Cf     amp_out  inn   3p
+
+* ADA4817 идеальное ядро: out = -A*V(inn_s); +IN=0 -> виртуальная земля на inn
+E_tia  amp_out  0   0  inn_s   1Meg
+
+* =============================================================
+* DC BIAS DIVIDERS from REF (2.5V)  —  идентично sim3
+* =============================================================
+Ra   VREF  vbias_a  8.2k
+Rb   vbias_a  0     2k
+Ca   vbias_a  0     100n
+
+Rc   VREF  vbias_b  22k
+Rd   vbias_b  0     5.9k
+Cb   vbias_b  0     100n
+
+* =============================================================
+* OPAMP1: CR high-pass (inverting)  —  идентично sim3
+* =============================================================
+R_cr_in  amp_out  cr_mid  10k
+C_diff   cr_mid   cr_in   100p
+R_diff   cr_out   cr_in   10k
+XU1  vbias_a  cr_in  VDD  0  cr_out  opamp_g474_noise
+
+* AC coupling OPAMP1 -> OPAMP2
+C_couple  cr_out   rc_node  100n
+
+* OPAMP2: RC integrator (inverting)
+R_int    rc_node   rc_in   1k
+C_int    rc_out    rc_in   510p
+R_stab   rc_out    rc_in   1k
+XU2  vbias_a  rc_in  VDD  0  rc_out  opamp_g474_noise
+
+* AC coupling OPAMP2 -> OPAMP3
+C_buf_in  rc_out  pga_inp  100n
+Rbias_pga  vbias_b  pga_inp  4.65k
+
+* OPAMP3: PGA x4 (non-inverting)
+R_pga1   adc_in   pga_inm  30k
+R_pga2   pga_inm  0        10k
+XU3  pga_inp  pga_inm  VDD  0  adc_in  opamp_g474_noise
+
+* =============================================================
+* NOISE ANALYSIS: 1 Гц ... 2 МГц (как sim3)
+* =============================================================
+.noise V(adc_in) I_pmt dec 100 1 2Meg
+
+.backanno
+.end
