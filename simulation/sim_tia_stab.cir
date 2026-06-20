@@ -1,0 +1,27 @@
+* =============================================================
+* sim_tia_stab.cir — устойчивость/полоса TIA на ADA4817 (реальная модель)
+* Подбор Cf: трансимпеданс Zt(f)=V(amp_out)/I_pmt, пиковость и BW.
+* =============================================================
+.inc models/ada4817.cir
+
+VCC   VCC   0   DC  5
+VEE   VEE   0   DC  -5
+
+I_pmt  0  inn  AC 1
+Cin    inn  0   10p
+
+.step param cf list 1.5p 1.8p 2.2p 3p 4.7p
+
+Rf     fb   inn   499
+Cf     fb   inn   {cf}
+X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
+
+.ac dec 200 1k 1G
+
+* DC-трансимпеданс, пик и пиковость в дБ; полоса по уровню Zdc/√2
+.meas AC zdc   FIND mag(V(amp_out)) AT=10k
+.meas AC zmax  MAX  mag(V(amp_out))
+.meas AC peakdB PARAM 20*log10(zmax/zdc)
+.meas AC f3db  WHEN mag(V(amp_out))=zdc/1.41421 FALL=1
+
+.end
