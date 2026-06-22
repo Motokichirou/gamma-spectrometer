@@ -1,7 +1,7 @@
 # Делитель — пересборка буферной секции (чек-лист)
 
 > Заведено 2026-06-21 по итогам сверки с Hamamatsu PMT Handbook (Fig 5-15) и симуляциям.
-> Эталон: `docs/refs/PMT_handbook_v3aE.pdf`, **Figure 5-15 «Voltage-divider circuit using transistors»** (печатная стр. 94 / PDF 108).
+> Эталон: `docs/refs/PMT_handbook_v3aE.pdf` — **схема на странице 108 файла** (PDF), **Figure 5-15 «Voltage-divider circuit using transistors»** (печатная стр. 94). Открывать стр. 108.
 > Схему рисует пользователь. Пересборка запланирована — делать строго по референсу.
 
 ---
