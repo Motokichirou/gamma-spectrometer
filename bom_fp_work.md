@@ -28,7 +28,7 @@
 | C316 | 1 | 510pF C0G | CC0603FRNPO9BN511 (Yageo) | C_0603_HandSolder |
 | C408 | 1 | 22nF / 1кВ | CC1210KKX7RCBB223 (Yageo) | C_1210_HandSolder |
 | C409 | 1 | 47nF / 1кВ | GRM43DR73A473KW01L (Murata) | C_1812_HandSolder |
-| C415 | 1 | 1pF C0G ±0.05пФ | GRM1555C1H1R0WA01D (Murata) | C_0402_HandSolder |
+| C415 (Cf, TIA) | 1 | 4.7pF C0G NP0 | GRM1555C1H4R7CA01D (Murata) | C_0402_HandSolder |
 
 ### Резисторы — стандартные 0603 (1%, низковольтные)
 
@@ -50,9 +50,7 @@
 | R311 | 1 | 5.9k | RC0603FR-075K9L | Yageo RC |
 | R312 | 1 | 8.2k | RC0603FR-078K2L | Yageo RC |
 | R313 | 1 | 2k | RC0603FR-072KL | Yageo RC |
-| R415 | 1 | 49.9R | RC0603FR-0749R9L | Yageo RC |
-| R416 | 1 | 100R | RC0603FR-07100RL | Yageo RC |
-| R417 | 1 | 1.5k | RC0603FR-071K5L | Yageo RC |
+| R417 (Rf, TIA) | 1 | 499R | RC0603FR-07499RL | Yageo RC (вход TIA; Rin/Rg R415/R416 убраны) |
 | R_CC101, R_CC102 | 2 | 5.1k | RC0603FR-075K1L | Yageo RC |
 
 **Все 0603 footprint:** Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder
@@ -64,10 +62,11 @@
 | R207, R209-R217 | 10 | 100M | RC1206JR-07100ML (5%) | Yageo RC |
 | R221-R230 | 10 | 6.8M | RC1206FR-076M8L (1%) | Yageo RC |
 | R401, R402 | 2 | 750k | RC1206FR-07750KL | Yageo RC |
-| R403-R407 | 5 | 680k | RC1206FR-07680KL | Yageo RC |
-| R409 | 1 | 820k | RC1206FR-07820KL | Yageo RC |
-| R410 | 1 | 1M | RC1206FR-071ML | Yageo RC |
-| R412 | 1 | 1M | RC1206FR-071ML | Yageo RC (фикс C1: было 2×499k+R414, теперь один 1М 1206; R414 удалён) |
+| R403-R406 | 4 | 680k | RC1206FR-07680KL | Yageo RC |
+| R407, R408 | 2 | 1.3M | RC1206FR-071M3L | Yageo RC (база+эмиттер буфера Q401, пересборка по Fig 5-15) |
+| R409 | 1 | 1.6M | RC1206FR-071M6L | Yageo RC |
+| R410 | 1 | 2M | RC1206FR-072ML | Yageo RC |
+| R412 | 1 | 2M | RC1206FR-072ML | Yageo RC (фикс C1: R414/mid_P убраны) |
 
 **Все 1206 footprint:** Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder
 
@@ -80,6 +79,7 @@
 | D201 | 1 | BAS516 | BAS516 (YJ) | D_SOD-523 |
 | D202, D203 | 2 | BZT52C18 | BZT52C18 (Diotec) | Nexperia_CFP3_SOD-123W ⚠ проверить |
 | D204-D211 | 8 | BAV23S | BAV23S (Nexperia) | SOT-23 |
+| D401-D403 | 3 | 1N4148W | 1N4148W (onsemi/Diotec) | Diode_SMD:D_SOD-123 (защита B-E буферов Q401-403) |
 | F101 | 1 | PTC 500мА | MF-MSMF050-2 (JEMETE) | Fuse_1812_HandSolder |
 | FB301 | 1 | 120Ω@100МГц | BLM18EG121SN1D (Murata) | L_0603_HandSolder |
 | J101 | 1 | USB-C | DX07S024WJ3R400 (JAE) | USB_C_Receptacle_JAE |
@@ -97,7 +97,7 @@
 | U202, U301 | 2 | TL431 | TL431 (YOUTAI) ⚠ U301 лучше TI | SOT-23 |
 | U302 | 1 | STM32G474MET6 | STM32G474MET6 (ST) | LQFP-80 |
 | U303 | 1 | W25Q64JVSSIQ | W25Q64JVSSIQ (Winbond) | SOIC-8 |
-| U401 | 1 | AD8000YRDZ-REEL | AD8000YRDZ-REEL (ADI) | SOIC-8 (RD_8_1_ADI-M) |
+| U402 | 1 | ADA4817-1ARDZ | ADA4817-1ARDZ (ADI) | SOIC-8 RD-8-4 (RD_8_1_ADI-M) — TIA вход |
 | U_ESD101 | 1 | PRTR5V0U2X | PRTR5V0U2X (YOUTAI) | SOT-143 |
 | Y301 | 1 | кварц 16МГц | ABM8G-16.000MHZ-4Y-T3 (Abracon) | Crystal_SMD_3225-4Pin |
 | (внешн.) | 1 | Pt1000 термодатчик | 700-102BAA-B00 (Honeywell, артикул 32208572) | M222 leaded, не на PCB — крепится на корпус кристалла, витой парой к TSENS_PWR/TSENS_IN |
@@ -134,7 +134,7 @@
 - **Уникальных MPN:** 60+
 - **Конденсаторов:** 81 (17 MPN)
 - **Резисторов:** 79 (28 MPN: 21 серии 0603 + 7 серий 1206)
-- **Активных:** 24 (включая 8 BAV23S, 8 BZT52, 3 MMBTA42)
+- **Активных:** 27 (включая 8 BAV23S, 8 BZT52, 3 MMBTA42, 3×1N4148W защита B-E; вход — ADA4817-1ARDZ TIA вместо AD8000)
 - **Магнитных:** 4 (T201 + L101/102/103)
 - **Прочих пассивов:** 6 (F101, FB301, D101, D102, D201, J101)
 - **Разъёмов:** 2 (J101 USB-C, J_PMT401 кастомный)

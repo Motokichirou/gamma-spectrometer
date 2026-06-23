@@ -16,7 +16,7 @@ both power and data.
   1. USB/Power board   Ø45 mm   USB-C (JAE DX07S024WJ3R400)
   2. HV board          Ø45 mm   MAX1847 flyback + 8-stage CW multiplier, 0…−1500 V
   3. MCU board         Ø45 mm   STM32G474, CR-RC² shaper, ADC
-  4. Divider board     Ø42–45 mm  R1307 divider + AD8000
+  4. Divider board     Ø42–45 mm  R1307 divider + ADA4817 TIA
 [end cap — R1307 PMT + NaI(Tl)]
 ```
 
@@ -32,7 +32,7 @@ both power and data.
 ## Signal Chain
 
 ```
-NaI(Tl)+R1307 → AD8000(×−15) → coax → CR(OPAMP1) → RC(OPAMP2) → PGA×4(OPAMP3) → ADC
+NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → coax → CR(OPAMP1) → RC(OPAMP2) → PGA×4(OPAMP3) → ADC
 [divider board]  ±5V_A          U.FL   τ=1 µs        τ=510 ns      DC=2.13 V       3.3 V
 V(anode)=31 mV   amp_out=−431 mV       [MCU board — G474]
 ```
@@ -76,7 +76,7 @@ Detailed schematic: [`docs/hv_board_schematic.md`](../hv_board_schematic.md) (RU
 The signal-processing and interface core.
 
 - **STM32G474MET6** @ 170 MHz with internal **OPAMP1/2/3** and a 12-bit ADC at 4 Msps.
-- Input: U.FL connector carrying ±431 mV from the AD8000 on the divider board.
+- Input: U.FL connector carrying ~470 mV @Cs-137 from the ADA4817 TIA on the divider board.
 - Analog shaper: **CR** (10 kΩ + 100 pF + 10 kΩ) → **RC** (1 kΩ + 510 pF + 1 kΩ),
   forming a CR-RC²-style pulse, followed by a ×4 PGA into the ADC.
 - **TL431** voltage reference (2.495 V) plus DC-bias dividers for the ADC baseline.
@@ -92,12 +92,15 @@ Detailed doc: [`docs/adc_mcu_board.md`](../adc_mcu_board.md) (RU).
 Active PMT divider and front-end amplifier, mounted closest to the tube.
 
 - **Hamamatsu R1307-01** (flying leads), 11 pins.
-- Resistor chain R401–R414 with bypass/storage capacitors C401–C410.
-- Three **MMBTA42** transistor buffers (Q401/Q402/Q403) on dynodes Dy6/Dy7/Dy8
-  to hold the divider stiff at high count rates. *Each dynode connects to the
-  emitter only*; the chain node drives the base through a resistor.
-- **AD8000** current-feedback amplifier: gain ×−15, `Rfb = 1.5 kΩ`, `Cfb = 1 pF` (NP0),
-  bandwidth ≈ 99 MHz. The `Cfb = 1 pF` cap is mandatory for stability.
+- Resistor chain R401–R412 (tapered for spectrometry) with bypass/storage caps on the
+  last dynodes only (C408/C409/C410 = 22/47/100 nF on Dy6–Dy8).
+- Three **MMBTA42** transistor buffers (Q401/Q402/Q403) on dynodes Dy6/Dy7/Dy8, biased by
+  the divider current (the chain runs through the dynodes via emitter resistors, per
+  Hamamatsu Fig 5-15). B–E clamp diodes D401–D403 (1N4148W) protect against reverse
+  breakdown on the HV ramp.
+- **ADA4817-1ARDZ** transimpedance amplifier (TIA): anode directly on −IN (virtual ground),
+  `Rf = 499 Ω`, `Cf = 4.7 pF` (NP0), Zt = 499 Ω, BW ≈ 92 MHz. ~18% lower noise than the
+  former AD8000 inverter.
 - Powered from ±5V_A delivered over the stack.
 
 Detailed doc: [`docs/divider_board.md`](../divider_board.md) (RU).

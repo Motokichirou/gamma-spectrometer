@@ -55,12 +55,12 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  ├─────────────────────────────────────────┤
  │  Divider board    Ø42–45 mm            │  ← Hamamatsu R1307 + NaI(Tl)
  │  R1307 divider · MMBTA42 buffers       │
- │  AD8000 CFA (×−15, BW = 99 MHz)        │
+ │  ADA4817-1 TIA (Zt = 499 Ω)            │
  └─────────────────────────────────────────┘
 ```
 
 Inter-board connections:
-- **Signal**: RG-178 coax + U.FL (Divider → MCU, ±431 mV for Cs-137)
+- **Signal**: RG-178 coax + U.FL (Divider → MCU, ~470 mV for Cs-137)
 - **±5 V_A power**: JST PH 3-pin (MCU → Divider)
 - **−HV**: shielded ≥5 kV wire along stack edge (HV → Divider)
 - **All other signals**: 2×N 2.54 mm pin headers
@@ -72,8 +72,8 @@ NaI(Tl) + R1307             Divider board                 MCU board
 ─────────────    ─────────────────────────────   ──────────────────────────────────
  Scintillation →  Divider (7.72 MΩ chain)     →  CR  (OPAMP1, τ=1 µs)
  τ_decay=230 ns   Active buffers (Dy6/7/8)        RC  (OPAMP2, τ=510 ns)
- I_anode(Cs-137)  AD8000 ×(−15), BW=99 MHz    →  PGA ×4 (OPAMP3)
-  = 0.94 mA       V_out = −431 mV (Cs-137)        V_ADC = 2.116 V baseline
+ I_anode(Cs-137)  ADA4817 TIA, Zt=499 Ω, BW≈92 MHz →  PGA ×4 (OPAMP3)
+  = 0.94 mA       V_out = −469 mV (Cs-137)        V_ADC = 2.116 V baseline
                                                    ADC1_IN12, 4 Msps
                                                    8192-ch histogram → USB
 ```
@@ -100,9 +100,9 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | Schematic — HV board | ✅ Done (ERC 0) |
 | Schematic — MCU board | ✅ Done (ERC 0) |
 | Schematic — Divider board | ✅ Done (ERC 0) |
-| LTspice sim1: AD8000 stability | ✅ Done (BW=99 MHz, peaking<0.5 dB) |
+| LTspice: input TIA (ADA4817) + divider | ✅ Validated (`sim_divider_complete`: Zt=499 Ω, buffers biased ~96 µA, B-E diodes) |
 | LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
-| LTspice sim3: noise budget | ✅ Done (σ=94.4 µV rms, 0.31 ch rms) |
+| LTspice sim3: noise budget | ✅ Done (σ=76.9 µV rms with TIA, 0.25 ch; 94.4 with former AD8000) |
 | BOM with MPN + footprints | ✅ Done (81 caps / 17 MPN, 67 R, all active) |
 | PCB layout | 🚧 USB & HV routed (DRC electrically clean, schematic parity 0), inter-board bus placed (USB+HV); MCU and divider pending |
 | STM32 firmware | 🚧 Stages 1–2 + self-test + energy calibration in flash running on Nucleo (shproto, real histogram); stage 3 on the target board |
@@ -117,7 +117,7 @@ gamma-spectrometer/
 ├── docs/
 │   ├── en/                           # English documentation set
 │   ├── adc_mcu_board.md              # MCU board v1.6 — full technical doc
-│   ├── divider_board.md              # Divider + AD8000 board
+│   ├── divider_board.md              # Divider + ADA4817 TIA board
 │   ├── usb_power_board.md            # USB/Power board overview
 │   ├── usb_power_board_schematic.md  # USB/Power board — detailed schematic
 │   ├── hv_board_schematic.md         # HV board — detailed schematic
@@ -128,7 +128,7 @@ gamma-spectrometer/
 ├── pcb/
 │   └── gamma_spectrometer/           # KiCad project (all 4 boards)
 └── simulation/
-    ├── models/                       # SPICE models (opamp_g474, AD8000)
+    ├── models/                       # SPICE models (opamp_g474, ADA4817, AD8000)
     ├── scripts/                      # Python analysis scripts
     ├── sim1_ad8000.cir               # AD8000 stability & bandwidth
     ├── sim2_shaper.cir               # CR-RC² pulse shaper

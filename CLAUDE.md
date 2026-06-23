@@ -14,7 +14,7 @@
 gamma-spectrometer/
 ├── docs/
 │   ├── adc_mcu_board.md          # Плата МК v1.6 (схемотехника)
-│   ├── divider_board.md          # Плата делителя + AD8000
+│   ├── divider_board.md          # Плата делителя + ADA4817 TIA
 │   ├── usb_power_board.md        # USB/питание (общее описание)
 │   ├── usb_power_board_schematic.md  # USB/питание (детальная схема)
 │   ├── hv_board_schematic.md     # Плата ВВ питания (детальная схема)
@@ -40,7 +40,7 @@ gamma-spectrometer/
   1. USB/Power board    Ø45мм  USB-C (JAE DX07S024WJ3R400)
   2. HV board           Ø45мм  MAX1847 flyback + 8-ступ. CW умножитель, 0…−1500В
   3. MCU board          Ø45мм  STM32G474, шейпер CR-RC², ADC
-  4. Divider board      Ø42-45мм  Делитель R1307 + AD8000
+  4. Divider board      Ø42-45мм  Делитель R1307 + ADA4817 TIA
 [торец — ФЭУ R1307 + NaI(Tl)]
 ```
 
@@ -55,22 +55,22 @@ gamma-spectrometer/
 ## Цепь сигнала
 
 ```
-NaI(Tl)+R1307 → AD8000(×−15) → коаксиал → CR(OPAMP1) → RC(OPAMP2) → PGA×4(OPAMP3) → ADC
-[плата делителя]  ±5V_A           U.FL      [плата МК — G474]                           3.3V
-V(anode)=31мВ    amp_out=−431мВ             τ=1мкс       τ=510нс     DC=2.13В
+NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → коаксиал → CR(OPAMP1) → RC(OPAMP2) → PGA×4(OPAMP3) → ADC
+[плата делителя]   ±5V_A                  U.FL      [плата МК — G474]                           3.3V
+анод≈0В(вирт.земля) amp_out=−469мВ@Cs137            τ=1мкс       τ=510нс     DC=2.13В
 ```
 
-**Питание AD8000:** ±5V_A с USB board → через стек → JST PH на плату делителя  
+**Питание ADA4817 (TIA):** ±5V_A с USB board → через стек → JST PH на плату делителя  
 **Полярность:** adc_in идёт ВНИЗ от baseline 2.13В. В DSP: `amplitude = baseline − sample`
 
 ---
 
 ## Симуляции (все DONE ✓)
 
-### Sim1 — AD8000 (DONE ✓)
+### Sim1 — AD8000 (DONE ✓, ⚠ ИСТОРИЧЕСКИЙ — вход заменён на ADA4817 TIA)
 `simulation/sim1_ad8000.cir` + `scripts/analyze_sim1.py`
-- Rfb=1.5к, Cfb=1п, Cpar=1п → BW=99МГц, peaking<0.5dB ✓
-- **Cfb=1пФ обязателен** на PCB делителя
+- Был AD8000-инвертор: Rfb=1.5к, Cfb=1п → BW=99МГц, peaking<0.5dB ✓
+- **Заменён (2026-06-24):** вход = TIA на ADA4817 (Rf=499, Cf=4.7п). Устойчивость/шум — `sim_tia_real.cir`, `sim_tia_stab.cir`, `sim_divider_complete.cir`.
 
 ### Sim2 — CR-RC² шейпер (DONE ✓)
 `simulation/sim2_shaper.cir` + `scripts/analyze_sim2.py`
@@ -121,9 +121,9 @@ V(anode)=31мВ    amp_out=−431мВ             τ=1мкс       τ=510нс   
 ### MCU board v1.6 (СХЕМА В KICAD ✓, ERC ✓)
 `docs/adc_mcu_board.md`
 - STM32G474MET6 (KiCad: U302), внутренние OPAMP1/2/3, ADC1 12-bit 4Msps
-- Вход: U.FL J_sig_in (±431мВ от AD8000 на делителе)
+- Вход: U.FL J_sig_in (±~470мВ @Cs-137 от ADA4817 TIA на делителе)
 - Питание делителя: JST PH J_pwr_div (±5V_A, AGND)
-- **AD8000 убран** (перенесён на плату делителя в v1.6)
+- **Входной усилитель убран с МК** (перенесён на плату делителя в v1.6; там сейчас ADA4817 TIA)
 - Шейпер: R_cr_in=10к(R309) + C_diff=100п(C315) + R_diff=10к(R305) [CR], R_int=1к(R308) + C_int=510п(C316) + R_stab=1к(R306) [RC]
 - TL431DBZ (KiCad: U301) — VREF+ 2.495В + делители DC-смещения; R301 bias = **330 Ом** (с учётом нагрузки Pt1000)
 - **UART — КРЕСТ**: PA9 (TX) → метка UART_RX (на FTDI RXD); PA10 (RX) → метка UART_TX (от FTDI TXD)
@@ -139,12 +139,12 @@ V(anode)=31мВ    amp_out=−431мВ             τ=1мкс       τ=510нс   
 - Делитель: R401–R414 (цепочка+базы), C401–C410 (bypass+накопительные), Q401/Q402/Q403 MMBTA42 (буферы Dy6/Dy7/Dy8)
 - ⚠ **Топология буферов**: динод = ТОЛЬКО эмиттер; узел цепочки → R_базы → база; цепочка динода НЕ касается (исправлено 2026-06-11, правило #8 в cheatsheet)
 - Низ цепочки: R412 → mid_P → R414 → **GND напрямую** (не через P); DC анода ≈ 0
-- **AD8000 (U401)**: R415(Rin 50Ом) и R416(Rg 100Ом) **напрямую от P** (без GND на P); R417=Rfb(1.5к)‖C415=Cfb(1пФ NP0) **между FB(пин1) и −IN(пин2)**, НЕ на OUTPUT (пин1 внутри = выход; см. cheatsheet #11); выход (пин6)=AMP_OUT; C411-C414 децепинг ±5V_A
+- **ADA4817-1ARDZ (U402) — TIA**: анод P **напрямую на −IN** (виртуальная земля); R417=Rf(499)‖C415=Cf(4.7пФ NP0) **между FB(пин1) и −IN(пин2)** (пин1 внутри = выход; cheatsheet #11); Rin/Rg убраны; выход (пин6)=AMP_OUT; PD(8)→+5V_A, EPAD→AGND; C411-C414 децепинг ±5V_A. Zt=499Ω, −18% шума vs AD8000
 - ⚠ **НЕ ставить GND-символ на P** — R415(Rin) единственный путь тока делителя к GND; GND на P убивает сигнал
-- Выход сигнала: метка AMP_OUT на OUTPUT AD8000; разъём J_sig (U.FL) — при разводке PCB
+- Выход сигнала: метка AMP_OUT на OUTPUT ADA4817; разъём J_sig (U.FL) — при разводке PCB
 - −ВВ, питание ±5V_A, разъёмы TP1/TP2/J_pwr — при разводке PCB
 - Диаметр ~42–45мм
-- Нарисовано: R401–R414 ✓, C401–C410 ✓, Q401/Q402/Q403 ✓, J_PMT401 ✓, U401(AD8000YRDZ)+R415+R416+R417+C415+C411-C414 ✓, метка AMP_OUT на OUTPUT ✓
+- Реализовано (2026-06-24, валидировано `sim_divider_complete.cir`): делитель R401-R412 (поздняя секция R407=1.3М/R408=1.3М/R409=1.6М/R410=2М/R412=2М), буферы Q401-403 + защитные диоды D401-403 (1N4148W), капы Dy6-Dy8 (C408=22н/C409=47н/C410=0.1мк), вход TIA **U402(ADA4817-1ARDZ)**+R417(499)+C415(4.7п)+C411-C414, J_PMT401. Метка AMP_OUT на OUTPUT.
 - Разъёмы (J_sig, J_pwr, TP1, TP2) — добавляются при разводке PCB, не в схеме
 
 ---

@@ -13,12 +13,16 @@ complete; the source decks and Python analysis scripts live in `simulation/`.
 | 2 | `sim2_shaper.cir` | `analyze_sim2.py` | CR-RC² shaper response & energy calibration |
 | 3 | `sim3_noise.cir` | `analyze_sim3.py` | Full electronics noise budget |
 
-## Sim 1 — AD8000 front end
+## Sim 1 — AD8000 front end (⚠ historical — input replaced by ADA4817 TIA)
 
-With `Rfb = 1.5 kΩ`, `Cfb = 1 pF`, `Cpar = 1 pF`:
+> **Superseded (2026-06-24):** the divider input is now a transimpedance amplifier on
+> **ADA4817-1ARDZ** (`Rf = 499 Ω`, `Cf = 4.7 pF`, Zt = 499 Ω), not the AD8000 inverter — cheaper,
+> −18 % noise, anode at virtual ground. See `sim_tia_real.cir`, `sim_tia_stab.cir`
+> (Cf=4.7 pF → 0 dB peaking, BW ≈ 92 MHz) and `sim_divider_complete.cir`. Kept below for history.
+
+With `Rfb = 1.5 kΩ`, `Cfb = 1 pF`, `Cpar = 1 pF` (AD8000):
 
 - bandwidth ≈ **99 MHz**, peaking < 0.5 dB.
-- **`Cfb = 1 pF` is mandatory** on the divider PCB for a stable, well-damped response.
 
 ## Sim 2 — CR-RC² shaper
 
