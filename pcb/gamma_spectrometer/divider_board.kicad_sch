@@ -963,6 +963,173 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Diode:1N4148W"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "1N4148W"
+				(at 0 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Diode_SMD:D_SOD-123"
+				(at 0 -4.445 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.vishay.com/docs/85748/1n4148w.pdf"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "75V 0.15A Fast Switching Diode, SOD-123"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Device" "D"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Pins" "1=K 2=A"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "D*SOD?123*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "1N4148W_0_1"
+				(polyline
+					(pts
+						(xy -1.27 1.27) (xy -1.27 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 1.27) (xy 1.27 -1.27) (xy -1.27 0) (xy 1.27 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 0) (xy -1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "1N4148W_1_1"
+				(pin passive line
+					(at -3.81 0 0)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 3.81 0 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Transistor_BJT:MMBTA42"
 			(pin_names
 				(offset 0)
@@ -1521,28 +1688,10 @@
 		(uuid "035bcda8-fb5f-4923-8310-d3ddff7d2f55")
 	)
 	(junction
-		(at 72.39 81.28)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "04b4531b-8a07-46d1-92ac-b912c18536f1")
-	)
-	(junction
 		(at 180.34 38.1)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "10a89dc6-2953-4e72-902b-bd8ab3990e0e")
-	)
-	(junction
-		(at 125.73 43.18)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "12fefd17-b933-47c1-a50a-31b5b53b759a")
-	)
-	(junction
-		(at 80.01 81.28)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "16b52b16-4014-4568-8362-96f5650b359e")
 	)
 	(junction
 		(at 186.69 16.51)
@@ -1557,13 +1706,13 @@
 		(uuid "30eccfb4-494e-4a62-b2a0-088ecad12456")
 	)
 	(junction
-		(at 80.01 73.66)
+		(at 80.01 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "3b0eb580-ecb9-4153-94aa-fbf4c39e1fa6")
 	)
 	(junction
-		(at 110.49 73.66)
+		(at 110.49 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4edd4f75-add9-4f77-a1d3-13300aa2ed2f")
@@ -1587,13 +1736,25 @@
 		(uuid "61456488-1ed3-4364-909a-9e845331d06e")
 	)
 	(junction
-		(at 148.59 73.66)
+		(at 119.38 60.96)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6188299e-827e-4566-903a-5e838fa499dc")
+	)
+	(junction
+		(at 114.3 53.34)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6223c04b-7f77-40cf-9f09-46f0c4e6062b")
+	)
+	(junction
+		(at 148.59 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "635bcbad-de5b-4a91-89f7-2295c91bafd3")
 	)
 	(junction
-		(at 87.63 73.66)
+		(at 87.63 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "657744c1-5d83-4139-a68c-c11731b45096")
@@ -1605,16 +1766,10 @@
 		(uuid "6b1d0746-9216-4c75-848c-4a32be47cd0f")
 	)
 	(junction
-		(at 95.25 81.28)
+		(at 139.7 60.96)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "6f1d55eb-21a5-46f0-83ca-4ba83680a4e5")
-	)
-	(junction
-		(at 102.87 81.28)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "787e0083-bc1c-49ea-89eb-d648a40e40c8")
+		(uuid "6e46aa02-f884-4a6a-bc18-a46889942eff")
 	)
 	(junction
 		(at 186.69 24.13)
@@ -1623,31 +1778,19 @@
 		(uuid "7b83c911-5d01-4ba2-a588-771c30aa205e")
 	)
 	(junction
-		(at 110.49 43.18)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "7d3ac548-c6aa-461f-ae4a-44b0ece8379e")
-	)
-	(junction
-		(at 72.39 73.66)
+		(at 72.39 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9f465a85-0877-48ad-bef5-b9414826a90d")
 	)
 	(junction
-		(at 87.63 81.28)
+		(at 133.35 43.18)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "ab40d25d-56b1-48a2-bfe8-b09101f76030")
+		(uuid "a5aae371-6d2a-40de-9d4b-ed85a628c7a9")
 	)
 	(junction
-		(at 110.49 81.28)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "b671e3ba-df83-4a4a-898d-0ed03d93c0fc")
-	)
-	(junction
-		(at 64.77 73.66)
+		(at 64.77 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "b84ace7a-b25c-4ea4-ac5e-1621b4a8e319")
@@ -1659,10 +1802,22 @@
 		(uuid "ba442dd9-66b0-4b68-bba5-4868d7804562")
 	)
 	(junction
-		(at 102.87 73.66)
+		(at 148.59 43.18)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bc0baf81-f3a2-4491-9b4c-c6a52e6f2b18")
+	)
+	(junction
+		(at 102.87 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "bcdd2948-e2b2-4dd0-a01d-5a2435cbd911")
+	)
+	(junction
+		(at 110.49 43.18)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c2514d52-5cdb-4cbf-b22a-2bfc3ae4bab1")
 	)
 	(junction
 		(at 180.34 50.8)
@@ -1671,16 +1826,22 @@
 		(uuid "c42f4211-749d-4d52-868f-1d5e5562046e")
 	)
 	(junction
-		(at 95.25 73.66)
+		(at 95.25 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c4b6f820-4a87-47b1-a893-16b91777d8f7")
 	)
 	(junction
-		(at 129.54 73.66)
+		(at 129.54 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c4c052ca-03d1-4e41-8049-d1ca43c9c4de")
+	)
+	(junction
+		(at 125.73 45.72)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c9fcf838-0ae4-4ba3-80a4-1b0e47764182")
 	)
 	(junction
 		(at 148.59 53.34)
@@ -1689,7 +1850,7 @@
 		(uuid "ca1a5fcc-75a2-4f24-8a60-eb922b35f112")
 	)
 	(junction
-		(at 119.38 73.66)
+		(at 119.38 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d0f482c6-0972-4929-bfc7-890ca8dc00ac")
@@ -1701,10 +1862,10 @@
 		(uuid "d2a5185e-b75f-4d05-8da7-fa8389d35084")
 	)
 	(junction
-		(at 133.35 43.18)
+		(at 118.11 45.72)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "d7b260ee-a175-44ff-a42a-77dbbf204edf")
+		(uuid "e15008c4-4fab-4e6c-a546-5ec1f02ffaa6")
 	)
 	(junction
 		(at 180.34 33.02)
@@ -1713,10 +1874,22 @@
 		(uuid "e4ad9c20-4f53-4ee0-9d64-877df8cab2d6")
 	)
 	(junction
-		(at 139.7 73.66)
+		(at 133.35 45.72)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "edd800ab-dc98-4774-b6e2-edc53ed5892a")
+	)
+	(junction
+		(at 139.7 72.39)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "ef6b6f56-c789-4c68-aad4-35617c7c6ddd")
+	)
+	(junction
+		(at 129.54 60.96)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f0c6705b-4995-4c42-a513-81c486302837")
 	)
 	(wire
 		(pts
@@ -1737,16 +1910,6 @@
 			(type default)
 		)
 		(uuid "0429a82a-7546-412e-ab46-2aaab61ddd81")
-	)
-	(wire
-		(pts
-			(xy 80.01 73.66) (xy 80.01 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0493bf1b-2734-4a9d-9338-caca5392e78b")
 	)
 	(wire
 		(pts
@@ -1780,23 +1943,13 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 43.18) (xy 133.35 45.72)
+			(xy 133.35 34.29) (xy 133.35 43.18)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "101830a2-7924-4d83-8ced-0e8ba177485b")
-	)
-	(wire
-		(pts
-			(xy 119.38 73.66) (xy 119.38 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "11ed29da-bec0-4cbb-b59b-51b60e756179")
 	)
 	(wire
 		(pts
@@ -1810,7 +1963,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 73.66) (xy 119.38 73.66)
+			(xy 120.65 72.39) (xy 119.38 72.39)
 		)
 		(stroke
 			(width 0)
@@ -1840,7 +1993,7 @@
 	)
 	(wire
 		(pts
-			(xy 119.38 73.66) (xy 118.11 73.66)
+			(xy 119.38 72.39) (xy 118.11 72.39)
 		)
 		(stroke
 			(width 0)
@@ -1850,33 +2003,23 @@
 	)
 	(wire
 		(pts
-			(xy 87.63 73.66) (xy 87.63 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f5cbbd2-6730-461d-a07b-70cfeff3295d")
-	)
-	(wire
-		(pts
-			(xy 118.11 43.18) (xy 118.11 48.26)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f9e8f5f-0b2f-4488-acac-826cbb1fc85d")
-	)
-	(wire
-		(pts
-			(xy 148.59 53.34) (xy 148.59 73.66)
+			(xy 148.59 53.34) (xy 148.59 72.39)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "30757435-5164-4f28-bd26-0cab7ad15c7a")
+	)
+	(wire
+		(pts
+			(xy 140.97 43.18) (xy 148.59 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3107ebea-6170-4ec3-9559-8d1660200fca")
 	)
 	(wire
 		(pts
@@ -1900,7 +2043,7 @@
 	)
 	(wire
 		(pts
-			(xy 72.39 73.66) (xy 72.39 33.02)
+			(xy 72.39 72.39) (xy 72.39 33.02)
 		)
 		(stroke
 			(width 0)
@@ -1930,13 +2073,23 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 68.58) (xy 139.7 73.66)
+			(xy 139.7 60.96) (xy 139.7 72.39)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "381f8079-e969-4874-acee-51c88642adb0")
+	)
+	(wire
+		(pts
+			(xy 125.73 45.72) (xy 125.73 46.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3890f89c-64b7-4565-bd54-9d30625d31d3")
 	)
 	(wire
 		(pts
@@ -1967,16 +2120,6 @@
 			(type default)
 		)
 		(uuid "3b40eca9-d7e9-43f8-82b9-e65be0a2198f")
-	)
-	(wire
-		(pts
-			(xy 95.25 73.66) (xy 95.25 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "400082da-0a96-4c5a-a391-0d037b3d957c")
 	)
 	(wire
 		(pts
@@ -2020,7 +2163,7 @@
 	)
 	(wire
 		(pts
-			(xy 147.32 73.66) (xy 148.59 73.66)
+			(xy 147.32 72.39) (xy 148.59 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2030,7 +2173,7 @@
 	)
 	(wire
 		(pts
-			(xy 148.59 40.64) (xy 148.59 53.34)
+			(xy 148.59 40.64) (xy 148.59 43.18)
 		)
 		(stroke
 			(width 0)
@@ -2040,7 +2183,7 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 68.58) (xy 129.54 73.66)
+			(xy 129.54 60.96) (xy 129.54 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2060,16 +2203,6 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 34.29) (xy 133.35 43.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5a6d7f37-0765-417f-a0ed-b13c619fe741")
-	)
-	(wire
-		(pts
 			(xy 118.11 36.83) (xy 104.14 36.83)
 		)
 		(stroke
@@ -2080,7 +2213,17 @@
 	)
 	(wire
 		(pts
-			(xy 119.38 68.58) (xy 119.38 73.66)
+			(xy 110.49 43.18) (xy 110.49 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5f9f6c04-20c6-4069-8ca1-3d9829d14353")
+	)
+	(wire
+		(pts
+			(xy 119.38 60.96) (xy 119.38 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2097,16 +2240,6 @@
 			(type default)
 		)
 		(uuid "66c28e4d-afcf-442f-9ce3-275d61b477f6")
-	)
-	(wire
-		(pts
-			(xy 72.39 73.66) (xy 72.39 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6a67a869-6b5f-48a0-9f9c-88dc992578df")
 	)
 	(wire
 		(pts
@@ -2140,7 +2273,7 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 73.66) (xy 128.27 73.66)
+			(xy 129.54 72.39) (xy 128.27 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2170,7 +2303,17 @@
 	)
 	(wire
 		(pts
-			(xy 64.77 31.75) (xy 64.77 73.66)
+			(xy 124.46 60.96) (xy 129.54 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "815a0943-0e89-4213-a7cd-dd10d376d162")
+	)
+	(wire
+		(pts
+			(xy 64.77 31.75) (xy 64.77 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2190,13 +2333,23 @@
 	)
 	(wire
 		(pts
-			(xy 53.34 73.66) (xy 64.77 73.66)
+			(xy 53.34 72.39) (xy 64.77 72.39)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "846880d5-0d59-467f-bd30-3e8f641254c6")
+	)
+	(wire
+		(pts
+			(xy 114.3 60.96) (xy 119.38 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8483c2c7-37e8-41f7-9d97-e069b593d5e3")
 	)
 	(wire
 		(pts
@@ -2207,16 +2360,6 @@
 			(type default)
 		)
 		(uuid "86a3f35a-249b-4265-bfbf-562a0f92f62d")
-	)
-	(wire
-		(pts
-			(xy 110.49 38.1) (xy 110.49 43.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8c933758-1c85-4488-bc0e-60e8c5e481ba")
 	)
 	(wire
 		(pts
@@ -2250,7 +2393,7 @@
 	)
 	(wire
 		(pts
-			(xy 102.87 73.66) (xy 102.87 39.37)
+			(xy 102.87 72.39) (xy 102.87 39.37)
 		)
 		(stroke
 			(width 0)
@@ -2260,23 +2403,13 @@
 	)
 	(wire
 		(pts
-			(xy 64.77 73.66) (xy 64.77 81.28)
+			(xy 148.59 43.18) (xy 148.59 53.34)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "945096b8-7738-4ba6-b40d-85c7f4987672")
-	)
-	(wire
-		(pts
-			(xy 119.38 81.28) (xy 118.11 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "95a5989b-7ad6-45de-8e14-39e75cd6cd23")
+		(uuid "97115828-0286-4ecf-8c9b-5fd7e9641683")
 	)
 	(wire
 		(pts
@@ -2330,7 +2463,7 @@
 	)
 	(wire
 		(pts
-			(xy 80.01 73.66) (xy 80.01 34.29)
+			(xy 80.01 72.39) (xy 80.01 34.29)
 		)
 		(stroke
 			(width 0)
@@ -2370,7 +2503,17 @@
 	)
 	(wire
 		(pts
-			(xy 110.49 43.18) (xy 110.49 73.66)
+			(xy 118.11 43.18) (xy 118.11 45.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aef27ba6-3ddc-41b1-97c2-8bc2206274df")
+	)
+	(wire
+		(pts
+			(xy 110.49 38.1) (xy 110.49 43.18)
 		)
 		(stroke
 			(width 0)
@@ -2380,7 +2523,17 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 73.66) (xy 138.43 73.66)
+			(xy 133.35 43.18) (xy 133.35 45.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b14f1e09-cf4d-42fd-9825-2f9b703cd16a")
+	)
+	(wire
+		(pts
+			(xy 139.7 72.39) (xy 138.43 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2397,16 +2550,6 @@
 			(type default)
 		)
 		(uuid "b60f65b8-b004-4f10-bc66-cd4281923924")
-	)
-	(wire
-		(pts
-			(xy 110.49 73.66) (xy 110.49 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b677ccff-3445-451d-bde3-4cad49968d28")
 	)
 	(wire
 		(pts
@@ -2430,7 +2573,7 @@
 	)
 	(wire
 		(pts
-			(xy 87.63 73.66) (xy 87.63 35.56)
+			(xy 87.63 72.39) (xy 87.63 35.56)
 		)
 		(stroke
 			(width 0)
@@ -2440,7 +2583,7 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 73.66) (xy 95.25 35.56)
+			(xy 95.25 72.39) (xy 95.25 35.56)
 		)
 		(stroke
 			(width 0)
@@ -2457,16 +2600,6 @@
 			(type default)
 		)
 		(uuid "ca637ded-6d4c-40ba-bc03-03f565291684")
-	)
-	(wire
-		(pts
-			(xy 125.73 35.56) (xy 125.73 43.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d3210f3a-dc7c-4acc-91ca-6434ccb06ce2")
 	)
 	(wire
 		(pts
@@ -2530,6 +2663,26 @@
 	)
 	(wire
 		(pts
+			(xy 118.11 45.72) (xy 118.11 48.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e6633cef-cef9-43fb-b64c-8845cd29bda2")
+	)
+	(wire
+		(pts
+			(xy 134.62 60.96) (xy 139.7 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ea7a2926-17e2-42bd-84bd-c716a732cc85")
+	)
+	(wire
+		(pts
 			(xy 111.76 33.02) (xy 148.59 33.02)
 		)
 		(stroke
@@ -2580,17 +2733,7 @@
 	)
 	(wire
 		(pts
-			(xy 102.87 73.66) (xy 102.87 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f729a252-0b91-4f69-a754-e28188a60fb7")
-	)
-	(wire
-		(pts
-			(xy 130.81 73.66) (xy 129.54 73.66)
+			(xy 130.81 72.39) (xy 129.54 72.39)
 		)
 		(stroke
 			(width 0)
@@ -2600,7 +2743,7 @@
 	)
 	(wire
 		(pts
-			(xy 125.73 46.99) (xy 125.73 43.18)
+			(xy 125.73 35.56) (xy 125.73 45.72)
 		)
 		(stroke
 			(width 0)
@@ -2730,7 +2873,7 @@
 	)
 	(global_label "−HV_out"
 		(shape input)
-		(at 53.34 73.66 180)
+		(at 53.34 72.39 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -2740,7 +2883,7 @@
 		)
 		(uuid "244f1b33-62db-4114-8a56-8d71076a0058")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 42.372 73.66 0)
+			(at 42.372 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2774,7 +2917,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 114.3 73.66 90)
+		(at 114.3 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2782,15 +2925,15 @@
 		(dnp no)
 		(uuid "086e1003-8c05-4985-8a53-6d0be96b0698")
 		(property "Reference" "R407"
-			(at 114.3 71.628 90)
+			(at 114.3 70.358 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "680k"
-			(at 114.3 73.66 90)
+		(property "Value" "1.3M"
+			(at 114.3 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2798,7 +2941,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 114.3 75.438 90)
+			(at 114.3 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2807,7 +2950,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 114.3 73.66 0)
+			(at 114.3 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2816,7 +2959,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 114.3 73.66 0)
+			(at 114.3 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2825,7 +2968,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 114.3 73.66 90)
+			(at 114.3 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2834,7 +2977,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 114.3 73.66 90)
+			(at 114.3 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2842,8 +2985,8 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "RC1206FR-07680KL"
-			(at 114.3 73.66 90)
+		(property "PN" "RC1206FR-071M3L"
+			(at 114.3 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2851,8 +2994,8 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07680KL"
-			(at 114.3 73.66 90)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071M3L"
+			(at 114.3 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2980,110 +3123,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 106.68 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "16e507f9-85e1-4fb5-ad08-e2c5615287b7")
-		(property "Reference" "C406"
-			(at 106.68 85.344 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 106.68 87.884 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 110.49 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 106.68 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 106.68 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 106.68 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 106.68 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 106.68 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 106.68 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "a7cfe67d-72aa-40a4-a842-7d71d78b2e86")
-		)
-		(pin "2"
-			(uuid "eb4c0dd0-e0b7-4d9b-b043-c42b7d42b169")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C406")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 129.54 43.18 90)
+		(at 137.16 43.18 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3091,7 +3131,7 @@
 		(dnp no)
 		(uuid "1b9b19c7-567e-4520-9022-58fb07d6d0a1")
 		(property "Reference" "C410"
-			(at 136.144 38.862 90)
+			(at 137.414 38.1 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3099,7 +3139,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 136.398 41.148 90)
+			(at 137.668 40.386 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3107,7 +3147,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 133.35 42.2148 0)
+			(at 140.97 42.2148 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3116,7 +3156,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 129.54 43.18 0)
+			(at 137.16 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3125,7 +3165,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 129.54 43.18 0)
+			(at 137.16 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3134,7 +3174,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 129.54 43.18 90)
+			(at 137.16 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3143,7 +3183,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 129.54 43.18 90)
+			(at 137.16 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3152,7 +3192,7 @@
 			)
 		)
 		(property "PN" "C1812X104K102T "
-			(at 129.54 43.18 90)
+			(at 137.16 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3161,7 +3201,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 129.54 43.18 90)
+			(at 137.16 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3379,6 +3419,109 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R")
+		(at 114.3 43.18 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "38a94be1-63d2-4b4a-9d16-05b9f6543f1b")
+		(property "Reference" "R408"
+			(at 114.046 45.72 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1.3M"
+			(at 114.3 43.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
+			(at 114.3 44.958 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 114.3 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 114.3 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "KLC_S3.3" ""
+			(at 114.3 43.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "KLC_S4.1" ""
+			(at 114.3 43.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "PN" "RC1206FR-071M3L"
+			(at 114.3 43.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071M3L"
+			(at 114.3 43.18 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "718e6a9e-cea4-41e4-ae4d-77f781f5de1b")
+		)
+		(pin "2"
+			(uuid "b0c0e02d-97f2-47ec-a4cb-2b65deae78ae")
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
+					(reference "R408")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 180.34 50.8 0)
 		(unit 1)
@@ -3446,7 +3589,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 143.51 73.66 90)
+		(at 143.51 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -3454,15 +3597,15 @@
 		(dnp no)
 		(uuid "3e1bf8ab-796e-49e3-8777-ed147aeac73b")
 		(property "Reference" "R412"
-			(at 143.51 71.374 90)
+			(at 143.51 70.104 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "1M"
-			(at 143.51 73.66 90)
+		(property "Value" "2M"
+			(at 143.51 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3470,7 +3613,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 143.51 75.438 90)
+			(at 143.51 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3479,7 +3622,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 143.51 73.66 0)
+			(at 143.51 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3488,7 +3631,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 143.51 73.66 0)
+			(at 143.51 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3497,7 +3640,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 143.51 73.66 90)
+			(at 143.51 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3506,7 +3649,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 143.51 73.66 90)
+			(at 143.51 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3514,8 +3657,8 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "RC1206FR-071ML"
-			(at 143.51 73.66 90)
+		(property "PN" "RC1206FR-072ML"
+			(at 143.51 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3523,8 +3666,8 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071ML"
-			(at 143.51 73.66 90)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-072ML"
+			(at 143.51 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3542,6 +3685,93 @@
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
 					(reference "R412")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Diode:1N4148W")
+		(at 124.46 57.15 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4c25437f-2c7c-4444-810a-4ba0a62a2ca1")
+		(property "Reference" "D402"
+			(at 120.65 62.992 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "1N4148W"
+			(at 120.65 65.532 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SOD-123"
+			(at 128.905 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.vishay.com/docs/85748/1n4148w.pdf"
+			(at 124.46 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "75V 0.15A Fast Switching Diode, SOD-123"
+			(at 124.46 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Device" "D"
+			(at 124.46 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 124.46 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "360b72c2-07e4-4cbd-abab-b958ce5697de")
+		)
+		(pin "1"
+			(uuid "8ff76704-6d18-4d69-8095-9dced1b23cb3")
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
+					(reference "D402")
 					(unit 1)
 				)
 			)
@@ -3645,109 +3875,6 @@
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
 					(reference "C412")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 76.2 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "4e62b7bf-0379-4c62-a3f3-cf02a03bf8b5")
-		(property "Reference" "C402"
-			(at 76.2 85.344 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 76.2 87.884 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 80.01 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 76.2 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 76.2 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 76.2 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 76.2 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 76.2 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 76.2 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "81559c43-720f-4bbf-bd44-17ed279dad80")
-		)
-		(pin "2"
-			(uuid "76f0c1fd-1b68-4383-bb34-3a05776c24bc")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C402")
 					(unit 1)
 				)
 			)
@@ -3925,6 +4052,93 @@
 		)
 	)
 	(symbol
+		(lib_id "Diode:1N4148W")
+		(at 134.62 57.15 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "692292d5-d281-4b5d-98c9-cc0ed60072ba")
+		(property "Reference" "D403"
+			(at 130.302 62.738 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "1N4148W"
+			(at 130.302 65.278 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Diode_SMD:D_SOD-123"
+			(at 139.065 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.vishay.com/docs/85748/1n4148w.pdf"
+			(at 134.62 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "75V 0.15A Fast Switching Diode, SOD-123"
+			(at 134.62 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Device" "D"
+			(at 134.62 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 134.62 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "9b9e0142-133d-4559-a1af-b7e052cb7f6b")
+		)
+		(pin "1"
+			(uuid "a39fd6e8-d554-42f1-9865-ea177b091728")
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
+					(reference "D403")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 186.69 35.56 270)
 		(unit 1)
@@ -4095,7 +4309,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 114.3 43.18 90)
+		(at 121.92 45.72 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4103,7 +4317,7 @@
 		(dnp no)
 		(uuid "6e83c5c2-570a-4b07-b17b-80f61679cf96")
 		(property "Reference" "C408"
-			(at 104.902 42.418 90)
+			(at 119.634 40.64 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4112,7 +4326,7 @@
 			)
 		)
 		(property "Value" "22nF"
-			(at 104.648 44.958 90)
+			(at 119.38 43.18 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4121,7 +4335,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1210_3225Metric_Pad1.33x2.70mm_HandSolder"
-			(at 118.11 42.2148 0)
+			(at 125.73 44.7548 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4130,7 +4344,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 114.3 43.18 0)
+			(at 121.92 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4139,7 +4353,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 114.3 43.18 0)
+			(at 121.92 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4148,7 +4362,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 114.3 43.18 90)
+			(at 121.92 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4157,7 +4371,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 114.3 43.18 90)
+			(at 121.92 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4166,7 +4380,7 @@
 			)
 		)
 		(property "PN" "CC1210KKX7RCBB223 "
-			(at 114.3 43.18 90)
+			(at 121.92 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4175,7 +4389,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC1210KKX7RCBB223"
-			(at 114.3 43.18 90)
+			(at 121.92 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4190,7 +4404,7 @@
 			(uuid "135fabdf-1f2d-46f6-bac3-eba07e3e9ef9")
 		)
 		(instances
-			(project ""
+			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
 					(reference "C408")
 					(unit 1)
@@ -4303,110 +4517,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 114.3 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "71602da2-7e5c-4e4b-a14f-f5e190564787")
-		(property "Reference" "C407"
-			(at 114.3 85.344 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 114.3 87.884 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 118.11 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 114.3 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 114.3 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 114.3 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 114.3 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 114.3 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 114.3 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "290c82b2-e730-4531-918e-44d2bf79a3d6")
-		)
-		(pin "2"
-			(uuid "2ab9e1a9-fa25-4c41-a368-910cf87344fd")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C407")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 121.92 43.18 90)
+		(at 129.54 45.72 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4414,7 +4525,7 @@
 		(dnp no)
 		(uuid "7e0bbdf7-1335-4546-8699-92e5c0ae692c")
 		(property "Reference" "C409"
-			(at 121.92 47.244 90)
+			(at 129.54 40.132 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4422,7 +4533,7 @@
 			)
 		)
 		(property "Value" "47nF"
-			(at 121.92 49.784 90)
+			(at 129.54 42.672 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4430,7 +4541,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 125.73 42.2148 0)
+			(at 133.35 44.7548 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4439,7 +4550,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 121.92 43.18 0)
+			(at 129.54 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4448,7 +4559,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 121.92 43.18 0)
+			(at 129.54 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4457,7 +4568,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 121.92 43.18 90)
+			(at 129.54 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4466,7 +4577,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 121.92 43.18 90)
+			(at 129.54 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4475,7 +4586,7 @@
 			)
 		)
 		(property "PN" "GRM43DR73A473KW01L"
-			(at 121.92 43.18 90)
+			(at 129.54 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4484,7 +4595,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM43DR73A473KW01L"
-			(at 121.92 43.18 90)
+			(at 129.54 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4508,216 +4619,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
-		(at 83.82 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "8737d7c2-b3d3-40bf-a8f5-7ef967589267")
-		(property "Reference" "C403"
-			(at 83.82 85.344 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 83.82 87.884 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 87.63 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 83.82 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 83.82 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 83.82 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 83.82 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 83.82 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 83.82 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "8e438692-0373-449c-8966-0b0af430798d")
-		)
-		(pin "2"
-			(uuid "27caa0a7-e7f4-4261-91a8-e4d40af4ccfd")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C403")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
-		(at 139.7 64.77 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "89008055-58bb-4761-963d-9dac1f51b24f")
-		(property "Reference" "R413"
-			(at 141.224 62.23 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10k"
-			(at 141.478 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 137.922 64.77 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "RC0603FR-0710KL"
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
-			(at 139.7 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "13b7e3be-f048-4110-b309-5719a9d4dc06")
-		)
-		(pin "2"
-			(uuid "55f65219-2ba7-4bb0-a863-6ed615026e01")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "R413")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 91.44 73.66 90)
+		(at 91.44 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4726,7 +4629,7 @@
 		(fields_autoplaced yes)
 		(uuid "8c7bf8e0-ddfe-4dc5-ba63-4b1c45bfaab9")
 		(property "Reference" "R404"
-			(at 91.44 67.31 90)
+			(at 91.44 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4734,7 +4637,7 @@
 			)
 		)
 		(property "Value" "680k"
-			(at 91.44 69.85 90)
+			(at 91.44 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4742,7 +4645,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 91.44 75.438 90)
+			(at 91.44 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4751,7 +4654,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 91.44 73.66 0)
+			(at 91.44 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4760,7 +4663,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 91.44 73.66 0)
+			(at 91.44 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4769,7 +4672,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 91.44 73.66 90)
+			(at 91.44 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4778,7 +4681,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 91.44 73.66 90)
+			(at 91.44 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4787,7 +4690,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07680KL"
-			(at 91.44 73.66 90)
+			(at 91.44 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4796,7 +4699,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07680KL"
-			(at 91.44 73.66 90)
+			(at 91.44 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4886,111 +4789,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
-		(at 91.44 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "9d2703ed-726d-4216-87bd-320b8920426f")
-		(property "Reference" "C404"
-			(at 91.44 85.344 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 91.44 87.884 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 95.25 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 91.44 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 91.44 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 91.44 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 91.44 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 91.44 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 91.44 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "0d5951c3-e543-4d53-abb1-c87660cf395a")
-		)
-		(pin "2"
-			(uuid "4bca6187-67e8-4f57-99ab-4a06324c1d51")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C404")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
-		(at 83.82 73.66 90)
+		(at 83.82 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4999,7 +4799,7 @@
 		(fields_autoplaced yes)
 		(uuid "a1fcdfa7-035b-4f87-a4e1-7011e6dc0419")
 		(property "Reference" "R403"
-			(at 83.82 67.31 90)
+			(at 83.82 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5007,7 +4807,7 @@
 			)
 		)
 		(property "Value" "680k"
-			(at 83.82 69.85 90)
+			(at 83.82 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5015,7 +4815,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 83.82 75.438 90)
+			(at 83.82 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5024,7 +4824,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 83.82 73.66 0)
+			(at 83.82 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5033,7 +4833,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 83.82 73.66 0)
+			(at 83.82 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5042,7 +4842,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 83.82 73.66 90)
+			(at 83.82 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5051,7 +4851,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 83.82 73.66 90)
+			(at 83.82 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5060,7 +4860,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07680KL"
-			(at 83.82 73.66 90)
+			(at 83.82 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5069,7 +4869,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07680KL"
-			(at 83.82 73.66 90)
+			(at 83.82 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5094,7 +4894,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 124.46 73.66 90)
+		(at 124.46 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5102,15 +4902,15 @@
 		(dnp no)
 		(uuid "a6d49aec-3a8a-4d9b-96ae-473f4314be8f")
 		(property "Reference" "R409"
-			(at 124.46 71.628 90)
+			(at 124.46 70.358 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "820k"
-			(at 124.46 73.66 90)
+		(property "Value" "1.6M"
+			(at 124.46 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5118,7 +4918,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 124.46 75.438 90)
+			(at 124.46 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5127,7 +4927,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 124.46 73.66 0)
+			(at 124.46 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5136,7 +4936,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 124.46 73.66 0)
+			(at 124.46 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5145,7 +4945,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 124.46 73.66 90)
+			(at 124.46 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5154,7 +4954,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 124.46 73.66 90)
+			(at 124.46 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5162,8 +4962,8 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "RC1206FR-07820KL"
-			(at 124.46 73.66 90)
+		(property "PN" "RC1206FR-071M6L"
+			(at 124.46 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5171,8 +4971,8 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07820KL"
-			(at 124.46 73.66 90)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071M6L"
+			(at 124.46 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5197,7 +4997,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 76.2 73.66 90)
+		(at 76.2 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5206,7 +5006,7 @@
 		(fields_autoplaced yes)
 		(uuid "a8824b40-7434-4896-b78e-5c582b1dc997")
 		(property "Reference" "R402"
-			(at 76.2 67.31 90)
+			(at 76.2 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5214,7 +5014,7 @@
 			)
 		)
 		(property "Value" "750k"
-			(at 76.2 69.85 90)
+			(at 76.2 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5222,7 +5022,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 76.2 75.438 90)
+			(at 76.2 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5231,7 +5031,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 76.2 73.66 0)
+			(at 76.2 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5240,7 +5040,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 76.2 73.66 0)
+			(at 76.2 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5249,7 +5049,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 76.2 73.66 90)
+			(at 76.2 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5258,7 +5058,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 76.2 73.66 90)
+			(at 76.2 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5267,7 +5067,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07750KL"
-			(at 76.2 73.66 90)
+			(at 76.2 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5276,7 +5076,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07750KL"
-			(at 76.2 73.66 90)
+			(at 76.2 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5423,111 +5223,6 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 129.54 64.77 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "aaae12e7-623c-4e71-843f-e5fbbd067c8b")
-		(property "Reference" "R411"
-			(at 131.318 62.992 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10k"
-			(at 131.318 65.024 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 127.762 64.77 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "RC0603FR-0710KL"
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
-			(at 129.54 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "062da840-2cca-4121-bc66-ed8fe05dae40")
-		)
-		(pin "2"
-			(uuid "2aac431e-b78f-4793-ab33-724431b27021")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "R411")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
 		(at 148.59 36.83 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -5634,7 +5329,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 99.06 73.66 90)
+		(at 99.06 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5643,7 +5338,7 @@
 		(fields_autoplaced yes)
 		(uuid "b936fab4-12c1-4e08-a872-9556f069bbf3")
 		(property "Reference" "R405"
-			(at 99.06 67.31 90)
+			(at 99.06 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5651,7 +5346,7 @@
 			)
 		)
 		(property "Value" "680k"
-			(at 99.06 69.85 90)
+			(at 99.06 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5659,7 +5354,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 99.06 75.438 90)
+			(at 99.06 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5668,7 +5363,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 99.06 73.66 0)
+			(at 99.06 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5677,7 +5372,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 99.06 73.66 0)
+			(at 99.06 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5686,7 +5381,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 99.06 73.66 90)
+			(at 99.06 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5695,7 +5390,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 99.06 73.66 90)
+			(at 99.06 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5704,7 +5399,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07680KL"
-			(at 99.06 73.66 90)
+			(at 99.06 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5713,7 +5408,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07680KL"
-			(at 99.06 73.66 90)
+			(at 99.06 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5738,7 +5433,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 68.58 73.66 90)
+		(at 68.58 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5747,7 +5442,7 @@
 		(fields_autoplaced yes)
 		(uuid "bd2d763a-44ea-4135-a020-c624654a4045")
 		(property "Reference" "R401"
-			(at 68.58 67.31 90)
+			(at 68.58 66.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5755,7 +5450,7 @@
 			)
 		)
 		(property "Value" "750k"
-			(at 68.58 69.85 90)
+			(at 68.58 68.58 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5763,7 +5458,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 68.58 75.438 90)
+			(at 68.58 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5772,7 +5467,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 68.58 73.66 0)
+			(at 68.58 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5781,7 +5476,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 68.58 73.66 0)
+			(at 68.58 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5790,7 +5485,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 68.58 73.66 90)
+			(at 68.58 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5799,7 +5494,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 68.58 73.66 90)
+			(at 68.58 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5808,7 +5503,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07750KL"
-			(at 68.58 73.66 90)
+			(at 68.58 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5817,7 +5512,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07750KL"
-			(at 68.58 73.66 90)
+			(at 68.58 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5979,7 +5674,7 @@
 		(dnp no)
 		(uuid "cfd8db6b-f559-47d7-b4cc-e23e8473f68d")
 		(property "Reference" "Q401"
-			(at 112.014 54.102 90)
+			(at 117.856 48.006 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5987,7 +5682,7 @@
 			)
 		)
 		(property "Value" "MMBTA42"
-			(at 112.014 56.642 90)
+			(at 117.856 50.546 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6291,111 +5986,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 119.38 64.77 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "d8f93100-9d5e-42f7-ad0c-c2f4be86be1c")
-		(property "Reference" "R408"
-			(at 112.776 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10k"
-			(at 113.538 66.802 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 117.602 64.77 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "RC0603FR-0710KL"
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC0603FR-0710KL"
-			(at 119.38 64.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "b27b2acc-0ba9-474b-9e7a-1d30bf455ff3")
-		)
-		(pin "2"
-			(uuid "18e669c1-69f8-4651-be79-95ec174ef61e")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "R408")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 261.62 27.94 180)
 		(unit 1)
@@ -6500,7 +6090,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 148.59 73.66 90)
+		(at 148.59 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6508,7 +6098,7 @@
 		(dnp no)
 		(uuid "da413430-7f5f-4fa3-8007-20414e21de10")
 		(property "Reference" "#PWR0401"
-			(at 154.94 73.66 0)
+			(at 154.94 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6517,7 +6107,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 152.4 73.66 90)
+			(at 152.4 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6526,7 +6116,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 148.59 73.66 0)
+			(at 148.59 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6535,7 +6125,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 148.59 73.66 0)
+			(at 148.59 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6544,7 +6134,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 148.59 73.66 0)
+			(at 148.59 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6565,41 +6155,34 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:C")
-		(at 99.06 81.28 90)
+		(lib_id "Diode:1N4148W")
+		(at 114.3 57.15 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "e0aaf553-d6f5-42d9-acd2-237aba8a1de4")
-		(property "Reference" "C405"
-			(at 99.06 85.344 90)
+		(uuid "e5650cfa-6681-4f68-b97c-86a68a0e36e3")
+		(property "Reference" "D401"
+			(at 111.252 63.246 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
-		(property "Value" "0.1uF"
-			(at 99.06 87.884 90)
+		(property "Value" "1N4148W"
+			(at 111.252 65.786 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 102.87 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 99.06 81.28 0)
+		(property "Footprint" "Diode_SMD:D_SOD-123"
+			(at 118.745 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6607,8 +6190,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Unpolarized capacitor"
-			(at 99.06 81.28 0)
+		(property "Datasheet" "https://www.vishay.com/docs/85748/1n4148w.pdf"
+			(at 114.3 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6616,8 +6199,8 @@
 				(hide yes)
 			)
 		)
-		(property "KLC_S3.3" ""
-			(at 99.06 81.28 90)
+		(property "Description" "75V 0.15A Fast Switching Diode, SOD-123"
+			(at 114.3 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6625,8 +6208,8 @@
 				(hide yes)
 			)
 		)
-		(property "KLC_S4.1" ""
-			(at 99.06 81.28 90)
+		(property "Sim.Device" "D"
+			(at 114.3 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6634,137 +6217,25 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "C1812X104K102T "
-			(at 99.06 81.28 90)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 114.3 57.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(hide yes)
 			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 99.06 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "18619163-c4af-4fef-a343-0f409d1d3cfd")
 		)
 		(pin "2"
-			(uuid "f3ade725-e361-450d-b6f8-10a9ad9c2d51")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C405")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 68.58 81.28 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "e9cccc3e-ff3f-40da-a373-e095797ecf0a")
-		(property "Reference" "C401"
-			(at 68.58 85.598 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 68.58 88.138 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_1812_4532Metric_Pad1.57x3.40mm_HandSolder"
-			(at 72.39 80.3148 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 68.58 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 68.58 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 68.58 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 68.58 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "C1812X104K102T "
-			(at 68.58 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOLY/C1812X104K102T"
-			(at 68.58 81.28 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
+			(uuid "93d12d19-0327-42c2-b569-4ce1f3af0ded")
 		)
 		(pin "1"
-			(uuid "1fe0ebeb-261c-4392-8787-efcd1381ddab")
-		)
-		(pin "2"
-			(uuid "960c751d-0500-43ca-a645-36ca3556ba27")
+			(uuid "e4d158fa-fa92-442a-bc54-e3b9bca3b4dd")
 		)
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/a23cd58c-c186-4cf3-8c49-bdaeee4d7f4c"
-					(reference "C401")
+					(reference "D401")
 					(unit 1)
 				)
 			)
@@ -6772,7 +6243,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 134.62 73.66 90)
+		(at 134.62 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6780,15 +6251,15 @@
 		(dnp no)
 		(uuid "eff23f02-263a-4bc5-b5c2-74f5fb495907")
 		(property "Reference" "R410"
-			(at 134.62 71.374 90)
+			(at 134.62 70.104 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "1M"
-			(at 134.366 73.66 90)
+		(property "Value" "2M"
+			(at 134.366 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6796,7 +6267,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 134.62 75.438 90)
+			(at 134.62 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6805,7 +6276,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 134.62 73.66 0)
+			(at 134.62 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6814,7 +6285,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 134.62 73.66 0)
+			(at 134.62 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6823,7 +6294,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 134.62 73.66 90)
+			(at 134.62 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6832,7 +6303,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 134.62 73.66 90)
+			(at 134.62 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6840,8 +6311,8 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "RC1206FR-071ML"
-			(at 134.62 73.66 90)
+		(property "PN" "RC1206FR-072ML"
+			(at 134.62 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6849,8 +6320,8 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-071ML"
-			(at 134.62 73.66 90)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-072ML"
+			(at 134.62 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6875,7 +6346,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 106.68 73.66 90)
+		(at 106.68 72.39 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6883,7 +6354,7 @@
 		(dnp no)
 		(uuid "f0d659b0-7b38-4b5d-a178-9d0d7f1d4ea1")
 		(property "Reference" "R406"
-			(at 106.68 71.374 90)
+			(at 106.68 70.104 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6891,7 +6362,7 @@
 			)
 		)
 		(property "Value" "680k"
-			(at 106.68 73.66 90)
+			(at 106.68 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6899,7 +6370,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder"
-			(at 106.68 75.438 90)
+			(at 106.68 74.168 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6908,7 +6379,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 106.68 73.66 0)
+			(at 106.68 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6917,7 +6388,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 106.68 73.66 0)
+			(at 106.68 72.39 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6926,7 +6397,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 106.68 73.66 90)
+			(at 106.68 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6935,7 +6406,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 106.68 73.66 90)
+			(at 106.68 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6944,7 +6415,7 @@
 			)
 		)
 		(property "PN" "RC1206FR-07680KL"
-			(at 106.68 73.66 90)
+			(at 106.68 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6953,7 +6424,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RC1206FR-07680KL"
-			(at 106.68 73.66 90)
+			(at 106.68 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
