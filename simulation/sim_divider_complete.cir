@@ -1,0 +1,58 @@
+* sim_divider_complete.cir — ВСЯ плата делителя в одной модели
+* Дынодный делитель (-1500В) + буферы Q401-403 + диоды D401-403 + вход TIA ADA4817.
+* Транзиент: импульс ФЭУ 3.5 МэВ (4.97 мА, распад NaI ~230 нс) на анод -> AMP_OUT.
+.model QN NPN(IS=1E-14 BF=80 BR=1 VAF=100 RB=10 RC=1 RE=0.1)
+.model D4148 D(IS=2.52n RS=0.568 N=1.752 CJO=2p M=0.4 TT=4n BV=100 IBV=1u)
+.inc models/ada4817.cir
+
+* --- ПИТАНИЯ ---
+VHV  HVo  0  DC -1500
+VCC  VCC  0  DC 5
+VEE  VEE  0  DC -5
+
+* --- ДЕЛИТЕЛЬ (через диноды) ---
+R401 HVo G 750k
+R402 G DY1 750k
+R403 DY1 DY2 680k
+R404 DY2 DY3 680k
+R405 DY3 DY4 680k
+R406 DY4 DY5 680k
+R407 DY5 Q401b 1.3Meg
+R408 DY5 DY6 1.3Meg
+R409 Q401b Q402b 1.6Meg
+R410 Q402b Q403b 2Meg
+R412 Q403b 0 2Meg
+* буферы (C E B): эмиттер=динод, коллектор=след.динод/GND
+Q401 DY7 Q401b DY6 QN
+Q402 DY8 Q402b DY7 QN
+Q403 0   Q403b DY8 QN
+* защитные диоды B-E (анод=эмиттер, катод=база)
+D401 DY6 Q401b D4148
+D402 DY7 Q402b D4148
+D403 DY8 Q403b D4148
+* накопительные капы Dy6-Dy8
+C408 DY6 DY7 22n
+C409 DY7 DY8 47n
+C410 DY8 0   0.1u
+
+* --- ВХОД TIA (ADA4817), анод P = -IN ---
+* X: +IN(0=AGND) -IN(P) V+(VCC) V-(VEE) OUT(AMP_OUT) FB(fb) PD(VCC)
+X1 0 P VCC VEE AMP_OUT fb VCC ADA4817
+R417 fb P 499
+C415 fb P 4.7p
+Cpar P 0 10p              ; паразитная ёмкость анода+монтаж
+
+* импульс ФЭУ на анод (3.5 МэВ): пик 4.97 мА, фронт ~5нс, распад ~230нс
+I_pmt P 0 EXP(0 4.97m 100n 5n 130n 230n)
+
+* предзаряд медленных динодных узлов (капы ~мс) до рабочих DC
+.ic V(DY6)=-552 V(DY7)=-395 V(DY8)=-198
+
+.tran 0 600n 0 0.2n uic
+.meas TRAN vDY6_bias FIND V(DY6) AT=90n
+.meas TRAN vDY7_bias FIND V(DY7) AT=90n
+.meas TRAN vDY8_bias FIND V(DY8) AT=90n
+.meas TRAN Pquiet FIND V(P) AT=90n
+.meas TRAN AmpOut_base FIND V(AMP_OUT) AT=90n
+.meas TRAN AmpOut_pk MAX abs(V(AMP_OUT)) FROM=100n TO=600n
+.end

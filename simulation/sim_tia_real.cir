@@ -21,7 +21,7 @@ Cin    inn  0   10p
 
 * TIA обратная связь: Rf||Cf между FB(105) и −IN(101)
 Rf     fb   inn   499
-Cf     fb   inn   3p
+Cf     fb   inn   4.7p
 
 * ADA4817:  +IN(0)  −IN(inn)  V+(VCC)  V−(VEE)  OUT(amp_out)  FB(fb)  PD(VCC=вкл)
 X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
