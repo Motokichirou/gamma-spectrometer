@@ -36,8 +36,8 @@ NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → коакс → CR(OPAMP1) → RC(OP
 V(анода)=31 мВ   amp_out=−431 мВ      [плата МК — G474]
 ```
 
-**Полярность:** импульс на АЦП идёт *вниз* от baseline 2.13 В. В DSP:
-`amplitude = baseline − sample`.
+**Полярность:** импульс на АЦП идёт *вверх* от baseline 0.41 В (анод ФЭУ забирает ток,
+выход TIA растёт). В DSP: `amplitude = sample − baseline`.
 
 ---
 

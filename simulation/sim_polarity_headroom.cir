@@ -1,0 +1,87 @@
+* =============================================================
+* sim_polarity_headroom.cir — ПОЛЯРНОСТЬ ТРАКТА И ЗАПАСЫ ПО РЕЙЛАМ
+* =============================================================
+* Задача: однозначно установить знак импульса на каждом каскаде и
+* посчитать запас до ограничения выхода встроенных ОУ G474.
+*
+* ФИЗИКА ЗНАКА (ключевой момент, из-за которого всё затевалось):
+*   Электроны с последнего динода приходят на анод и уходят из вывода
+*   анода в схему. Условный ток течёт НАВСТРЕЧУ электронам, то есть
+*   ИЗ схемы В анод => анод ЗАБИРАЕТ (sink) условный ток.
+*   В SPICE `I_pmt anode 0` тянет ток ИЗ узла anode — это и есть sink.
+*
+* Пределы выхода ОУ (DS12288 Rev6, Табл.80): VOLSAT <= 100 мВ,
+* VOHSAT >= VDDA-100 мВ. При VDDA=3.3 окно 0.100 .. 3.200 В.
+* ВНИМАНИЕ: opamp_g474.sub НЕ ограничен рейлами (см. комментарий в модели),
+* поэтому дек показывает ТРЕБУЕМЫЙ размах — выход за окно = клиппинг в железе.
+*
+* Схема соответствует нетлисту: R314 10k параллельно C315 (фикс C2).
+* =============================================================
+.lib models/opamp_g474.sub
+.inc models/ada4817.cir
+
+VDD   VDD   0   DC  3.3
+VCC   VCC   0   DC  5
+VEE   VEE   0   DC  -5
+VREF  VREF  0   DC  2.495
+
+* ---- ток анода ФЭУ: sink, 0.084 мА (Am-241) ... 4.97 мА (3.5 МэВ)
+.step param ipk list 0.084m 0.94m 1.88m 3.69m 4.97m
+I_pmt  anode  0  EXP(0 {ipk} 500n 5n 505n 230n)
+Cin    anode  0  10p
+
+* ---- вход: TIA на ADA4817, Zt = Rf = 499
+* пины: +IN -IN V+ V- OUT FB PD
+R417   fb  anode  499
+C415   fb  anode  4.7p
+X_tia  0  anode  VCC  VEE  amp_out  fb  VCC  ADA4817
+
+* ---- делители смещения от опоры 2.495 В
+R312 VREF vbias_a 8.2k
+R313 vbias_a 0    2k
+C321 vbias_a 0    100n
+R310 VREF vbias_b 22k
+R311 vbias_b 0    5.9k
+C320 vbias_b 0    100n
+
+* ---- OPAMP1: CR-дифференциатор, R314 параллельно C315
+R309  amp_out  cr_mid  10k
+C315  cr_mid   cr_in   100p
+R314  cr_mid   cr_in   10k
+R305  cr_out   cr_in   10k
+XU1   vbias_a  cr_in  VDD 0 cr_out  opamp_g474
+
+C317  cr_out  rc_node  100n
+
+* ---- OPAMP2: RC-интегратор
+R308  rc_node  rc_in  1k
+C316  rc_out   rc_in  510p
+R306  rc_out   rc_in  1k
+XU2   vbias_a  rc_in  VDD 0 rc_out  opamp_g474
+
+C314  rc_out  pga_inp  100n
+Rbias vbias_b pga_inp  4.65k
+
+* ---- OPAMP3: PGA x4
+Rpga1 adc_in  pga_inm  30k
+Rpga2 pga_inm 0        10k
+XU3   pga_inp pga_inm  VDD 0 adc_in  opamp_g474
+
+.tran 2n 10u
+
+* ---- рабочие точки до импульса (t=400 нс) и экстремумы после
+.meas TRAN amp_dc  FIND V(amp_out) AT=400n
+.meas TRAN amp_min MIN  V(amp_out) FROM=450n TO=10u
+.meas TRAN amp_max MAX  V(amp_out) FROM=450n TO=10u
+.meas TRAN cr_dc   FIND V(cr_out)  AT=400n
+.meas TRAN cr_min  MIN  V(cr_out)  FROM=450n TO=10u
+.meas TRAN cr_max  MAX  V(cr_out)  FROM=450n TO=10u
+.meas TRAN rc_dc   FIND V(rc_out)  AT=400n
+.meas TRAN rc_min  MIN  V(rc_out)  FROM=450n TO=10u
+.meas TRAN rc_max  MAX  V(rc_out)  FROM=450n TO=10u
+.meas TRAN adc_dc  FIND V(adc_in)  AT=400n
+.meas TRAN adc_min MIN  V(adc_in)  FROM=450n TO=10u
+.meas TRAN adc_max MAX  V(adc_in)  FROM=450n TO=10u
+.meas TRAN anode_dc FIND V(anode) AT=400n
+
+.end

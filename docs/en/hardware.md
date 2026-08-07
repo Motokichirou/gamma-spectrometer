@@ -37,8 +37,8 @@ NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → coax → CR(OPAMP1) → RC(OPAMP2) 
 V(anode)=31 mV   amp_out=−431 mV       [MCU board — G474]
 ```
 
-**Polarity:** the ADC pulse goes *down* from the 2.13 V baseline. In DSP:
-`amplitude = baseline − sample`.
+**Polarity:** the ADC pulse goes *up* from the 0.41 V baseline (the PMT anode sinks
+current, so the TIA output rises). In DSP: `amplitude = sample − baseline`.
 
 ---
 

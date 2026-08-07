@@ -73,22 +73,22 @@ NaI(Tl) + R1307             Divider board                 MCU board
  Scintillation →  Divider (7.72 MΩ chain)     →  CR  (OPAMP1, τ=1 µs)
  τ_decay=230 ns   Active buffers (Dy6/7/8)        RC  (OPAMP2, τ=510 ns)
  I_anode(Cs-137)  ADA4817 TIA, Zt=499 Ω, BW≈92 MHz →  PGA ×4 (OPAMP3)
-  = 0.94 mA       V_out = −469 mV (Cs-137)        V_ADC = 2.116 V baseline
+  = 0.94 mA       V_out = +469 mV (Cs-137)        V_ADC = 0.408 V baseline
                                                    ADC1_IN12, 4 Msps
                                                    8192-ch histogram → USB
 ```
 
-**ADC polarity:** pulses are negative w.r.t. baseline 2.116 V → `amplitude = baseline − sample`
+**ADC polarity:** the anode sinks current ⇒ the TIA output swings up ⇒ pulses are **positive** w.r.t. the 0.408 V baseline → `amplitude = sample − baseline`
 
 ### Energy Calibration (simulated, G474 OPAMP model)
 
 | Source | Energy | ADC channel / 8192 |
 |---|---|---|
-| Am-241 | 59.5 keV | 101 |
-| Cs-137 | 662 keV | 1138 |
-| Co-60 | 1.33 MeV | 2277 |
-| Tl-208 | 2.61 MeV | 4470 |
-| Ceiling | 3.5 MeV | 6021 |
+| Am-241 | 59.5 keV | 105 |
+| Cs-137 | 662 keV | 1159 |
+| Co-60 | 1.33 MeV | 2321 |
+| Tl-208 | 2.61 MeV | 4554 |
+| Ceiling | 3.5 MeV | 6133 |
 
 ---
 
