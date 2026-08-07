@@ -1,0 +1,40 @@
+* =============================================================
+* sim_tia_cable_tran.cir — переходная: звон на реальном импульсе ФЭУ
+* Импульс 3.5 МэВ (I_peak = 4.97 мА) — худший случай по размаху выхода.
+* Конвенция тока как в sim_divider_complete: анод ЗАБИРАЕТ ток => выход вверх.
+* =============================================================
+.inc models/ada4817.cir
+
+VCC   VCC   0   DC  5
+VEE   VEE   0   DC  -5
+
+I_pmt  inn  0   EXP(0 4.97m 100n 5n 130n 230n)
+Cin    inn  0   10p
+
+Rf     fb   inn   499
+Cf     fb   inn   4.7p
+X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
+
+.step param rs list 0.01 10 22 33 47 68 100
+Rs     amp_out  cbl  {rs}
+
+T1     cbl  0   rx  0   Z0=50 Td=0.48n
+
+Cpar   rx  0   3p
+R309   rx      cr_mid  10k
+C315   cr_mid  0       100p
+R314   cr_mid  0       10k
+
+.tran 0 900n 0 0.05n
+
+* амплитуда и обратный выброс/звон после импульса
+.meas TRAN vpk_o  MAX V(amp_out)
+.meas TRAN vpk_r  MAX V(rx)
+.meas TRAN tpk_r  WHEN V(rx)=vpk_r RISE=1
+.meas TRAN vmin_o MIN V(amp_out) FROM=100n TO=900n
+.meas TRAN vmin_r MIN V(rx)      FROM=100n TO=900n
+* звон на фронте: разница выхода ОУ и приёмника в момент пика
+.meas TRAN ring_o PP  V(amp_out) FROM=100n TO=200n
+.meas TRAN ring_r PP  V(rx)      FROM=100n TO=200n
+
+.end

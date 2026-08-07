@@ -1,0 +1,49 @@
+* =============================================================
+* sim_tia_cable_ac.cir — нужен ли последовательный резистор на выходе TIA?
+* Что моделируется (чего НЕ было в sim_tia_stab/sim_tia_real):
+*   выход ADA4817 -> Rs -> коаксиал RG-178 100 мм -> вход шейпера платы МК.
+* Прежние деки сажали R_cr_in прямо на amp_out идеальным проводом.
+* FB(105) внутри модели закорочен с OUT(104) => петля ОС замкнута ДО Rs,
+* поэтому Rs изолирует ёмкостную нагрузку от контура.
+* =============================================================
+.inc models/ada4817.cir
+
+VCC   VCC   0   DC  5
+VEE   VEE   0   DC  -5
+
+* ток анода ФЭУ (АЧХ: 1 А для получения Zt в омах)
+I_pmt  0  inn  AC 1
+Cin    inn  0   10p
+
+Rf     fb   inn   499
+Cf     fb   inn   4.7p
+* ADA4817: +IN(0) -IN(inn) V+(VCC) V-(VEE) OUT(amp_out) FB(fb) PD(VCC=вкл)
+X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
+
+* --- исследуемый последовательный резистор ---
+.step param rs list 0.01 10 22 33 47 68 100
+Rs     amp_out  cbl  {rs}
+
+* --- кабель RG-178, 100 мм: Z0=50 Ом, Td=0.48 нс (Vf=0.695) ---
+T1     cbl  0   rx  0   Z0=50 Td=0.48n
+
+* --- приёмник на плате МК ---
+* паразитика разъёма U.FL + короткой трассы
+Cpar   rx  0   3p
+* R309 -> node_CR -> (C315 || R314) -> PA3 (виртуальная земля OPAMP1 ~ 0)
+R309   rx      cr_mid  10k
+C315   cr_mid  0       100p
+R314   cr_mid  0       10k
+
+.ac dec 400 1k 1G
+
+* пиковость на выходе ОУ (собственная устойчивость) и на приёмнике
+.meas AC zdc_o  FIND mag(V(amp_out)) AT=10k
+.meas AC zmx_o  MAX  mag(V(amp_out))
+.meas AC pk_o   PARAM 20*log10(zmx_o/zdc_o)
+.meas AC zdc_r  FIND mag(V(rx)) AT=10k
+.meas AC zmx_r  MAX  mag(V(rx))
+.meas AC pk_r   PARAM 20*log10(zmx_r/zdc_r)
+.meas AC f3_r   WHEN mag(V(rx))=zdc_r/1.41421 FALL=1
+
+.end

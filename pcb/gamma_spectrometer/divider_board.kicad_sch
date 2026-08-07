@@ -3376,7 +3376,7 @@
 				)
 			)
 		)
-		(property "Footprint" "RD_8_1_ADI"
+		(property "Footprint" "посадочные места:RD_8_1_ADI-M"
 			(at 200.66 43.18 0)
 			(effects
 				(font
@@ -4944,7 +4944,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "посадочные места:J_PMT401_R1307-01"
 			(at 99.06 41.91 0)
 			(effects
 				(font

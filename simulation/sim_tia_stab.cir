@@ -18,10 +18,26 @@ X1  0  inn  VCC  VEE  amp_out  fb  VCC  ADA4817
 
 .ac dec 200 1k 1G
 
-* DC-трансимпеданс, пик и пиковость в дБ; полоса по уровню Zdc/√2
+* ⚠ УДАЛЕНО 2026-08-07 — метрика пиковости была НЕДОСТОВЕРНОЙ:
+*     .meas AC zmax   MAX  mag(V(amp_out))
+*     .meas AC peakdB PARAM 20*log10(zmax/zdc)
+*   В одном и том же прогоне она рапортовала -49.7 дБ там, где поточечная
+*   проверка |Zt(f)| по 28 частотам даёт +0.00 дБ. Из этих чисел выросла
+*   ошибочная таблица риска R-1 в review/REVIEW_divider_latest.md
+*   («+3.2 дБ звона при Cin=30 пФ» — на деле это наступает при 50 пФ).
+*   Пиковость мерить ТОЛЬКО поточечно: simulation/sim_tia_cin_sweep.cir.
+*
+* zdc и f3db достоверны (WHEN сравнивает линейные величины) — оставлены.
+* ⚠ .meas ... mag() ПЕЧАТАЕТ значения в дБ: 53.96 дБ = 499 Ом.
 .meas AC zdc   FIND mag(V(amp_out)) AT=10k
-.meas AC zmax  MAX  mag(V(amp_out))
-.meas AC peakdB PARAM 20*log10(zmax/zdc)
 .meas AC f3db  WHEN mag(V(amp_out))=zdc/1.41421 FALL=1
+
+* поточечная форма |Zt(f)| — по ней и судить о подъёме
+.meas AC z10M  FIND mag(V(amp_out)) AT=10Meg
+.meas AC z30M  FIND mag(V(amp_out)) AT=30Meg
+.meas AC z50M  FIND mag(V(amp_out)) AT=50Meg
+.meas AC z90M  FIND mag(V(amp_out)) AT=90Meg
+.meas AC z150M FIND mag(V(amp_out)) AT=150Meg
+.meas AC z300M FIND mag(V(amp_out)) AT=300Meg
 
 .end
