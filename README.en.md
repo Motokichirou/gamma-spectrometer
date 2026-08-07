@@ -104,7 +104,7 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
 | LTspice sim3: noise budget | ✅ Done (σ=76.9 µV rms with TIA, 0.25 ch; 94.4 with former AD8000) |
 | BOM with MPN + footprints | ✅ Done (177 comp.: 74 caps / 17 MPN, 63 R, all active) |
-| PCB layout | 🚧 USB & HV routed (DRC electrically clean, schematic parity 0), inter-board bus placed (USB+HV); MCU and divider pending |
+| PCB layout | 🚧 2 layers, all four boards routed, schematic parity 0. HV clearance norms (3 mm/kV) encoded in `.kicad_dru`. ⚠ 59 spots remain where the ground pour comes closer to HV nets than the norm |
 | STM32 firmware | 🚧 Stages 1–2 + self-test + energy calibration in flash running on Nucleo (shproto, real histogram); stage 3 on the target board |
 | Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
 

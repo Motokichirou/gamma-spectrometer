@@ -204,47 +204,18 @@
 	(constraint clearance (min 0.43mm))
 	(condition "(A.NetName == 'Net-(R229-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R229-Pad2)')"))
 
-
 # ----------------------------------------------------------------------
-# ИСКЛЮЧЕНИЯ: компоненты, которые ПО СХЕМЕ соединяют ВВ-узел с землёй.
-# У них ВВ и GND на собственных выводах, зазор задан корпусом детали и
-# перемещением не лечится. Электрическую прочность здесь держит рабочее
-# напряжение самого компонента, а не расстояние по плате.
-# Ставятся ПОСЛЕ основных правил — приоритет у последнего совпавшего.
+# ⚠ УДАЛЕНО 2026-08-08: блок из 12 «исключений» с условием insideCourtyard()
+# и (constraint clearance (min 0mm)) для деталей, соединяющих ВВ-узел с землёй
+# (T201, C210, D205, C410, R412, C13b201..C18b201, Q403).
+#
+# Он ОБНУЛЯЛ проверку зазора ГЛОБАЛЬНО: с ним DRC показывал 0 нарушений,
+# без него — 59. Заливка при этом подходила к цепи 908 В на 0.0005 мм.
+#
+# Задача, которую он решал, остаётся: у последовательного конденсатора на землю
+# ВВ и GND сидят на собственных выводах, зазор задан корпусом детали и
+# перемещением не лечится. Но решать её надо НЕ правилом, а точечными
+# исключениями DRC в редакторе (ПКМ по нарушению → «Исключить»), с пометкой
+# «прочность держит рабочее напряжение детали, а не зазор на плате».
+# Реально таких случаев было всего два: C210 и C18b201.
 # ----------------------------------------------------------------------
-(rule "внутри корпуса T201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('T201') && B.insideCourtyard('T201')"))
-(rule "внутри корпуса C210"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C210') && B.insideCourtyard('C210')"))
-(rule "внутри корпуса D205"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('D205') && B.insideCourtyard('D205')"))
-(rule "внутри корпуса C410"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C410') && B.insideCourtyard('C410')"))
-(rule "внутри корпуса R412"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('R412') && B.insideCourtyard('R412')"))
-(rule "внутри корпуса C18b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C18b201') && B.insideCourtyard('C18b201')"))
-(rule "внутри корпуса C14b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C14b201') && B.insideCourtyard('C14b201')"))
-(rule "внутри корпуса C15b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C15b201') && B.insideCourtyard('C15b201')"))
-(rule "внутри корпуса C13b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C13b201') && B.insideCourtyard('C13b201')"))
-(rule "внутри корпуса C16b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C16b201') && B.insideCourtyard('C16b201')"))
-(rule "внутри корпуса Q403"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('Q403') && B.insideCourtyard('Q403')"))
-(rule "внутри корпуса C17b201"
-	(constraint clearance (min 0mm))
-	(condition "A.insideCourtyard('C17b201') && B.insideCourtyard('C17b201')"))
