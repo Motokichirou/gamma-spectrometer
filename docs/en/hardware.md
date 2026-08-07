@@ -33,8 +33,8 @@ both power and data.
 
 ```
 NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → coax → CR(OPAMP1) → RC(OPAMP2) → PGA×4(OPAMP3) → ADC
-[divider board]  ±5V_A          U.FL   τ=1 µs        τ=510 ns      DC=2.13 V       3.3 V
-V(anode)=31 mV   amp_out=−431 mV       [MCU board — G474]
+[divider board]  ±5V_A          U.FL   τ=1 µs        τ=510 ns      DC=0.41 V       3.3 V
+anode ≈ 0 V (virtual gnd)  amp_out = +469 mV @Cs-137  [MCU board — G474]
 ```
 
 **Polarity:** the ADC pulse goes *up* from the 0.41 V baseline (the PMT anode sinks
@@ -79,7 +79,8 @@ The signal-processing and interface core.
 - Input: U.FL connector carrying ~470 mV @Cs-137 from the ADA4817 TIA on the divider board.
 - Analog shaper: **CR** (10 kΩ + 100 pF + 10 kΩ) → **RC** (1 kΩ + 510 pF + 1 kΩ),
   forming a CR-RC²-style pulse, followed by a ×4 PGA into the ADC.
-- **TL431** voltage reference (2.495 V) plus DC-bias dividers for the ADC baseline.
+- **REF35250** voltage reference (2.500 V, 12 ppm/°C, SOT-23-6) plus DC-bias dividers
+  for the ADC baseline. It replaced the TL431DBZ on 2026-08-07 following review.
 - **W25Q64** SPI flash, 16 MHz crystal.
 - **Pt1000** temperature sensor (Honeywell 700-102BAA-B00) on the crystal housing,
   read ratiometrically for thermal-drift compensation.

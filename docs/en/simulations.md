@@ -26,7 +26,9 @@ With `Rfb = 1.5 kΩ`, `Cfb = 1 pF`, `Cpar = 1 pF` (AD8000):
 
 ## Sim 2 — CR-RC² shaper
 
-PGA ×4, with the DC-bias divider giving `V_out_DC = 2.13 V` baseline.
+PGA ×4, with bias divider B (R310=22k / R311=909R) giving a `V_out_DC = 0.41 V`
+baseline (it was 2.13 V with R311=5.9k, sized for the wrong "downward" polarity;
+fixed 2026-08-07).
 The ballistic-deficit-corrected peaking factor is `PF = 0.202` (the G474 OPAMP
 GBW of 13 MHz slightly reduces the ideal-opamp 0.209; the earlier "0.36" was an analytic-calc error).
 
@@ -34,11 +36,14 @@ Resulting energy → channel mapping (of 8192):
 
 | Source | Energy | Channel |
 |---|---|---|
-| Am-241 | 59.5 keV | 101 |
-| Cs-137 | 662 keV | 1138 |
-| Co-60 | 1.33 MeV | 2277 |
-| Tl-208 | 2.6 MeV | 4470 |
-| Ceiling | 3.5 MeV | 6021 |
+| Am-241 | 59.5 keV | 105 |
+| Cs-137 | 662 keV | 1159 |
+| Co-60 | 1.33 MeV | 2321 |
+| Tl-208 | 2.6 MeV | 4554 |
+| Ceiling | 3.5 MeV | 6133 |
+
+> The former numbers (101 / 1138 / 2277 / 4470 / 6021) predate the bias-divider
+> recalculation for the correct polarity; the difference is ~2 %.
 
 ## Sim 3 — Noise
 

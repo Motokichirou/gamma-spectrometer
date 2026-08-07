@@ -1,6 +1,14 @@
 # Claude Code local settings
 .claude/settings.local.json
 
+# Установленные агентские скиллы (npx skills add) — переустанавливаются командой
+.agents/
+skills-lock.json
+
+# Выгрузки анализаторов kicad-happy (регенерируются)
+analysis/
+pcb/gamma_spectrometer/analysis/
+
 # KiCad generated/temp files
 *.lck
 #auto_saved_files#

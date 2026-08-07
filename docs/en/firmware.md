@@ -61,8 +61,13 @@ For each ADC sample the detector:
    `2m+1` samples around the maximum and taking the vertex height — a sub-LSB,
    unbiased estimate that maps directly to a channel of the 8192-bin histogram.
 
-Polarity is configurable (`+1` for the Nucleo loopback, `−1` for the target board,
-where pulses go below baseline). The hot path is forced to `-O2` even in Debug
+Polarity is configurable, but **both the Nucleo loopback and the target board need
+`+1`**: the PMT anode sinks current, the TIA output rises, so the ADC pulse goes UP
+from the 0.41 V baseline — `amplitude = sample − baseline`, searching for a maximum.
+⛔ The former instruction "`−1` for the target board, pulses below baseline" is WRONG
+(it came from `sim2_shaper.cir` with a reversed anode current source; fixed
+2026-08-07) — setting `−1` yields no spectrum at all.
+The hot path is forced to `-O2` even in Debug
 builds, because at 2.83 Msps an unoptimized ISR cannot keep up with the half-buffer
 rate.
 
