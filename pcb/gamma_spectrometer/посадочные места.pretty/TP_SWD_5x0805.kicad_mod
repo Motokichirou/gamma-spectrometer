@@ -1,0 +1,193 @@
+(footprint "TP_SWD_5x0805"
+	(version 20241229)
+	(generator "manual")
+	(layer "F.Cu")
+	(descr "Ryad iz 5 SMD pyatkov pod SWD-programmirovanie STM32G474 na boevoy plate. Pad 1.6 x 1.2 mm, shag 2.54 mm po Y. Poryadok sverhu vniz: 1=SWDIO, 2=SWCLK, 3=NRST, 4=GND, 5=+3.3V_D. Bez F.Paste - eto testovye tochki, pod igly programmatora ili pripayku provodov. Ceti naznachayutsya vruchnuyu (SWD razyoma v sheme net). Vysota shrifta 1.3 mm i linii 0.15 mm - norma PS-Elektro.")
+	(tags "testpoint swd programming stm32 pogo")
+	(property "Reference" "REF**"
+		(at -3.4 -6.6 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1.3 1.3)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "TP_SWD_5x0805"
+		(at 0 7.2 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom)
+	(fp_line
+		(start -1.15 -5.85)
+		(end 1.15 -5.85)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -1.15 5.85)
+		(end 1.15 5.85)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -1.15 -5.85)
+		(end -1.15 5.85)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 1.15 -5.85)
+		(end 1.15 5.85)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_poly
+		(pts
+			(xy -1.75 -5.68) (xy -1.75 -4.48) (xy -2.75 -5.08)
+		)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+	)
+	(fp_text user "SWD"
+		(at 2.95 -3.6 90)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1.3 1.3)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "SWDIO"
+		(at 3.2 -5.08 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+			(justify left)
+		)
+	)
+	(fp_text user "SWCLK"
+		(at 3.2 -2.54 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+			(justify left)
+		)
+	)
+	(fp_text user "NRST"
+		(at 3.2 0 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+			(justify left)
+		)
+	)
+	(fp_text user "GND"
+		(at 3.2 2.54 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+			(justify left)
+		)
+	)
+	(fp_text user "+3.3V_D"
+		(at 3.2 5.08 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+			(justify left)
+		)
+	)
+	(fp_rect
+		(start -1.25 -5.95)
+		(end 1.25 5.95)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+	)
+	(pad "1" smd roundrect
+		(at 0 -5.08)
+		(size 1.6 1.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.25)
+	)
+	(pad "2" smd roundrect
+		(at 0 -2.54)
+		(size 1.6 1.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.25)
+	)
+	(pad "3" smd roundrect
+		(at 0 0)
+		(size 1.6 1.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.25)
+	)
+	(pad "4" smd roundrect
+		(at 0 2.54)
+		(size 1.6 1.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.25)
+	)
+	(pad "5" smd roundrect
+		(at 0 5.08)
+		(size 1.6 1.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.25)
+	)
+	(embedded_fonts no)
+)

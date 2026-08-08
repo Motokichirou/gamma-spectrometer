@@ -1,0 +1,221 @@
+(version 1)
+# Зазоры высоковольтных цепей до земли: 3 мм на 1 кВ.
+# Норма от инженера-референса (4 кВ переменки -> 12 мм) + сверка с IPC-2221 B1
+# (без паяльной маски: 0.25 мм + 0.0025 мм/В -> 4.0 мм при 1500 В).
+# ЛУТ-прототип идёт без маски, поэтому считаем по B1, а не по B4.
+# Потенциалы взяты из рабочей точки делителя и структуры CW/цепочек ОС и монитора.
+# Правила ограничивают ТОЛЬКО пару <ВВ-цепь> - <GND>. Зазоры между соседними
+# ступенями ВВ намеренно не трогаем: там разность ~150-190 В (принцип градиента).
+# Сгенерировано 2026-08-07.
+
+(rule "HV Net-(C13a201-Pad1) -> GND"
+	(constraint clearance (min 4.54mm))
+	(condition "(A.NetName == 'Net-(C13a201-Pad1)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C13a201-Pad1)')"))
+
+(rule "HV −HV_out -> GND"
+	(constraint clearance (min 4.5mm))
+	(condition "(A.NetName == '−HV_out' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '−HV_out')"))
+
+(rule "HV Net-(C15a201-Pad1) -> GND"
+	(constraint clearance (min 4.49mm))
+	(condition "(A.NetName == 'Net-(C15a201-Pad1)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C15a201-Pad1)')"))
+
+(rule "HV Net-(C16a201-Pad1) -> GND"
+	(constraint clearance (min 4.43mm))
+	(condition "(A.NetName == 'Net-(C16a201-Pad1)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C16a201-Pad1)')"))
+
+(rule "HV Net-(C17a201-Pad1) -> GND"
+	(constraint clearance (min 4.37mm))
+	(condition "(A.NetName == 'Net-(C17a201-Pad1)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C17a201-Pad1)')"))
+
+(rule "HV Net-(R207-Pad2) -> GND"
+	(constraint clearance (min 4.09mm))
+	(condition "(A.NetName == 'Net-(R207-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R207-Pad2)')"))
+
+(rule "HV /Divider_Board/G -> GND"
+	(constraint clearance (min 4.06mm))
+	(condition "(A.NetName == '/Divider_Board/G' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/G')"))
+
+(rule "HV Net-(C215-Pad2) -> GND"
+	(constraint clearance (min 3.98mm))
+	(condition "(A.NetName == 'Net-(C215-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C215-Pad2)')"))
+
+(rule "HV Net-(R221-Pad2) -> GND"
+	(constraint clearance (min 3.89mm))
+	(condition "(A.NetName == 'Net-(R221-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R221-Pad2)')"))
+
+(rule "HV Net-(R209-Pad2) -> GND"
+	(constraint clearance (min 3.63mm))
+	(condition "(A.NetName == 'Net-(R209-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R209-Pad2)')"))
+
+(rule "HV /Divider_Board/DY1 -> GND"
+	(constraint clearance (min 3.62mm))
+	(condition "(A.NetName == '/Divider_Board/DY1' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY1')"))
+
+(rule "HV Net-(R222-Pad2) -> GND"
+	(constraint clearance (min 3.46mm))
+	(condition "(A.NetName == 'Net-(R222-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R222-Pad2)')"))
+
+(rule "HV Net-(C214-Pad2) -> GND"
+	(constraint clearance (min 3.41mm))
+	(condition "(A.NetName == 'Net-(C214-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C214-Pad2)')"))
+
+(rule "HV /Divider_Board/DY2 -> GND"
+	(constraint clearance (min 3.23mm))
+	(condition "(A.NetName == '/Divider_Board/DY2' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY2')"))
+
+(rule "HV Net-(R210-Pad2) -> GND"
+	(constraint clearance (min 3.18mm))
+	(condition "(A.NetName == 'Net-(R210-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R210-Pad2)')"))
+
+(rule "HV Net-(R223-Pad2) -> GND"
+	(constraint clearance (min 3.03mm))
+	(condition "(A.NetName == 'Net-(R223-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R223-Pad2)')"))
+
+(rule "HV Net-(C213-Pad2) -> GND"
+	(constraint clearance (min 2.84mm))
+	(condition "(A.NetName == 'Net-(C213-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C213-Pad2)')"))
+
+(rule "HV /Divider_Board/DY3 -> GND"
+	(constraint clearance (min 2.83mm))
+	(condition "(A.NetName == '/Divider_Board/DY3' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY3')"))
+
+(rule "HV Net-(R211-Pad2) -> GND"
+	(constraint clearance (min 2.72mm))
+	(condition "(A.NetName == 'Net-(R211-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R211-Pad2)')"))
+
+(rule "HV Net-(R224-Pad2) -> GND"
+	(constraint clearance (min 2.6mm))
+	(condition "(A.NetName == 'Net-(R224-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R224-Pad2)')"))
+
+(rule "HV /Divider_Board/DY4 -> GND"
+	(constraint clearance (min 2.44mm))
+	(condition "(A.NetName == '/Divider_Board/DY4' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY4')"))
+
+(rule "HV Net-(C212-Pad2) -> GND"
+	(constraint clearance (min 2.27mm))
+	(condition "(A.NetName == 'Net-(C212-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C212-Pad2)')"))
+
+(rule "HV Net-(C13a201-Pad2) -> GND"
+	(constraint clearance (min 2.27mm))
+	(condition "(A.NetName == 'Net-(C13a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C13a201-Pad2)')"))
+
+(rule "HV Net-(C14a201-Pad2) -> GND"
+	(constraint clearance (min 2.27mm))
+	(condition "(A.NetName == 'Net-(C14a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C14a201-Pad2)')"))
+
+(rule "HV Net-(R212-Pad2) -> GND"
+	(constraint clearance (min 2.27mm))
+	(condition "(A.NetName == 'Net-(R212-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R212-Pad2)')"))
+
+(rule "HV Net-(C15a201-Pad2) -> GND"
+	(constraint clearance (min 2.24mm))
+	(condition "(A.NetName == 'Net-(C15a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C15a201-Pad2)')"))
+
+(rule "HV Net-(C16a201-Pad2) -> GND"
+	(constraint clearance (min 2.21mm))
+	(condition "(A.NetName == 'Net-(C16a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C16a201-Pad2)')"))
+
+(rule "HV Net-(C17a201-Pad2) -> GND"
+	(constraint clearance (min 2.18mm))
+	(condition "(A.NetName == 'Net-(C17a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C17a201-Pad2)')"))
+
+(rule "HV Net-(C18a201-Pad2) -> GND"
+	(constraint clearance (min 2.16mm))
+	(condition "(A.NetName == 'Net-(C18a201-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C18a201-Pad2)')"))
+
+(rule "HV Net-(R225-Pad2) -> GND"
+	(constraint clearance (min 2.16mm))
+	(condition "(A.NetName == 'Net-(R225-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R225-Pad2)')"))
+
+(rule "HV /Divider_Board/DY5 -> GND"
+	(constraint clearance (min 2.04mm))
+	(condition "(A.NetName == '/Divider_Board/DY5' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY5')"))
+
+(rule "HV Net-(R213-Pad2) -> GND"
+	(constraint clearance (min 1.82mm))
+	(condition "(A.NetName == 'Net-(R213-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R213-Pad2)')"))
+
+(rule "HV Net-(R226-Pad2) -> GND"
+	(constraint clearance (min 1.73mm))
+	(condition "(A.NetName == 'Net-(R226-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R226-Pad2)')"))
+
+(rule "HV Net-(C211-Pad2) -> GND"
+	(constraint clearance (min 1.7mm))
+	(condition "(A.NetName == 'Net-(C211-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C211-Pad2)')"))
+
+(rule "HV /Divider_Board/DY6 -> GND"
+	(constraint clearance (min 1.66mm))
+	(condition "(A.NetName == '/Divider_Board/DY6' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY6')"))
+
+(rule "HV Net-(D401-K) -> GND"
+	(constraint clearance (min 1.65mm))
+	(condition "(A.NetName == 'Net-(D401-K)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(D401-K)')"))
+
+(rule "HV Net-(R214-Pad2) -> GND"
+	(constraint clearance (min 1.36mm))
+	(condition "(A.NetName == 'Net-(R214-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R214-Pad2)')"))
+
+(rule "HV Net-(R227-Pad2) -> GND"
+	(constraint clearance (min 1.3mm))
+	(condition "(A.NetName == 'Net-(R227-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R227-Pad2)')"))
+
+(rule "HV /Divider_Board/DY7 -> GND"
+	(constraint clearance (min 1.19mm))
+	(condition "(A.NetName == '/Divider_Board/DY7' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY7')"))
+
+(rule "HV Net-(D402-K) -> GND"
+	(constraint clearance (min 1.18mm))
+	(condition "(A.NetName == 'Net-(D402-K)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(D402-K)')"))
+
+(rule "HV Net-(C210-Pad2) -> GND"
+	(constraint clearance (min 1.13mm))
+	(condition "(A.NetName == 'Net-(C210-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C210-Pad2)')"))
+
+(rule "HV Net-(R215-Pad2) -> GND"
+	(constraint clearance (min 0.91mm))
+	(condition "(A.NetName == 'Net-(R215-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R215-Pad2)')"))
+
+(rule "HV Net-(R228-Pad2) -> GND"
+	(constraint clearance (min 0.86mm))
+	(condition "(A.NetName == 'Net-(R228-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R228-Pad2)')"))
+
+(rule "HV /Divider_Board/DY8 -> GND"
+	(constraint clearance (min 0.59mm))
+	(condition "(A.NetName == '/Divider_Board/DY8' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == '/Divider_Board/DY8')"))
+
+(rule "HV Net-(D403-K) -> GND"
+	(constraint clearance (min 0.59mm))
+	(condition "(A.NetName == 'Net-(D403-K)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(D403-K)')"))
+
+(rule "HV Net-(C209-Pad1) -> GND"
+	(constraint clearance (min 0.57mm))
+	(condition "(A.NetName == 'Net-(C209-Pad1)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C209-Pad1)')"))
+
+(rule "HV Net-(C209-Pad2) -> GND"
+	(constraint clearance (min 0.57mm))
+	(condition "(A.NetName == 'Net-(C209-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(C209-Pad2)')"))
+
+(rule "HV Net-(R216-Pad2) -> GND"
+	(constraint clearance (min 0.45mm))
+	(condition "(A.NetName == 'Net-(R216-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R216-Pad2)')"))
+
+(rule "HV Net-(R229-Pad2) -> GND"
+	(constraint clearance (min 0.43mm))
+	(condition "(A.NetName == 'Net-(R229-Pad2)' && B.NetName == 'GND') || (A.NetName == 'GND' && B.NetName == 'Net-(R229-Pad2)')"))
+
+# ----------------------------------------------------------------------
+# ⚠ УДАЛЕНО 2026-08-08: блок из 12 «исключений» с условием insideCourtyard()
+# и (constraint clearance (min 0mm)) для деталей, соединяющих ВВ-узел с землёй
+# (T201, C210, D205, C410, R412, C13b201..C18b201, Q403).
+#
+# Он ОБНУЛЯЛ проверку зазора ГЛОБАЛЬНО: с ним DRC показывал 0 нарушений,
+# без него — 59. Заливка при этом подходила к цепи 908 В на 0.0005 мм.
+#
+# Задача, которую он решал, остаётся: у последовательного конденсатора на землю
+# ВВ и GND сидят на собственных выводах, зазор задан корпусом детали и
+# перемещением не лечится. Но решать её надо НЕ правилом, а точечными
+# исключениями DRC в редакторе (ПКМ по нарушению → «Исключить»), с пометкой
+# «прочность держит рабочее напряжение детали, а не зазор на плате».
+# Реально таких случаев было всего два: C210 и C18b201.
+# ----------------------------------------------------------------------

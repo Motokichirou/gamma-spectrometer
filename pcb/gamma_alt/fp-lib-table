@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "посадочные места")(type "KiCad")(uri "${KIPRJMOD}/посадочные места.pretty")(options "")(descr ""))
+)
