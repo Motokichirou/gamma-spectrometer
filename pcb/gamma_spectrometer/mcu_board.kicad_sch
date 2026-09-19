@@ -5713,7 +5713,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" " CC0603JRX7R7BB105"
+		(property "PN" "CC0603JRX7R7BB105"
 			(at 341.63 162.56 90)
 			(effects
 				(font
