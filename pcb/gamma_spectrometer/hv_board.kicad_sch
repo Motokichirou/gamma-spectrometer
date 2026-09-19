@@ -13968,7 +13968,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "IRLML0040"
+		(property "Value" "IRLML0060"
 			(at 156.21 114.2999 0)
 			(effects
 				(font
@@ -14025,7 +14025,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "IRLML0040"
+		(property "PN" "IRLML0060"
 			(at 149.86 113.03 0)
 			(effects
 				(font
@@ -14034,7 +14034,7 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOTTECH/IRLML0040"
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOTTECH/IRLML0060"
 			(at 149.86 113.03 0)
 			(effects
 				(font

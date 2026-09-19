@@ -17812,7 +17812,7 @@
 				)
 			)
 		)
-		(property "Value" "IRLML0040"
+		(property "Value" "IRLML0060"
 			(at 0 2.4 0)
 			(layer "F.Fab")
 			(uuid "d413d4d7-6bd4-4603-904d-73d30e570b98")
@@ -17873,7 +17873,7 @@
 				)
 			)
 		)
-		(property "PN" "IRLML0040"
+		(property "PN" "IRLML0060"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -17886,7 +17886,7 @@
 				)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOTTECH/IRLML0040"
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/HOTTECH/IRLML0060"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -49738,6 +49738,14 @@
 		(layer "Edge.Cuts")
 		(uuid "d091f9c4-aacc-4dfa-bf53-1aa85e5e05ea")
 	)
+	(via
+		(at 137.5 118)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(net 0)
+		(uuid "f3a8ff82-894b-4eed-b5b3-1498690f1a55")
+	)
 	(segment
 		(start 173.3625 93)
 		(end 171.1375 93)
@@ -50014,6 +50022,15 @@
 		(uuid "104b6174-ae51-41fc-92c7-48c7f133955c")
 	)
 	(via
+		(at 321.25 96.5)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "10712c68-7563-45f3-afc4-410043ad7078")
+	)
+	(via
 		(at 173.5 79)
 		(size 0.6)
 		(drill 0.3)
@@ -50113,6 +50130,15 @@
 		(uuid "1e0fab37-84fb-410b-b29c-76456acfe4aa")
 	)
 	(via
+		(at 322 106.5)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "1ec4557b-3984-47ba-be6f-da09c8f1e544")
+	)
+	(via
 		(at 241 112.25)
 		(size 0.6)
 		(drill 0.3)
@@ -50129,6 +50155,15 @@
 		(free yes)
 		(net 3)
 		(uuid "2140c808-7533-4891-9855-6a43c920e8df")
+	)
+	(via
+		(at 319.75 105.75)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "22a0306a-589f-45d3-a454-3b5601fb3072")
 	)
 	(via
 		(at 93 115)
@@ -50156,6 +50191,15 @@
 		(free yes)
 		(net 3)
 		(uuid "262407c2-a07c-4a33-9a78-96e4ffadb91c")
+	)
+	(via
+		(at 304.75 85)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "267ef2b4-f71f-4597-8d8d-654a93cdd6a6")
 	)
 	(via
 		(at 238.25 110.25)
@@ -50701,6 +50745,15 @@
 		(uuid "9453ae8d-bf43-43e2-9a25-d64d5e1d5b8e")
 	)
 	(via
+		(at 310 84.75)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "95bd3f21-09a5-4fd0-ab18-17e7b247e881")
+	)
+	(via
 		(at 164.5 102)
 		(size 0.6)
 		(drill 0.3)
@@ -50818,6 +50871,15 @@
 		(uuid "a1db5c2f-0642-426e-9606-7cdd93fbec3f")
 	)
 	(via
+		(at 304.25 102)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "a20858a3-8125-4381-b381-06b8272964e6")
+	)
+	(via
 		(at 166 108)
 		(size 0.6)
 		(drill 0.3)
@@ -50825,6 +50887,15 @@
 		(free yes)
 		(net 3)
 		(uuid "a4ab581d-55ed-44ad-8a53-f9465a87efbf")
+	)
+	(via
+		(at 305 103.75)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "a4b93326-7e55-4b16-b642-2adfb83a5ca8")
 	)
 	(via
 		(at 235 116.75)
@@ -51067,6 +51138,15 @@
 		(uuid "ce782d38-40b3-486c-aae6-b7ecb4795097")
 	)
 	(via
+		(at 329.25 104.5)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "ceb55619-a79a-4d3f-a417-870ba317abf1")
+	)
+	(via
 		(at 167 121)
 		(size 0.6)
 		(drill 0.3)
@@ -51074,6 +51154,15 @@
 		(free yes)
 		(net 3)
 		(uuid "d1ab3795-4295-4e53-a4f3-89ac20e9339e")
+	)
+	(via
+		(at 320.5 90.25)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "d331ed19-460b-4978-a7a0-3e4e540b2aa9")
 	)
 	(via
 		(at 245.75 112)
@@ -51192,6 +51281,15 @@
 		(uuid "eac819b8-c30c-44ba-8f90-f6fd9ecf2293")
 	)
 	(via
+		(at 315.25 98)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "eb2deff2-bf4c-4da1-b036-00e150adf7d6")
+	)
+	(via
 		(at 238.75 104)
 		(size 0.6)
 		(drill 0.3)
@@ -51226,6 +51324,15 @@
 		(free yes)
 		(net 3)
 		(uuid "f21a0a74-75f8-4f4b-a4a6-668cd0acad15")
+	)
+	(via
+		(at 306 105.25)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(free yes)
+		(net 3)
+		(uuid "f67ddd1a-da7a-43cc-b003-27333b2e069f")
 	)
 	(via
 		(at 105.5 84.5)
