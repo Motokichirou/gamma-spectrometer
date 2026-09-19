@@ -1,0 +1,5 @@
+out/
+*.raw
+*.log
+*.op.raw
+*.db

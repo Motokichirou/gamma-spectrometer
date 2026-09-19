@@ -1,0 +1,54 @@
+* =============================================================
+* sim_tia_lfb.cir — TIA ADA4817 с паразитами разводки делителя (FastCap/FastHenry, 2026-09-19)
+*   Lfb  — индуктивность петли обратной связи вывод1 → R417‖C415 → вывод2 (FastHenry: 10.7 нГн)
+*   Lsp/Lsn — петли развязки питания (FastHenry LP5: 4.6 нГн; для −5 В берётся столько же)
+*   Cin  — ёмкость суммирующего узла (FastCap: ~4 пФ с выводами ФЭУ; 10 пФ — с запасом)
+* Выход без последовательного R (как в схеме), кабель RG-178 100 мм, вход шейпера платы МК.
+* Анализ — поточечно по .raw (tia_lfb_analyze в README), не через .meas MAX.
+* =============================================================
+.inc ../models/ada4817.cir
+.param rs=22 cf=4.7p
+.step param lfb list 1n 3n
+.step param cin list 3p 3.4p 4.6p
+
+* питание: источник -> 1 мкГн (дальний путь) -> развязка 0.1 мкФ + ESR -> Ls петли -> вывод ОУ
+VCC  vcc0 0 DC 5
+VEE  vee0 0 DC -5
+Lbp  vcc0 cp 1u
+Lbn  vee0 cn 1u
+C414 cp cpe 0.1u
+Rcp  cpe 0 10m
+C412 cn cne 0.1u
+Rcn  cne 0 10m
+Lsp  cp VCCp 4.6n
+Lsn  cn VEEp 4.6n
+
+I_pmt 0 inn PULSE(0 100u 20n 1n 1n 2u 4u)
+Cin   inn 0 {cin}
+
+Lfb  fb fbn {lfb}
+Rf   fbn inn 499
+Cf   fbn inn {cf}
+X1   0 inn VCCp VEEp amp_out fb VCCp ADA4817
+
+Rser amp_out ao2 {rs}
+Lc1 ao2 c1 6n
+Rc1 c1 c1r 0.1
+Cc1 c1r 0 2.4p
+Lc2 c1r c2 6n
+Rc2 c2 c2r 0.1
+Cc2 c2r 0 2.4p
+Lc3 c2r c3 6n
+Rc3 c3 c3r 0.1
+Cc3 c3r 0 2.4p
+Lc4 c3r rx 6n
+Cc4 rx 0 2.4p
+Cpar rx 0 3p
+R309 rx cr_mid 10k
+C315 cr_mid 0 100p
+R314 cr_mid 0 10k
+
+.save V(amp_out)
+.options plotwinsize=0 method=gear
+.tran 0 400n 0 0.05n
+.end
