@@ -12829,7 +12829,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_USB:USB_C_Receptacle_JAE_DX07S024WJ3R400"
+		(property "Footprint" "посадочные места:USB_C_Receptacle_JAE_DX07S024WJ3R400"
 			(at 69.85 59.69 0)
 			(effects
 				(font

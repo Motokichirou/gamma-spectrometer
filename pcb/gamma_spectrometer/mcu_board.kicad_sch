@@ -5660,7 +5660,7 @@
 				)
 			)
 		)
-		(property "Value" "0.1uF"
+		(property "Value" "1uF"
 			(at 341.63 157.48 90)
 			(effects
 				(font
@@ -5713,7 +5713,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "CC0603JRX7R9BB104"
+		(property "PN" " CC0603JRX7R7BB105"
 			(at 341.63 162.56 90)
 			(effects
 				(font
@@ -5722,7 +5722,7 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R7BB105"
 			(at 341.63 162.56 90)
 			(effects
 				(font
@@ -6194,73 +6194,6 @@
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
 					(reference "C307")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 403.86 173.99 90)
-		(mirror x)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "30a74908-e80d-442c-a877-65af7ea7fea5")
-		(property "Reference" "#PWR0320"
-			(at 410.21 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 408.94 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 403.86 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 403.86 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 403.86 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "7e756a70-eb5b-4de2-ac0f-c6f1a1547424")
-		)
-		(instances
-			(project "gamma_spectrometer"
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
-					(reference "#PWR0320")
 					(unit 1)
 				)
 			)
@@ -8501,7 +8434,7 @@
 				)
 			)
 		)
-		(property "Value" "0.1uF"
+		(property "Value" "1uF"
 			(at 363.22 114.3 90)
 			(effects
 				(font
@@ -8554,7 +8487,7 @@
 				(hide yes)
 			)
 		)
-		(property "PN" "CC0603JRX7R9BB104"
+		(property "PN" "CC0603JRX7R7BB105"
 			(at 363.22 119.38 90)
 			(effects
 				(font
@@ -8563,7 +8496,7 @@
 				(hide yes)
 			)
 		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R7BB105"
 			(at 363.22 119.38 90)
 			(effects
 				(font
@@ -8582,112 +8515,6 @@
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
 					(reference "C317")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 400.05 173.99 90)
-		(mirror x)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "880d297f-8520-46d1-bc11-a7022d5872d7")
-		(property "Reference" "C320"
-			(at 398.7799 177.8 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 401.3199 177.8 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder"
-			(at 403.86 174.9552 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor"
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S3.3" ""
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "KLC_S4.1" ""
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "PN" "CC0603JRX7R9BB104"
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0603JRX7R9BB104"
-			(at 400.05 173.99 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "62950a9d-1589-49a3-9c4c-b614dcdac162")
-		)
-		(pin "2"
-			(uuid "ab58d273-1382-4f6c-b88a-2b49c6983e06")
-		)
-		(instances
-			(project ""
-				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/0e491218-e2a9-4640-b27e-9c4e6f92e006"
-					(reference "C320")
 					(unit 1)
 				)
 			)
