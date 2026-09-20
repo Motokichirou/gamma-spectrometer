@@ -45,6 +45,7 @@ THR_REF, MINW, MAXW, FITM = 25, 2, 250, 2
 VARS = ['V0', 'V1', 'V2', 'V3', 'V4']
 RATES = [(1000, 15000), (10000, 40000), (30000, 60000)]
 
+TEMPLATE = '--template' in sys.argv        # подгонка по эталону формы (dsp_template.h) вместо параболы
 PHASE_LOCK = '--phase-lock' in sys.argv   # импульсы ровно на отсчёт: убирает фазовый разброс фита
 rng = np.random.default_rng(20260915)
 
@@ -56,6 +57,8 @@ dll.shim_process.argtypes = [u16p, ctypes.c_size_t, u16p, ctypes.c_size_t]
 dll.shim_process.restype = ctypes.c_size_t
 dll.shim_stats.argtypes = [ctypes.POINTER(ctypes.c_uint)] * 3
 dll.shim_stats.restype = None
+dll.shim_set_template.argtypes = [ctypes.c_int]
+dll.shim_set_template.restype = ctypes.c_int
 
 
 def load_kernel(name):
@@ -118,6 +121,7 @@ def simulate(K, psd, rate, npl, amps, thr):
     M = len(ker)
     nsamp = int(p[-1]) + MAIN_N + 4
     dll.shim_init(int(thr), MINW, MAXW, FITM)
+    dll.shim_set_template(1 if TEMPLATE else 0)
     out = np.zeros(npl + 1024, np.uint16)
     nout = 0
     offs = np.arange(MAIN_N)
@@ -164,7 +168,8 @@ def peak_stats(ch, ref):
 
 def main():
     P, vmax, f_pp, cont = cs_spectrum()
-    print('Режим:', 'фаза привязана к отсчёту' if PHASE_LOCK else 'случайная фаза')
+    print('Режим:', 'фаза привязана к отсчёту' if PHASE_LOCK else 'случайная фаза',
+          '| амплитуда:', 'эталон формы' if TEMPLATE else 'парабола')
     print(f'Спектр pulsegen.c: фотопик = код {P}, максимум {vmax} (×{vmax / P:.2f}), '
           f'доля фотопика {f_pp * 100:.1f} %')
     kern = {n: load_kernel(n) for n in VARS}
@@ -194,7 +199,7 @@ def main():
                   f'σ {sig:.2f} кан., FWHM_эл {q["fwhm_el_pct"]:.2f} %, '
                   f'в пике {q["eff_pct"]:.0f} % ({time.time() - t0:.0f} с)')
         res[name] = r
-    with open(os.path.join(OUT, 'mc_results_phaselock.json' if PHASE_LOCK else 'mc_results.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(OUT, ('mc_results' + ('_tpl' if TEMPLATE else '') + ('_phaselock' if PHASE_LOCK else '') + '.json')), 'w', encoding='utf-8') as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
 
     print('\n| Вар | канал Cs (DSP) | порог | ' +

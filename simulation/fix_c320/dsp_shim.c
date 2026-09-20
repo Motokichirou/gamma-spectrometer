@@ -33,3 +33,13 @@ __declspec(dllexport) void shim_stats(unsigned *acc, unsigned *rej, unsigned *bl
     *rej = g.rejected;
     *bl = dsp_baseline(&g);
 }
+
+/* --- эталон формы (dsp_template.h): 1 = включить, 0 = вернуть параболу --- */
+#include "dsp_template.h"
+
+__declspec(dllexport) int shim_set_template(int on)
+{
+    return on ? dsp_set_template(&g, &dsp_template[0][0], DSP_TPL_NPH, DSP_TPL_NS,
+                                 DSP_TPL_IPK, DSP_TPL_Q)
+              : dsp_set_template(&g, 0, 0, 0, 0, 0);
+}
