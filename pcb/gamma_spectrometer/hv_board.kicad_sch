@@ -2972,6 +2972,12 @@
 		(uuid "9b71fea4-e8a9-4256-8e87-022463a1e59c")
 	)
 	(junction
+		(at 27.94 118.11)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9b9c777f-dd1d-4cda-81e7-d46ad7b64f74")
+	)
+	(junction
 		(at 412.75 62.23)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3165,7 +3171,7 @@
 	)
 	(wire
 		(pts
-			(xy 20.32 116.84) (xy 20.32 119.38)
+			(xy 27.94 116.84) (xy 27.94 118.11)
 		)
 		(stroke
 			(width 0)
@@ -3445,7 +3451,7 @@
 	)
 	(wire
 		(pts
-			(xy 341.63 176.53) (xy 27.94 176.53)
+			(xy 341.63 176.53) (xy 31.75 176.53)
 		)
 		(stroke
 			(width 0)
@@ -3505,7 +3511,7 @@
 	)
 	(wire
 		(pts
-			(xy 48.26 116.84) (xy 20.32 116.84)
+			(xy 48.26 116.84) (xy 27.94 116.84)
 		)
 		(stroke
 			(width 0)
@@ -3632,16 +3638,6 @@
 			(type default)
 		)
 		(uuid "7d870716-a1cb-42b8-816d-42e8c50065c0")
-	)
-	(wire
-		(pts
-			(xy 31.75 125.73) (xy 31.75 121.92)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "80fff318-82f3-4f9e-af83-571577f02a03")
 	)
 	(wire
 		(pts
@@ -3785,6 +3781,16 @@
 	)
 	(wire
 		(pts
+			(xy 27.94 118.11) (xy 27.94 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a9104bee-ee12-496c-a66b-373095ef8937")
+	)
+	(wire
+		(pts
 			(xy 179.07 107.95) (xy 181.61 107.95)
 		)
 		(stroke
@@ -3832,16 +3838,6 @@
 			(type default)
 		)
 		(uuid "bb7c42e6-d4f5-4df5-be38-d6743ebb9937")
-	)
-	(wire
-		(pts
-			(xy 27.94 125.73) (xy 31.75 125.73)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bbd45e07-043c-4c96-9c80-4e7a16b56e4f")
 	)
 	(wire
 		(pts
@@ -3925,6 +3921,16 @@
 	)
 	(wire
 		(pts
+			(xy 25.4 118.11) (xy 27.94 118.11)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d05189a3-e522-4a5d-8c09-ba92de062ab2")
+	)
+	(wire
+		(pts
 			(xy 109.22 111.76) (xy 118.11 111.76)
 		)
 		(stroke
@@ -3945,7 +3951,7 @@
 	)
 	(wire
 		(pts
-			(xy 27.94 176.53) (xy 27.94 125.73)
+			(xy 31.75 121.92) (xy 31.75 176.53)
 		)
 		(stroke
 			(width 0)
@@ -4379,7 +4385,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0220c09f-3848-4d2c-bf7b-9f6ed0807d44")
-		(property "Reference" "#PWR0222"
+		(property "Reference" "#PWR0223"
 			(at 488.95 92.71 0)
 			(effects
 				(font
@@ -4429,7 +4435,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0222")
+					(reference "#PWR0223")
 					(unit 1)
 				)
 			)
@@ -4549,7 +4555,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "06a0e539-3ee4-4937-9970-75d575f92318")
-		(property "Reference" "#PWR0215"
+		(property "Reference" "#PWR0216"
 			(at 191.77 40.64 0)
 			(effects
 				(font
@@ -4599,7 +4605,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0215")
+					(reference "#PWR0216")
 					(unit 1)
 				)
 			)
@@ -4829,7 +4835,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1237ec40-b4db-4822-8d9f-0951a602ce8f")
-		(property "Reference" "#PWR0219"
+		(property "Reference" "#PWR0220"
 			(at 447.04 83.82 0)
 			(effects
 				(font
@@ -4879,7 +4885,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0219")
+					(reference "#PWR0220")
 					(unit 1)
 				)
 			)
@@ -4895,7 +4901,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "128dc738-8e81-4405-9981-3c49af94aa9c")
-		(property "Reference" "#PWR0220"
+		(property "Reference" "#PWR0221"
 			(at 463.55 92.71 0)
 			(effects
 				(font
@@ -4945,7 +4951,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0220")
+					(reference "#PWR0221")
 					(unit 1)
 				)
 			)
@@ -4961,7 +4967,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "15ca3a95-1a27-4b01-b983-5a04f7c9ac63")
-		(property "Reference" "#PWR0211"
+		(property "Reference" "#PWR0212"
 			(at 137.16 121.92 0)
 			(effects
 				(font
@@ -5012,7 +5018,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0211")
+					(reference "#PWR0212")
 					(unit 1)
 				)
 			)
@@ -5028,7 +5034,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "16022e51-ef95-4c96-8438-e9e9ff4a6d9c")
-		(property "Reference" "C214"
+		(property "Reference" "C215"
 			(at 342.9 54.61 90)
 			(effects
 				(font
@@ -5116,7 +5122,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C214")
+					(reference "C215")
 					(unit 1)
 				)
 			)
@@ -5199,7 +5205,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "163afef7-b010-4813-846e-e02fcbd02349")
-		(property "Reference" "#PWR0212"
+		(property "Reference" "#PWR0213"
 			(at 137.16 127 0)
 			(effects
 				(font
@@ -5250,7 +5256,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0212")
+					(reference "#PWR0213")
 					(unit 1)
 				)
 			)
@@ -5850,7 +5856,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "26a4bf6e-498d-4a65-91e1-dd789ef77b9d")
-		(property "Reference" "C211"
+		(property "Reference" "C212"
 			(at 261.62 86.36 90)
 			(effects
 				(font
@@ -5938,7 +5944,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C211")
+					(reference "C212")
 					(unit 1)
 				)
 			)
@@ -6526,7 +6532,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "31f441ac-c9a8-4648-a104-f7ce7cb90d72")
-		(property "Reference" "#PWR0207"
+		(property "Reference" "#PWR0208"
 			(at 115.57 119.38 0)
 			(effects
 				(font
@@ -6577,7 +6583,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0207")
+					(reference "#PWR0208")
 					(unit 1)
 				)
 			)
@@ -6699,7 +6705,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "345533d9-07e6-41ce-9327-912be1384316")
-		(property "Reference" "#PWR0213"
+		(property "Reference" "#PWR0214"
 			(at 158.75 72.39 0)
 			(effects
 				(font
@@ -6749,7 +6755,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0213")
+					(reference "#PWR0214")
 					(unit 1)
 				)
 			)
@@ -7300,7 +7306,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "4a187037-1051-47d8-89a7-c50f3c73d0a3")
-		(property "Reference" "#PWR0210"
+		(property "Reference" "#PWR0211"
 			(at 118.11 97.79 0)
 			(effects
 				(font
@@ -7351,7 +7357,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0210")
+					(reference "#PWR0211")
 					(unit 1)
 				)
 			)
@@ -7887,16 +7893,15 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 20.32 123.19 0)
+		(at 27.94 123.19 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "533eb9d5-b23a-4a8d-a889-c891e02496cc")
 		(property "Reference" "R201"
-			(at 22.86 121.9199 0)
+			(at 21.59 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7905,7 +7910,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 22.86 124.4599 0)
+			(at 21.59 124.46 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7914,7 +7919,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 18.542 123.19 90)
+			(at 26.162 123.19 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7923,7 +7928,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7932,7 +7937,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7941,7 +7946,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7950,7 +7955,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7959,7 +7964,7 @@
 			)
 		)
 		(property "PN" "RT0603BRD071ML"
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7968,7 +7973,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/RT0603BRD071ML"
-			(at 20.32 123.19 0)
+			(at 27.94 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8107,7 +8112,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "55dfb755-fc14-4775-883f-df08031eab25")
-		(property "Reference" "C212"
+		(property "Reference" "C213"
 			(at 289.56 54.61 90)
 			(effects
 				(font
@@ -8195,7 +8200,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C212")
+					(reference "C213")
 					(unit 1)
 				)
 			)
@@ -8423,7 +8428,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "59de9cea-0e2d-4900-b9bd-6345de23f536")
-		(property "Reference" "#PWR0208"
+		(property "Reference" "#PWR0209"
 			(at 115.57 121.92 0)
 			(effects
 				(font
@@ -8474,7 +8479,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0208")
+					(reference "#PWR0209")
 					(unit 1)
 				)
 			)
@@ -8490,7 +8495,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5a7dfaa2-d5ba-4e3e-b3e6-5afd2b392e8c")
-		(property "Reference" "C213"
+		(property "Reference" "C214"
 			(at 317.5 86.36 90)
 			(effects
 				(font
@@ -8578,7 +8583,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C213")
+					(reference "C214")
 					(unit 1)
 				)
 			)
@@ -8594,7 +8599,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5b4b7946-562c-477f-a273-9446568455fd")
-		(property "Reference" "C206"
+		(property "Reference" "C207"
 			(at 156.21 60.9599 0)
 			(effects
 				(font
@@ -8684,7 +8689,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C206")
+					(reference "C207")
 					(unit 1)
 				)
 			)
@@ -8700,7 +8705,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5f204cab-7397-4ef7-838f-c63303e60a04")
-		(property "Reference" "C215"
+		(property "Reference" "C216"
 			(at 369.57 86.36 90)
 			(effects
 				(font
@@ -8788,7 +8793,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C215")
+					(reference "C216")
 					(unit 1)
 				)
 			)
@@ -8909,7 +8914,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "61174478-1ea9-417f-835d-6fef06c4425c")
-		(property "Reference" "C204"
+		(property "Reference" "C205"
 			(at 124.46 108.712 0)
 			(effects
 				(font
@@ -8997,7 +9002,92 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C204")
+					(reference "C205")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 21.59 118.11 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "639ea4e0-f12c-470f-a93f-bf00cef537c0")
+		(property "Reference" "C201"
+			(at 17.78 121.412 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "22pF"
+			(at 17.78 123.444 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric_Pad0.74x0.62mm_HandSolder"
+			(at 25.4 117.1448 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 21.59 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor"
+			(at 21.59 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "PN" "GRM1555C1H220JA01D"
+			(at 21.59 118.11 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Ссылка на покупку " "https://www.electronshik.ru/item/MUR/GRM1555C1H220JA01D"
+			(at 21.59 118.11 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4aa82de8-e90d-473e-91e4-ce00b3fbbde1")
+		)
+		(pin "2"
+			(uuid "33be3c37-eaa4-41c9-b2e9-07b3680854e9")
+		)
+		(instances
+			(project ""
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
+					(reference "C201")
 					(unit 1)
 				)
 			)
@@ -9117,7 +9207,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "67712dd4-1070-4122-b21a-6570a4342039")
-		(property "Reference" "C216"
+		(property "Reference" "C217"
 			(at 396.24 54.61 90)
 			(effects
 				(font
@@ -9205,7 +9295,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C216")
+					(reference "C217")
 					(unit 1)
 				)
 			)
@@ -9221,7 +9311,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7b2f2331-339c-4521-ae1f-3bd045cb7eff")
-		(property "Reference" "C207"
+		(property "Reference" "C208"
 			(at 168.91 60.9599 0)
 			(effects
 				(font
@@ -9311,7 +9401,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C207")
+					(reference "C208")
 					(unit 1)
 				)
 			)
@@ -9326,7 +9416,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "7eb134f9-129b-4c1f-afae-637ca27b7c74")
-		(property "Reference" "C208"
+		(property "Reference" "C209"
 			(at 172.72 117.094 0)
 			(effects
 				(font
@@ -9416,7 +9506,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C208")
+					(reference "C209")
 					(unit 1)
 				)
 			)
@@ -9538,7 +9628,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "8453f5f2-dde0-4482-be2a-cc29b4e99cb3")
-		(property "Reference" "#PWR0205"
+		(property "Reference" "#PWR0206"
 			(at 34.29 134.62 0)
 			(effects
 				(font
@@ -9589,7 +9679,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0205")
+					(reference "#PWR0206")
 					(unit 1)
 				)
 			)
@@ -9921,7 +10011,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "8e434c2b-59cd-4bd5-a6e8-c72b243abeef")
-		(property "Reference" "#PWR0204"
+		(property "Reference" "#PWR0205"
 			(at 30.48 119.38 0)
 			(effects
 				(font
@@ -9972,7 +10062,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0204")
+					(reference "#PWR0205")
 					(unit 1)
 				)
 			)
@@ -9988,7 +10078,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "94ee015f-e135-44f8-a730-af49a6cdd523")
-		(property "Reference" "C210"
+		(property "Reference" "C211"
 			(at 229.87 54.61 90)
 			(effects
 				(font
@@ -10076,7 +10166,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C210")
+					(reference "C211")
 					(unit 1)
 				)
 			)
@@ -10084,15 +10174,15 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 20.32 130.81 0)
+		(at 27.94 130.81 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "96beba0e-3c39-4c80-be6f-b72611fcf487")
-		(property "Reference" "C201"
-			(at 13.208 130.048 0)
+		(property "Reference" "C202"
+			(at 20.828 130.048 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10101,7 +10191,7 @@
 			)
 		)
 		(property "Value" "33nF"
-			(at 12.7 132.08 0)
+			(at 20.32 132.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10110,7 +10200,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
-			(at 21.2852 134.62 0)
+			(at 28.9052 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10119,7 +10209,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10128,7 +10218,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10137,7 +10227,7 @@
 			)
 		)
 		(property "KLC_S3.3" ""
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10146,7 +10236,7 @@
 			)
 		)
 		(property "KLC_S4.1" ""
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10155,7 +10245,7 @@
 			)
 		)
 		(property "PN" "CC0805JRX7R9BB333 "
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10164,7 +10254,7 @@
 			)
 		)
 		(property "Ссылка на покупку " "https://www.electronshik.ru/item/YAG/CC0805JRX7R9BB333"
-			(at 20.32 130.81 0)
+			(at 27.94 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10181,7 +10271,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C201")
+					(reference "C202")
 					(unit 1)
 				)
 			)
@@ -10410,7 +10500,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9d529292-95db-4cce-8451-ca7adda50c64")
-		(property "Reference" "#PWR0216"
+		(property "Reference" "#PWR0217"
 			(at 425.45 205.74 0)
 			(effects
 				(font
@@ -10461,7 +10551,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0216")
+					(reference "#PWR0217")
 					(unit 1)
 				)
 			)
@@ -10790,6 +10880,73 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 17.78 118.11 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a0ce2cb9-947e-4cb0-b118-1a5ed86f0b79")
+		(property "Reference" "#PWR0201"
+			(at 11.43 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 13.97 118.1099 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 17.78 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 17.78 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 17.78 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f5cdc59a-6294-4fed-bc12-b79b5ba113a8")
+		)
+		(instances
+			(project "gamma_spectrometer"
+				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
+					(reference "#PWR0201")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 345.44 116.84 90)
 		(unit 1)
@@ -10903,7 +11060,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a228370f-f6c6-483a-89ad-cfd2917cdba0")
-		(property "Reference" "#PWR0203"
+		(property "Reference" "#PWR0204"
 			(at 30.48 109.22 0)
 			(effects
 				(font
@@ -10954,7 +11111,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0203")
+					(reference "#PWR0204")
 					(unit 1)
 				)
 			)
@@ -10970,7 +11127,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a4f9c78e-1fb6-480f-891f-c33625b7f7f4")
-		(property "Reference" "#PWR0217"
+		(property "Reference" "#PWR0218"
 			(at 434.34 83.82 0)
 			(effects
 				(font
@@ -11020,7 +11177,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0217")
+					(reference "#PWR0218")
 					(unit 1)
 				)
 			)
@@ -11361,7 +11518,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ad94a4b1-dd48-46a5-be06-13c7f3d41ae5")
-		(property "Reference" "C209"
+		(property "Reference" "C210"
 			(at 201.93 86.36 90)
 			(effects
 				(font
@@ -11449,7 +11606,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C209")
+					(reference "C210")
 					(unit 1)
 				)
 			)
@@ -11464,7 +11621,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b47a6b63-3b89-43f7-aa22-ef168d376b66")
-		(property "Reference" "C203"
+		(property "Reference" "C204"
 			(at 41.656 118.11 90)
 			(effects
 				(font
@@ -11561,7 +11718,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C203")
+					(reference "C204")
 					(unit 1)
 				)
 			)
@@ -11576,7 +11733,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b73e7dda-278d-408d-94ef-8e3e7d9962be")
-		(property "Reference" "C202"
+		(property "Reference" "C203"
 			(at 39.624 108.204 90)
 			(effects
 				(font
@@ -11664,7 +11821,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C202")
+					(reference "C203")
 					(unit 1)
 				)
 			)
@@ -11786,7 +11943,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "bee60ebb-4056-4ced-8efe-455305591ae4")
-		(property "Reference" "#PWR0214"
+		(property "Reference" "#PWR0215"
 			(at 182.88 135.89 0)
 			(effects
 				(font
@@ -11836,7 +11993,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0214")
+					(reference "#PWR0215")
 					(unit 1)
 				)
 			)
@@ -12061,7 +12218,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c1efa59c-4c26-4bab-9175-ab127b76b63e")
-		(property "Reference" "C205"
+		(property "Reference" "C206"
 			(at 123.19 131.572 90)
 			(effects
 				(font
@@ -12149,7 +12306,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C205")
+					(reference "C206")
 					(unit 1)
 				)
 			)
@@ -12165,7 +12322,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ca7d44fc-621f-40ef-a01d-b57092d2bd6c")
-		(property "Reference" "#PWR0218"
+		(property "Reference" "#PWR0219"
 			(at 439.42 189.23 0)
 			(effects
 				(font
@@ -12215,7 +12372,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0218")
+					(reference "#PWR0219")
 					(unit 1)
 				)
 			)
@@ -12336,7 +12493,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "cfd72162-248b-4221-974e-7bfc6d6ce8d3")
-		(property "Reference" "#PWR0206"
+		(property "Reference" "#PWR0207"
 			(at 115.57 109.22 0)
 			(effects
 				(font
@@ -12387,7 +12544,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0206")
+					(reference "#PWR0207")
 					(unit 1)
 				)
 			)
@@ -12822,7 +12979,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 20.32 134.62 0)
+		(at 27.94 134.62 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12830,8 +12987,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d323c157-3d91-4ab8-86ba-ea72f67d6cf0")
-		(property "Reference" "#PWR0201"
-			(at 20.32 140.97 0)
+		(property "Reference" "#PWR0203"
+			(at 27.94 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12840,7 +12997,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 20.32 139.7 0)
+			(at 27.94 139.7 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12848,7 +13005,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 20.32 134.62 0)
+			(at 27.94 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12857,7 +13014,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 20.32 134.62 0)
+			(at 27.94 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12866,7 +13023,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 20.32 134.62 0)
+			(at 27.94 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12880,7 +13037,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0201")
+					(reference "#PWR0203")
 					(unit 1)
 				)
 			)
@@ -12896,7 +13053,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d37bef3e-0fee-4332-b283-8d2ab3fef11a")
-		(property "Reference" "#PWR0209"
+		(property "Reference" "#PWR0210"
 			(at 115.57 124.46 0)
 			(effects
 				(font
@@ -12947,7 +13104,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0209")
+					(reference "#PWR0210")
 					(unit 1)
 				)
 			)
@@ -13405,7 +13562,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f227c52b-ab40-4ff9-ad05-797901d0789b")
-		(property "Reference" "#PWR0223"
+		(property "Reference" "#PWR0224"
 			(at 501.65 92.71 0)
 			(effects
 				(font
@@ -13455,7 +13612,7 @@
 		(instances
 			(project "gamma_spectrometer"
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0223")
+					(reference "#PWR0224")
 					(unit 1)
 				)
 			)
@@ -13853,7 +14010,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f81fd997-e949-4044-af35-9084f9307010")
-		(property "Reference" "C217"
+		(property "Reference" "C218"
 			(at 430.53 196.596 0)
 			(effects
 				(font
@@ -13943,7 +14100,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "C217")
+					(reference "C218")
 					(unit 1)
 				)
 			)
@@ -14071,7 +14228,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "faba467a-863e-4529-9eec-af202f26e232")
-		(property "Reference" "#PWR0221"
+		(property "Reference" "#PWR0222"
 			(at 476.25 92.71 0)
 			(effects
 				(font
@@ -14121,7 +14278,7 @@
 		(instances
 			(project ""
 				(path "/9de23c55-b97f-4e07-9aa5-29ce30f3c480/672516e7-4bac-417a-ab8a-eef4ea532a40"
-					(reference "#PWR0221")
+					(reference "#PWR0222")
 					(unit 1)
 				)
 			)

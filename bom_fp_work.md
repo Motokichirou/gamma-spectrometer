@@ -18,15 +18,16 @@
 | C13a201, C13b201, C14a201, C14b201, C15a201, C15b201, C16a201, C16b201, C17a201, C17b201, C410 | 11 | 0.1uF / 1кВ | C1812X104K102T (Holy Stone) | C_1812_HandSolder |
 | C18a201, C18b201 | 2 | 220pF / 1кВ C0G | CC1206JKNPOCBN221 (Yageo) | C_1206_HandSolder |
 | C101, C104, C105, C112, C113 | 5 | 10uF тант. | TR3B106K010C0750 (Vishay) | CP_EIA-3528-21_Kemet-B_HandSolder |
-| C102, C107-C111, C114, C116, C203, C204, C207, C217, C304-C309, C311-C314, C317, C319-C321, C412, C414 | 28 | 0.1uF X7R | CC0603JRX7R9BB104 (Yageo) | C_0603_HandSolder |
+| C102, C107-C111, C114, C116, C204, C205, C208, C218, C304-C309, C311-C314, C317, C319-C321, C412, C414 | 28 | 0.1uF X7R | CC0603JRX7R9BB104 (Yageo) | C_0603_HandSolder |
 | C103, **C303**, **C322** | 3 | 1uF X7R | CC0805JKX7R9BB105 (Yageo) | C_0805_HandSolder — C303 выход REF35250 (обязателен 0.1…10 мкФ), C322 на вывод NR |
 | C106, C310, C411, C413 | 4 | 4.7uF X5R | GRM21BR61C475KA88L (Murata) | C_0805_HandSolder |
-| C115, C206 | 2 | 47uF X7R | GRM32ER71A476KE15L (Murata) | C_1210_HandSolder |
-| C201 | 1 | 33nF X7R | CC0805JRX7R9BB333 (Yageo) | C_0805_HandSolder |
-| C202 | 1 | 0.47uF X7R | CC0805JKX7R9BB474 (Yageo) | C_0805_HandSolder |
-| C205, C315, C318 | 3 | 100pF C0G | CC0603JRNPO9BN101 (Yageo) | C_0603_HandSolder |
-| C208 | 1 | 10nF X7R | CC0603KRX7R9BB103 (Yageo) | C_0603_HandSolder |
-| C209-C216 | 8 | 1nF / 500В C0G | CC0805JKNPOBBN102 (Yageo) | C_0805_HandSolder |
+| C115, C207 | 2 | 47uF X7R | GRM32ER71A476KE15L (Murata) | C_1210_HandSolder |
+| C202 | 1 | 33nF X7R | CC0805JRX7R9BB333 (Yageo) | C_0805_HandSolder |
+| C203 | 1 | 0.47uF X7R | CC0805JKX7R9BB474 (Yageo) | C_0805_HandSolder |
+| C206, C315, C318 | 3 | 100pF C0G | CC0603JRNPO9BN101 (Yageo) | C_0603_HandSolder |
+| C201 | 1 | 22pF C0G 50В | GRM1555C1H220JA01D (Murata) | C_0402_HandSolder — C_COMP2, добавлен 2026-09-20 |
+| C209 | 1 | 10nF X7R — **заменить на 100 В** | CC0603KRX7R9BB103 (Yageo, 50 В) ⚠ | C_0603_HandSolder → 0805/100В |
+| C210-C217 | 8 | 1nF / 500В C0G | CC0805JKNPOBBN102 (Yageo) | C_0805_HandSolder — ⚠ размах на ступень 310…385 В (4 ступени!), запас 1.3× при 1500 В |
 | C301, C302 | 2 | 18pF C0G | CC0402FRNPO9BN180 (Yageo) | C_0402_HandSolder |
 | C316 | 1 | 510pF C0G | CC0603FRNPO9BN511 (Yageo) | C_0603_HandSolder |
 | C408 | 1 | 22nF / 1кВ | CC1210KKX7RCBB223 (Yageo) | C_1210_HandSolder |

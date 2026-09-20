@@ -1,10 +1,10 @@
 """Генератор нетлиста LTspice: плата ВВ (MAX1847 flyback + CW ×4 ступени + RC-фильтры).
 
 Топология — по pcb/gamma_spectrometer.net (сверено 2026-09-19):
-  T201: pin1(dot)=+5V_HV, pin4=сток Q201; pin2(dot)=GND, pin3 → C209
+  T201: pin1(dot)=+5V_HV, pin4=сток Q201; pin2(dot)=GND, pin3 → C210
   CW (отрицательный, 4 ступени = 8 диодов BAV23S по одному «диоду» на корпус, pin3 NC):
-    толкающая колонка A: T201.3 -C209- A1 -C211- A2 -C213- A3 -C215- A4
-    сглаживающая B:      GND -C210- B1 -C212- B2 -C214- B3 -C216- B4 = CW_out
+    толкающая колонка A: T201.3 -C210- A1 -C212- A2 -C214- A3 -C216- A4
+    сглаживающая B:      GND -C211- B1 -C213- B2 -C215- B3 -C217- B4 = CW_out
     диоды (анод→катод): D205 A1→GND, D204 B1→A1, D207 A2→B1, D206 B2→A2,
                         D209 A3→B2, D208 B3→A3, D211 A4→B3, D210 B4→A4
   CW_out: C13+C14 (по 2×0.1 мкФ/1 кВ в серии) → R220 → n1 → R231 → n2 → R232 → n3 → R233 → −HV_out
@@ -26,10 +26,10 @@ DEFAULTS = dict(
     fsw=None, Voff=1.0, Ms=41e3, Vcl=0.100, blank=100e-9,
     Cd=35e-9,      # C13/C14: 50 нФ номинал, X7R 1 кВ при ~750 В на корпус — берём −30 %
     Cf=35e-9,      # C15–C17: то же
-    Ccw=1e-9,      # C209–C216 C0G
+    Ccw=1e-9,      # C210–C217 C0G
     Rload=7.73e6,  # делитель R1307: 1500 В / 194 мкА
     Rmon=68.11e6, Rtop=1e9, Rbot=2.2e6, Cff=10e-15, Cfb=5e-12,
-    R201=1e6, C201=33e-9, Cc2=0.0,
+    R201=1e6, C202=33e-9, Cc2=0.0,
     Vctrl=2.64,
     Vz=17.9, Rz=15.0,
     tstop=30e-3, tsave=28e-3, maxstep=20e-9,
@@ -102,9 +102,9 @@ def deck(name, **kw):
          f'.param T={T:.6e}',
          f'Vin in0 0 {p["Vin"]}',
          'Rsrc in0 vhv 0.2',
-         'C206 vhv 0 25u Rser=5m',
-         'C207 vhv 0 100n',
-         'C204 vhv 0 100n',
+         'C207 vhv 0 25u Rser=5m',
+         'C208 vhv 0 100n',
+         'C205 vhv 0 100n',
          # трансформатор: Llk вынесена отдельно, K=1
          f'Lpri vhv p1 {p["Lp"]} Rser={p["Rpri"]}',
          f'Llk p1 drain {p["Llk"]}',
@@ -116,23 +116,23 @@ def deck(name, **kw):
          '.model IRLML0060 VDMOS(Rd=30m Rs=10m Rg=1.5 Vto=1.8 Kp=10 lambda=0.01 Cgdmax=40p Cgdmin=6p '
          'Cgs=220p Cjo=70p m=0.5 Is=2p Rb=20m Vds=60 Ron=92m Qg=2.5n mfg=approx)',
          'R205 src 0 0.1',
-         'C205 src 0 100p',
-         # снаббер: D201 BAS516 (A=сток), C208, D202+D203 BZT52C18 (K к snk)
+         'C206 src 0 100p',
+         # снаббер: D201 BAS516 (A=сток), C209, D202+D203 BZT52C18 (K к snk)
          'D201 drain snk BAS516',
-         'C208 snk 0 10n Rser=20m',
+         'C209 snk 0 10n Rser=20m',
          'D202 z1 snk BZT18',
          'D203 0 z1 BZT18',
          '.model BAS516 D(Is=2.5n N=1.75 Rs=0.5 Cjo=1.5p M=0.3 tt=5n Bv=100 Ibv=0.1u)',
          f'.model BZT18 D(Is=1e-14 N=1 Rs={p["Rz"]} Cjo=35p M=0.4 Bv={p["Vz"]} Ibv=5m)',
          # CW
-         f'C209 sec a1 {p["Ccw"]} IC={Vpp - 51:.1f}',
-         f'C211 a1 a2 {p["Ccw"]} IC={Vpp:.1f}',
-         f'C213 a2 a3 {p["Ccw"]} IC={Vpp:.1f}',
-         f'C215 a3 a4 {p["Ccw"]} IC={Vpp:.1f}',
-         f'C210 b1 0 {p["Ccw"]} IC={-Vpp:.1f}',
-         f'C212 b2 b1 {p["Ccw"]} IC={-Vpp:.1f}',
-         f'C214 b3 b2 {p["Ccw"]} IC={-Vpp:.1f}',
-         f'C216 b4 b3 {p["Ccw"]} IC={-Vpp:.1f}',
+         f'C210 sec a1 {p["Ccw"]} IC={Vpp - 51:.1f}',
+         f'C212 a1 a2 {p["Ccw"]} IC={Vpp:.1f}',
+         f'C214 a2 a3 {p["Ccw"]} IC={Vpp:.1f}',
+         f'C216 a3 a4 {p["Ccw"]} IC={Vpp:.1f}',
+         f'C211 b1 0 {p["Ccw"]} IC={-Vpp:.1f}',
+         f'C213 b2 b1 {p["Ccw"]} IC={-Vpp:.1f}',
+         f'C215 b3 b2 {p["Ccw"]} IC={-Vpp:.1f}',
+         f'C217 b4 b3 {p["Ccw"]} IC={-Vpp:.1f}',
          'D205 a1 0 BAV23S2', 'D204 b1 a1 BAV23S2', 'D207 a2 b1 BAV23S2', 'D206 b2 a2 BAV23S2',
          'D209 a3 b2 BAV23S2', 'D208 b3 a3 BAV23S2', 'D211 a4 b3 BAV23S2', 'D210 b4 a4 BAV23S2',
          'Vsense b4 cw 0',  # ток умножителя в выходной узел — для расчёта пульсаций
@@ -161,7 +161,7 @@ def deck(name, **kw):
          f'Bea 0 comp I=limit(400u*V({"fbx" if p["inj"] else "fb"}),-200u,200u)',
          'Rea comp 0 3Meg',
          f'R201 comp cz {p["R201"]}',
-         f'C201 cz 0 {p["C201"]} IC={comp0:.4f}',
+         f'C202 cz 0 {p["C202"]} IC={comp0:.4f}',
          'Dcl1 comp vcmax DI', 'Vcmax vcmax 0 3.5', 'Dcl2 vcmin comp DI', 'Vcmin vcmin 0 0.5',
          '.model DI D(Ron=1 Roff=1G Vfwd=0)',
          # ШИМ: такт, пила компенсации наклона (в вольтах на CS), сброс

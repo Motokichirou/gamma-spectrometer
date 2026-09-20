@@ -28,9 +28,9 @@ LAYERS = {'F.Cu': pcbnew.F_Cu, 'B.Cu': pcbnew.B_Cu}
 FB_NETS = ['Net-(U201-FB)', 'Net-(R207-Pad2)', 'Net-(R209-Pad2)', 'Net-(R210-Pad2)', 'Net-(R211-Pad2)',
            'Net-(R212-Pad2)', 'Net-(R213-Pad2)', 'Net-(R214-Pad2)', 'Net-(R215-Pad2)', 'Net-(R216-Pad2)',
            'Net-(U201-COMP)', 'HV_CONTROL']
-AGGR = ['Net-(C209-Pad2)', 'Net-(C210-Pad2)', 'Net-(C211-Pad2)', 'Net-(C212-Pad2)', 'Net-(C213-Pad2)',
-        'Net-(C214-Pad2)', 'Net-(C215-Pad2)', 'Net-(C216-Pad2)', 'Net-(D201-A)', 'Net-(D201-K)',
-        'Net-(C209-Pad1)', 'Net-(C13a201-Pad1)']
+AGGR = ['Net-(C210-Pad2)', 'Net-(C211-Pad2)', 'Net-(C212-Pad2)', 'Net-(C213-Pad2)', 'Net-(C214-Pad2)',
+        'Net-(C215-Pad2)', 'Net-(C216-Pad2)', 'Net-(C217-Pad2)', 'Net-(D201-A)', 'Net-(D201-K)',
+        'Net-(C210-Pad1)', 'Net-(C13a201-Pad1)']
 
 
 def on_hv(p, margin=0.3):

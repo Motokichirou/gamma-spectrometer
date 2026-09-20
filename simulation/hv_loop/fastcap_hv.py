@@ -33,8 +33,8 @@ COND = {
     'Net-(R211-Pad2)': 'CH4', 'Net-(R212-Pad2)': 'CH5', 'Net-(R213-Pad2)': 'CH6',
     'Net-(R214-Pad2)': 'CH7', 'Net-(R215-Pad2)': 'CH8', 'Net-(R216-Pad2)': 'CH9',
     'Net-(C13a201-Pad1)': 'CWO',
-    'Net-(C209-Pad2)': 'A1', 'Net-(C211-Pad2)': 'A2', 'Net-(C213-Pad2)': 'A3', 'Net-(C215-Pad2)': 'A4',
-    'Net-(C209-Pad1)': 'SEC', 'Net-(D201-A)': 'DRN', 'Net-(D201-K)': 'SNB',
+    'Net-(C210-Pad2)': 'A1', 'Net-(C212-Pad2)': 'A2', 'Net-(C214-Pad2)': 'A3', 'Net-(C216-Pad2)': 'A4',
+    'Net-(C210-Pad1)': 'SEC', 'Net-(D201-A)': 'DRN', 'Net-(D201-K)': 'SNB',
     'Net-(U201-COMP)': 'COMP', 'HV_CONTROL': 'HVC',
 }
 AGGR = ('A1', 'A2', 'A3', 'A4', 'SEC', 'DRN', 'SNB')
