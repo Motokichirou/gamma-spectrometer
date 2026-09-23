@@ -46,3 +46,6 @@ simulation/accept/*.raw
 simulation/accept/*.log
 simulation/accept/*.db
 simulation/accept/*.op.raw
+
+# Фото номенклатуры запасов (~180 МБ, лежат локально)
+stock/photos/
