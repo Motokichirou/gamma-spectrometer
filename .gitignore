@@ -49,3 +49,6 @@ simulation/accept/*.op.raw
 
 # Фото номенклатуры запасов (~180 МБ, лежат локально)
 stock/photos/
+
+# Файлы блокировки Excel
+~$*.xlsx

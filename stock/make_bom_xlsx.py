@@ -54,8 +54,12 @@ PLAN = {
                 'ССЫЛКИ В СХЕМЕ НЕТ — дозаполнить поле. Защита баз буферов динодов'),
     'MF-MSMF050-2': (BUY, 'MF-MSMF050-2', '0.5 A', '1812', 2,
                      'самовосстанавливающийся предохранитель по +5V_USB'),
-    'STM32G474MET6': (BUY, 'STM32G474MET6', 'STM32G474MET6', 'LQFP-80', 2,
-                      'ВНИМАНИЕ: именно M = LQFP-80. RET6 (64) и CET6 (48) на плату не встанут. Риск перемаркировки'),
+    'STM32G474MET6': (BUY, 'STM32G474M[B/C/E]T6, G484M*, G473M*, G483M*', 'LQFP-80', 'LQFP-80 12x12', 2,
+                      'ВНИМАНИЕ: буква M = LQFP-80 обязательна, RET6 (64) и CET6 (48) на плату не встанут. '
+                      'Годится любой флеш B/C/E (128/256/512 КБ — прошивка влезает в 128). Годятся G484 (тот же + AES), '
+                      'G473 и G483 (минус HRTIM, мы его не используем; ADC4 и 6 ОУ на месте). '
+                      'НЕ годится G471/G491 — там 3 АЦП, нет ADC4 под Pt1000 на PB12. '
+                      'Купленный чип проверить по SWD: PKG 0x1FFF7500 = 0x05, FLASH_SIZE 0x1FFF75E0, DEV_ID 0x469'),
     'BLM18EG121SN1D': (BUY, 'BLM18EG121SN1D', '120 Ом @100 МГц', '0603', 3,
                        'феррит по VDDA; заменяется любым 120 Ом @100 МГц в 0603'),
     'SRU5028-101Y': (BUY, 'SRU5028-101Y', '100uH', 'SRU5028 5.2x5.2', 2,
@@ -336,10 +340,16 @@ def main():
     for col in (1, 4):
         ws2.cell(row=ws2.max_row, column=col).font = Font(bold=True)
 
-    wb.save(OUT)
+    out = OUT
+    if os.path.exists(OUT) and '--force' not in sys.argv:
+        out = OUT.replace('.xlsx', '_new.xlsx')
+        print('ВНИМАНИЕ: %s уже есть (в нём могут быть ваши пометки) — пишу рядом.'
+              % os.path.basename(OUT))
+        print('          перезаписать поверх: python stock/make_bom_xlsx.py --force')
+    wb.save(out)
     n_buy = sum(r['need'] for r in buy)
     n_have = sum(len(r['refs']) for r in have) + sum(len(r['refs']) for r in na)
-    print('сохранено: %s' % OUT)
+    print('сохранено: %s' % out)
     print('К заказу:   %2d позиций, %3d шт на платы, %3d шт с запасом'
           % (len(buy), n_buy, sum(r['oq'] for r in buy)))
     print('Из запасов: %2d позиций, %3d шт' % (len(have) + len(na), n_have))
