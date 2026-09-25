@@ -8,8 +8,11 @@
  *               и отдаётся как есть, чтобы write→read-back сверка совпала).
  * Храним слова дословно ⇒ чтение прибором байт-в-байт равно записанному.
  *
- * Блок в последней странице 2 КБ. G474RE по умолчанию dual-bank (DBANK=1):
- * Bank2, page 127 → адрес 0x0807F800. Запись редкая, износ не критичен.
+ * Блок — в последней странице флеш. Размер флеш читаем из заводского регистра
+ * (RM0440 §48.2), а не прошиваем константой: один бинарник годится и для
+ * 512 КБ (G474ME, Nucleo-G474RE), и для 256 КБ (G474MC). При DBANK=1 (заводское
+ * значение у G474) страница 2 КБ и последняя лежит во втором банке; при DBANK=0
+ * страница 4 КБ и банк один. Запись редкая, износ не критичен.
  * Переопределяет слабые хуки app_cal_*.
  */
 #include "main.h"        /* HAL: FLASH_*, HAL_FLASH* */
@@ -18,8 +21,22 @@
 #include <string.h>
 #include <stddef.h>
 
-#define CAL_ADDR   0x0807F800UL   /* последняя страница 2КБ (dual-bank) */
 #define CAL_MAGIC  0x47434132UL   /* 'GCA2' (v2: 11 сырых слов) */
+
+/* Размер флеш в КБ, заводская константа (RM0440 §48.2): 512 у ME, 256 у MC. */
+#define FLASH_KB   (*(volatile const uint16_t *)0x1FFF75E0UL)
+
+static uint32_t page_size(void)
+{
+    return (FLASH->OPTR & FLASH_OPTR_DBANK) ? 2048u : 4096u;
+}
+
+/* Адрес блока калибровки = начало последней страницы флеш.
+ * 512 КБ + DBANK=1 → 0x0807F800 (как было константой); 256 КБ → 0x0803F800. */
+static uint32_t cal_addr(void)
+{
+    return FLASH_BASE + (uint32_t)FLASH_KB * 1024u - page_size();
+}
 
 typedef struct {
     uint32_t magic;
@@ -36,8 +53,10 @@ static int flash_erase_page(void)
 {
     FLASH_EraseInitTypeDef e = {0};
     e.TypeErase = FLASH_TYPEERASE_PAGES;
-    e.Banks     = FLASH_BANK_2;
-    e.Page      = 127;
+    /* Страниц в банке = КБ/4 при обеих раскладках (2 КБ × 2 банка либо 4 КБ × 1),
+     * поэтому номер последней страницы считается одинаково. */
+    e.Banks     = (FLASH->OPTR & FLASH_OPTR_DBANK) ? FLASH_BANK_2 : FLASH_BANK_1;
+    e.Page      = (uint32_t)FLASH_KB / 4u - 1u;
     e.NbPages   = 1;
     uint32_t perr = 0;
     return (HAL_FLASHEx_Erase(&e, &perr) == HAL_OK);
@@ -49,9 +68,10 @@ static int flash_write_block(const cal_block_t *b)
     int ok = flash_erase_page();
     if (ok) {
         const uint64_t *src = (const uint64_t *)b;
+        const uint32_t addr = cal_addr();
         for (uint32_t i = 0; i * 8u < sizeof *b; i++) {
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD,
-                                  CAL_ADDR + i * 8u, src[i]) != HAL_OK) {
+                                  addr + i * 8u, src[i]) != HAL_OK) {
                 ok = 0; break;
             }
         }
@@ -62,7 +82,7 @@ static int flash_write_block(const cal_block_t *b)
 
 static int read_words(uint32_t w[11])
 {
-    const cal_block_t *b = (const cal_block_t *)CAL_ADDR;
+    const cal_block_t *b = (const cal_block_t *)cal_addr();
     if (b->magic != CAL_MAGIC) return 0;
     if ((uint16_t)b->crc != shproto_crc16((const uint8_t *)b, offsetof(cal_block_t, crc)))
         return 0;
