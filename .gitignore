@@ -52,3 +52,7 @@ stock/photos/
 
 # Файлы блокировки Excel
 ~$*.xlsx
+
+# Выгрузки на обмен — пересобираются из платы, в git не нужны
+pcb/gamma_spectrometer/exchange/*
+!pcb/gamma_spectrometer/exchange/README_review.md
