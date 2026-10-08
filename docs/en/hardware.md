@@ -75,7 +75,7 @@ Detailed schematic: [`docs/hv_board_schematic.md`](../hv_board_schematic.md) (RU
 
 The signal-processing and interface core.
 
-- **STM32G474MET6** @ 170 MHz with internal **OPAMP1/2/3** and a 12-bit ADC at 4 Msps.
+- **STM32G474CBT6** (LQFP-48, 128 KB flash) @ 170 MHz with internal **OPAMP1/2/3** and a 12-bit ADC at 4 Msps.
 - Input: U.FL connector carrying ~470 mV @Cs-137 from the ADA4817 TIA on the divider board.
 - Analog shaper: **CR** (10 kΩ + 100 pF + 10 kΩ) → **RC** (1 kΩ + 510 pF + 1 kΩ),
   forming a CR-RC²-style pulse, followed by a ×4 PGA into the ADC.
