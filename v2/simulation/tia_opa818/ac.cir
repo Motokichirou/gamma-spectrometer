@@ -1,0 +1,24 @@
+* TIA на OPA818 — АЧХ Zt(f) и пик АЧХ. v2, рабочая точка D4: Rf = 5 кОм.
+* Cs  — ёмкость источника (анод R1307 + дорожка), БЕЗ входной ёмкости ОУ (она в модели: 1.9 + 0.5 пФ).
+* Cf  — ПОЛНАЯ ёмкость обратной связи, включая паразитную ёмкость резистора и посадочного места.
+.inc opa818.lib
+VCC VCC 0 5
+VEE VEE 0 -5
+I1  0 inn AC 1
+Cs  inn 0 {Cs}
+Rf  out inn 5k
+Cf  out inn {Cf}
+* выход: R_SNUB 22 Ом на драйвер АЦП, 1 кОм || 5 пФ
+Rsn out o2 22
+Rl  o2 0 1k
+Cl  o2 0 5p
+X1  0 inn out VCC VEE OPA818
+.param Cs=6p Cf=0.64p
+.step param Cs list 4p 6p 8p
+.step param Cf list 0.25p 0.35p 0.5p 0.64p 0.8p 1p
+.ac dec 100 10k 2G
+.meas AC z0   FIND mag(V(o2)) AT 100k
+.meas AC zmax MAX  mag(V(o2))
+.meas AC pk   PARAM 20*log10(zmax/z0)
+.meas AC f3   WHEN mag(V(o2))=z0*0.70711 FALL=last
+.end

@@ -1,0 +1,152 @@
+LTspice 26.0.2 for Windows
+Circuit: D:\gamma-spectrometer\v2\simulation\tia_opa818\ac.cir
+Start Time: Sun Oct 11 00:34:45 2026
+
+.step cs=4e-12 cf=2.5e-13
+solver = Normal
+Maximum thread count: 12
+tnom = 27
+temp = 27
+method = trap
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=2.5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=2.5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=4e-12 cf=3.5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=3.5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=3.5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=4e-12 cf=5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=5e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=4e-12 cf=6.4e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=6.4e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=6.4e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=4e-12 cf=8e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=8e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=8e-13
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=4e-12 cf=1e-12
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=6e-12 cf=1e-12
+Direct Newton iteration succeeded in finding operating point.
+
+.step cs=8e-12 cf=1e-12
+Direct Newton iteration succeeded in finding operating point.
+Total elapsed time: 0.863 seconds.
+
+Files loaded:
+D:\gamma-spectrometer\v2\simulation\tia_opa818\ac.cir
+D:\gamma-spectrometer\v2\simulation\tia_opa818\opa818.lib
+
+
+Measurement: z0
+  step	mag(V(o2)) 	at
+     1	(73.790269592dB,0°)	100000
+     2	(73.7902716244dB,0°)	100000
+     3	(73.7902736568dB,0°)	100000
+     4	(73.7902670196dB,0°)	100000
+     5	(73.7902690518dB,0°)	100000
+     6	(73.7902710839dB,0°)	100000
+     7	(73.7902615537dB,0°)	100000
+     8	(73.7902635855dB,0°)	100000
+     9	(73.7902656173dB,0°)	100000
+    10	(73.7902547119dB,0°)	100000
+    11	(73.7902567434dB,0°)	100000
+    12	(73.7902587749dB,0°)	100000
+    13	(73.7902448353dB,0°)	100000
+    14	(73.7902468664dB,0°)	100000
+    15	(73.7902488975dB,0°)	100000
+    16	(73.7902294034dB,0°)	100000
+    17	(73.7902314341dB,0°)	100000
+    18	(73.7902334648dB,0°)	100000
+
+Measurement: zmax
+  step	MAX(mag(V(o2)))	FROM	TO
+     1	(75.9664465608dB,0°)	10000	2000000000
+     2	(76.9751386861dB,0°)	10000	2000000000
+     3	(77.8066031135dB,0°)	10000	2000000000
+     4	(73.9818907982dB,0°)	10000	2000000000
+     5	(74.5958126725dB,0°)	10000	2000000000
+     6	(75.2324490108dB,0°)	10000	2000000000
+     7	(73.7902674679dB,0°)	10000	2000000000
+     8	(73.7902674886dB,0°)	10000	2000000000
+     9	(73.7902675092dB,0°)	10000	2000000000
+    10	(73.7902673995dB,0°)	10000	2000000000
+    11	(73.7902674201dB,0°)	10000	2000000000
+    12	(73.7902674408dB,0°)	10000	2000000000
+    13	(73.7902673007dB,0°)	10000	2000000000
+    14	(73.7902673214dB,0°)	10000	2000000000
+    15	(73.790267342dB,0°)	10000	2000000000
+    16	(73.7902671464dB,0°)	10000	2000000000
+    17	(73.7902671671dB,0°)	10000	2000000000
+    18	(73.7902671877dB,0°)	10000	2000000000
+
+Measurement: pk
+  step	20*log10(zmax/z0)
+     1	(6.75388419422dB,0°)
+     2	(10.0618261868dB,0°)
+     3	(12.0765866094dB,0°)
+     4	(-14.3510120086dB,0°)
+     5	(-1.87821874524dB,0°)
+     6	(3.18037688417dB,0°)
+     7	(-104.562043071dB,0°)
+     8	(-108.17184437dB,0°)
+     9	(-114.461850843dB,0°)
+    10	(-97.932405517dB,0°)
+    11	(-99.4311943886dB,0°)
+    12	(-101.243674679dB,0°)
+    13	(-92.9696977622dB,0°)
+    14	(-93.7840177818dB,0°)
+    15	(-94.6826552136dB,0°)
+    16	(-88.4632760089dB,0°)
+    17	(-88.9386186498dB,0°)
+    18	(-89.4414886458dB,0°)
+
+Measurement: f3
+  step	mag(V(o2))=z0*0.70711 
+     1	162279988.425
+     2	145667880.98
+     3	133019837.288
+     4	135726519.06
+     5	128736158.734
+     6	121113136.931
+     7	87997067.7314
+     8	92705219.2719
+     9	94154120.4313
+    10	60991898.5885
+    11	64791114.4621
+    12	68107899.661
+    13	45215977.0197
+    14	47126676.91
+    15	49072642.5444
+    16	34482864.865
+    17	35392359.9649
+    18	36333123.2085

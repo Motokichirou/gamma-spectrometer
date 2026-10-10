@@ -1,0 +1,20 @@
+* TIA OPA818 + RC-фильтр перед АЦП (антиалиасинг шума e_n·(1+Cin/Cf) за полосой сигнала).
+* k: 1..4 — (Cf, f_RC): 125 Мвыб/с -> (0.5p, 50M), (0.8p, 50M); 65 Мвыб/с -> (0.8p, 26M), (1.25p, 26M)
+.inc opa818.lib
+VCC VCC 0 5
+VEE VEE 0 -5
+B1  inn 0 I=if(time>100n, 7.2p/(230n-3n)*(exp(-(time-100n)/230n)-exp(-(time-100n)/3n)), 0)
+I1  0 inn AC 1
+Cs  inn 0 6p
+Rf  out inn 5k
+Cf  out inn {table(k,1,0.5p,2,0.8p,3,0.8p,4,1.25p)}
+* RC: 100 Ом + C на землю, затем вход драйвера АЦП 1 кОм || 5 пФ
+Rflt out o2 100
+Cflt o2 0 {1/(2*pi*100*table(k,1,50Meg,2,50Meg,3,26Meg,4,26Meg))-5p}
+Rl  o2 0 1k
+Cl  o2 0 5p
+X1  0 inn out VCC VEE OPA818
+.param k=1
+.step param k 1 4 1
+.tran 0 3u 0 0.2n
+.end

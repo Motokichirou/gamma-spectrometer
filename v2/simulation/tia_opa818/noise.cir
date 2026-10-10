@@ -1,0 +1,19 @@
+* TIA на OPA818: отклик на импульс ФЭУ (фотопик Cs-137, рабочая точка D4) и шум.
+* Анод: i(t) = Q/(td-tr)·(e^-t/td − e^-t/tr), Q = 7.2 пКл, td = 230 нс, tr = 3 нс (фронт ФЭУ).
+* Знак: анод ЗАБИРАЕТ ток из узла −IN => выход TIA идёт вверх.
+.inc opa818.lib
+VCC VCC 0 5
+VEE VEE 0 -5
+
+I1  0 inn AC 1
+Cs  inn 0 6p
+Rf  out inn 5k
+Cf  out inn {Cf}
+Rsn out o2 22
+Rl  o2 0 1k
+Cl  o2 0 5p
+X1  0 inn out VCC VEE OPA818
+.param Cf=0.8p
+.step param Cf list 0.8p 1.25p
+.noise V(o2) I1 dec 50 1k 1G
+.end
