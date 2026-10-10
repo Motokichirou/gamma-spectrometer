@@ -153,7 +153,7 @@ def solve_cluster(seg, tl, tq, ta, refine=True, maxit=4):
         except np.linalg.LinAlgError:
             break
         dt = np.clip(dt, -0.5 * T, 0.5 * T)
-        tq_try = tq - dt
+        tq_try = tq + dt   # J = dm/dtq => шаг ГН со знаком «+» (до 2026-10-11 стоял «−», см. decisions.md D11)
         if np.any(np.diff(np.sort(tq_try)) < 0.3 * T):     # не склеивать события
             lam *= 10
             continue

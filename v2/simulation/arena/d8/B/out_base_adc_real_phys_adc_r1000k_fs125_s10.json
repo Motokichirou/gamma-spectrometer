@@ -1,0 +1,140 @@
+{
+ "base": {
+  "note": "как в оригинальных стендах",
+  "TIA": {
+   "fwhm_pooled": 4.081579305234427,
+   "fwhm_mean": 4.12658018772346,
+   "fwhm_sem": 0.11316307505394119,
+   "eff": 0.9796295063248767,
+   "bias": -2.5479406371040847,
+   "n": 9186,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "TIA",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 66.56527011374044,
+    "sigma_adc_uV": 0.0,
+    "v_pk_mV": 469.0,
+    "n_ev": 3867,
+    "n_det": 3780
+   }
+  },
+  "CSP": {
+   "fwhm_pooled": 12.284043804084915,
+   "fwhm_mean": 12.217382478497383,
+   "fwhm_sem": 0.3961413974053087,
+   "eff": 0.9123938216966871,
+   "bias": -1.3509699922407081,
+   "n": 8554,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "CSP",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 28.3889621430039,
+    "sigma_adc_uV": 0.0,
+    "n_ev": 3867,
+    "n_det": 2949,
+    "resets": 34,
+    "deadtime_pct": 0.85
+   }
+  }
+ },
+ "adc_real": {
+  "note": "шум АЦП: 14 бит 73 дБFS / 16 бит 78 дБFS",
+  "TIA": {
+   "fwhm_pooled": 4.090198344782726,
+   "fwhm_mean": 4.1240337018468525,
+   "fwhm_sem": 0.1137559854765475,
+   "eff": 0.9797349915569441,
+   "bias": -2.5490874290520216,
+   "n": 9187,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "TIA",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 66.56527011374044,
+    "sigma_adc_uV": 197.8768622834177,
+    "v_pk_mV": 469.0,
+    "n_ev": 3867,
+    "n_det": 3780
+   }
+  },
+  "CSP": {
+   "fwhm_pooled": 55.83128237751301,
+   "fwhm_mean": 56.00343139262615,
+   "fwhm_sem": 1.172051706936989,
+   "eff": 0.9358138821427101,
+   "bias": 4.668979564125952,
+   "n": 8774,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "CSP",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 28.3889621430039,
+    "sigma_adc_uV": 195.84283305129898,
+    "n_ev": 3867,
+    "n_det": 1122,
+    "resets": 34,
+    "deadtime_pct": 0.85
+   }
+  }
+ },
+ "phys_adc": {
+  "note": "phys + adc_real",
+  "TIA": {
+   "fwhm_pooled": 4.063856630623196,
+   "fwhm_mean": 4.101450573870177,
+   "fwhm_sem": 0.09888004461588704,
+   "eff": 0.979740989045055,
+   "bias": -2.55267841729776,
+   "n": 9187,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "TIA",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 187.56810216508526,
+    "sigma_adc_uV": 197.8768622834177,
+    "v_pk_mV": 156.5,
+    "n_ev": 3867,
+    "n_det": 3786
+   }
+  },
+  "CSP": {
+   "fwhm_pooled": 55.83128237751301,
+   "fwhm_mean": 56.00343139262615,
+   "fwhm_sem": 1.172051706936989,
+   "eff": 0.9358138821427101,
+   "bias": 4.668979564125952,
+   "n": 8774,
+   "td_used_ns": 230.0,
+   "td_used_sd": 0.0,
+   "extra": {
+    "branch": "CSP",
+    "td_used_ns": 230.0,
+    "td_true_ns": 230.0,
+    "n_pairs": 0,
+    "sigma_an_uV": 28.3889621430039,
+    "sigma_adc_uV": 195.84283305129898,
+    "n_ev": 3867,
+    "n_det": 1122,
+    "resets": 34,
+    "deadtime_pct": 0.85
+   }
+  }
+ }
+}
