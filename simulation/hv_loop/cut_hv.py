@@ -2,7 +2,10 @@
 """Копия платы только с ВВ-платой — чтобы земля не была межплатной (читает оригинал, пишет копию)."""
 import math, os
 import pcbnew
-SRC=r'C:\gamma-spectrometer\pcb\gamma_spectrometer\gamma_spectrometer.kicad_pcb'
+import os.path as _p
+# путь считается от расположения скрипта, чтобы проект можно было перенести
+_ROOT=_p.abspath(_p.join(_p.dirname(_p.abspath(__file__)),'..','..'))
+SRC=_p.join(_ROOT,'pcb','gamma_spectrometer','gamma_spectrometer.kicad_pcb')
 DST=r'C:\Users\motok\AppData\Local\Temp\claude\C--gamma-spectrometer\82694962-96d6-4aad-96dd-c493e2d0e08f\scratchpad\hv_only.kicad_pcb'
 CX,CY,R=170.0,100.0,23.0
 b=pcbnew.LoadBoard(SRC)

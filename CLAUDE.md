@@ -332,7 +332,7 @@ NaI(Tl)+R1307 → ADA4817 TIA (Zt=499Ω) → коаксиал → CR(OPAMP1) →
 
 ## LTspice запуск
 ```powershell
-& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "C:\gamma-spectrometer\simulation\sim2_shaper.cir"
+& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "D:\gamma-spectrometer\simulation\sim2_shaper.cir"
 python simulation/scripts/analyze_sim2.py simulation/sim2_shaper.raw
 ```
 

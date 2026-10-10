@@ -573,7 +573,7 @@ BecqMoni подключается: COM6, 600000 бод, 8192 канала, ст�
 rm -rf /tmp/cube_hb_ws && "C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/stm32cubeidec.exe" \
   --launcher.suppressErrors -nosplash \
   -application org.eclipse.cdt.managedbuilder.core.headlessbuild \
-  -data /tmp/cube_hb_ws -import 'C:\gamma-spectrometer\firmware\gamma_stage1' \
+  -data /tmp/cube_hb_ws -import 'D:\gamma-spectrometer\firmware\gamma_stage1' \
   -build gamma_stage1/Debug
 
 # Прошивка

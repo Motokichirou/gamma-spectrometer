@@ -99,7 +99,7 @@ next to the ≈6.3 % PMT statistics (see [simulations.md](simulations.md)).
 # Build (no IDE needed; the -import path uses backslashes)
 "…/stm32cubeidec.exe" --launcher.suppressErrors -nosplash \
   -application org.eclipse.cdt.managedbuilder.core.headlessbuild \
-  -data /tmp/cube_hb_ws -import 'C:\gamma-spectrometer\firmware\gamma_stage1' \
+  -data /tmp/cube_hb_ws -import 'D:\gamma-spectrometer\firmware\gamma_stage1' \
   -build gamma_stage1/Debug
 
 # Flash over SWD

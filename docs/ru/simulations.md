@@ -69,6 +69,6 @@ PGA ×4, делитель B (R310=22к / R311=909 Ом) даёт baseline `V_out
 ## Запуск симуляции
 
 ```powershell
-& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "C:\gamma-spectrometer\simulation\sim2_shaper.cir"
+& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "D:\gamma-spectrometer\simulation\sim2_shaper.cir"
 python simulation/scripts/analyze_sim2.py simulation/sim2_shaper.raw
 ```

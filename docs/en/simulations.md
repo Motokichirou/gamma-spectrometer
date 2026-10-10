@@ -70,6 +70,6 @@ confirmed on hardware: the firmware ENC self-test measured a Cs-equivalent FWHM 
 ## Running a simulation
 
 ```powershell
-& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "C:\gamma-spectrometer\simulation\sim2_shaper.cir"
+& "C:\Program Files\ADI\LTspice\LTspice.exe" -b "D:\gamma-spectrometer\simulation\sim2_shaper.cir"
 python simulation/scripts/analyze_sim2.py simulation/sim2_shaper.raw
 ```
