@@ -9,11 +9,23 @@
  * Храним слова дословно ⇒ чтение прибором байт-в-байт равно записанному.
  *
  * Блок — в последней странице флеш. Размер флеш читаем из заводского регистра
- * (RM0440 §48.2), а не прошиваем константой: один бинарник годится и для
- * 512 КБ (G474ME, Nucleo-G474RE), и для 256 КБ (G474MC), и для 128 КБ
- * (G474CB — то, что стоит на боевой плате МК). При DBANK=1 (заводское
- * значение у G474) страница 2 КБ и последняя лежит во втором банке; при DBANK=0
- * страница 4 КБ и банк один. Запись редкая, износ не критичен.
+ * (RM0440 §48.2), а не прошиваем константой: один бинарник для 512 КБ
+ * (Nucleo-G474RE) и 128 КБ (G474CB на боевой плате МК). Запись редкая.
+ *
+ * ⚠ Где лежит последняя страница при DBANK=1 (два банка по 2 КБ/стр.) у флеш
+ * МЕНЬШЕ 512 КБ — первоисточники расходятся (найдено ревизией 2026-10-11):
+ *   - RM0440 Rev 9, Табл. 7: Bank 2 начинается с 0x0804 0000 при любом объёме
+ *     (у 128 КБ — страницы 0..31), то есть между банками дыра;
+ *   - HAL (stm32g4xx_hal_flash_ex.c, PCROP/WRP) считает Bank 2 сразу за Bank 1:
+ *     FLASH_BASE + FLASH_SIZE/2.
+ * Для 512 КБ оба варианта дают 0x0807 F800. Для 128/256 КБ гадать не будем:
+ *   - DBANK=0 (один банк, страница 4 КБ, адреса сплошные) — однозначно, это
+ *     штатный режим боевой платы: выставляется при первой прошивке вместе
+ *     с nSWBOOT0 (см. CLAUDE.md, раздел BOOT0);
+ *   - DBANK=1 при объёме < 512 КБ — калибровка ОТКЛЮЧЕНА (запись и чтение
+ *     возвращают ошибку, прибор отвечает "CAL: none"), а не пишется наугад.
+ * Сверх того каждая запись проверяется чтением: если адрес или стирание
+ * не сошлись, хук вернёт ошибку, а не молча оставит мусор.
  * Переопределяет слабые хуки app_cal_*.
  */
 #include "main.h"        /* HAL: FLASH_*, HAL_FLASH* */
@@ -27,14 +39,25 @@
 /* Размер флеш в КБ, заводская константа (RM0440 §48.2): 512 у ME, 256 у MC, 128 у CB. */
 #define FLASH_KB   (*(volatile const uint16_t *)0x1FFF75E0UL)
 
-static uint32_t page_size(void)
+static int dbank(void)
 {
-    return (FLASH->OPTR & FLASH_OPTR_DBANK) ? 2048u : 4096u;
+    return (FLASH->OPTR & FLASH_OPTR_DBANK) != 0u;
 }
 
-/* Адрес блока калибровки = начало последней страницы флеш.
- * 512 КБ + DBANK=1 → 0x0807F800 (как было константой); 256 КБ → 0x0803F800;
- * 128 КБ → 0x0801F800 при DBANK=1 или 0x0801F000 при DBANK=0. */
+static uint32_t page_size(void)
+{
+    return dbank() ? 2048u : 4096u;
+}
+
+/* Раскладка однозначна: DBANK=0 при любом объёме, либо DBANK=1 на 512 КБ. */
+static int layout_ok(void)
+{
+    return !dbank() || FLASH_KB >= 512u;
+}
+
+/* Адрес блока калибровки = начало последней страницы флеш (только при layout_ok):
+ *   512 КБ, DBANK=1 → 0x0807 F800 (Nucleo, как было константой);
+ *   128 КБ, DBANK=0 → 0x0801 F000 (боевая плата);  256 КБ, DBANK=0 → 0x0803 F000. */
 static uint32_t cal_addr(void)
 {
     return FLASH_BASE + (uint32_t)FLASH_KB * 1024u - page_size();
@@ -53,6 +76,7 @@ static uint16_t stage_mask;   /* бит i = слово i получено */
 
 static int flash_erase_page(void)
 {
+    if (!layout_ok()) return 0;
     FLASH_EraseInitTypeDef e = {0};
     e.TypeErase = FLASH_TYPEERASE_PAGES;
     /* Страниц в банке = КБ/4 при обеих раскладках (2 КБ × 2 банка либо 4 КБ × 1),
@@ -66,6 +90,7 @@ static int flash_erase_page(void)
 
 static int flash_write_block(const cal_block_t *b)
 {
+    if (!layout_ok()) return 0;
     HAL_FLASH_Unlock();
     int ok = flash_erase_page();
     if (ok) {
@@ -79,11 +104,14 @@ static int flash_write_block(const cal_block_t *b)
         }
     }
     HAL_FLASH_Lock();
+    /* проверка чтением: стёрли и записали ту же страницу, что читаем */
+    if (ok && memcmp((const void *)cal_addr(), b, sizeof *b) != 0) ok = 0;
     return ok;
 }
 
 static int read_words(uint32_t w[11])
 {
+    if (!layout_ok()) return 0;
     const cal_block_t *b = (const cal_block_t *)cal_addr();
     if (b->magic != CAL_MAGIC) return 0;
     if ((uint16_t)b->crc != shproto_crc16((const uint8_t *)b, offsetof(cal_block_t, crc)))
