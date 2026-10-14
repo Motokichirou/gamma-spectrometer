@@ -90,7 +90,7 @@
 | J_PMT401 | 1 | ФЭУ R1307-01 | — | **J_PMT401_R1307-01** (своя библ. «посадочные места», Ø30, 18 слотов, готов) |
 | L101, L102 | 2 | 47uH | SRN3015-470M (Bourns) | L_Neosid_SMS-ME3015 |
 | L103 | 1 | 100uH | SRU5028-101Y (Bourns) | L_Bourns_SRU5016_5.2x5.2mm |
-| Q201 | 1 | IRLML0040 | IRLML0040 (HOTTECH) | SOT-23 |
+| Q201 | 1 | **IRLML0060** (60 В) | IRLML0060 (HOTTECH) | SOT-23 — ⛔ не IRLML0040: 40 В мало для выброса стока 43–45 В |
 | Q401-Q403 | 3 | MMBTA42 | MMBTA42 (Diotec) | SOT-23 |
 | T201 | 1 | 1:10.2 трансф. | ATB322524-0110-T000 (TDK) | CHOKE_524-0110-T000_TDK-M |
 | U101 | 1 | LP5907MFX-3.3 | LP5907MFX-3.3 (TECH PUB) | SOT-23-5 |

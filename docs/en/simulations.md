@@ -57,10 +57,13 @@ Total input-referred electronics noise:
 | Contribution | FWHM |
 |---|---|
 | PMT R1307 + NaI(Tl) statistics | 6.3 % |
-| HV ripple (typical) | 0.3–0.5 % |
+| HV ripple (after the output RC filter — a few nV, `simulation/hv_loop/`) | negligible |
 | ADC nonlinearity (12-bit, ENOB ~10.5) | 0.1 % |
 | Electronics noise (σ = 94.4 µV rms) | **0.064 %** |
 | **Total** | **~6.32 %** |
+
+> sim3 was run with the former AD8000 input. With the ADA4817 TIA the electronics noise is lower:
+> σ = 76.9 µV rms (`sim_divider_complete.cir`), i.e. ≈0.05 % FWHM.
 
 The electronics noise is **two orders of magnitude below** the PMT statistics, so
 the energy resolution is PMT-limited, not electronics-limited. This was later

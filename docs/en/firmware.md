@@ -19,7 +19,7 @@ MCU board:
 |---|---|
 | `shproto.c/.h` | Frame parser/builder: CRC16-MODBUS, byte stuffing, FSM |
 | `spectrum.c/.h` | 8192-channel `uint32` histogram |
-| `dsp.c/.h` | Pulse detector: baseline tracker, pile-up rejection, quadratic LSQ peak fit |
+| `dsp.c/.h` | Pulse detector: baseline tracker, pile-up rejection, amplitude by shape template (or parabola) |
 | `pulsegen.c/.h` | Test-pulse generator (built-in self-test source) |
 | `selftest.c/.h` | ENC / linearity self-test FSM |
 | `app.c/.h` | Command handling (`-sta/-sto/-rst/-stt/-mode/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst`) and 1 Hz spectrum + status |
@@ -27,8 +27,12 @@ MCU board:
 The core talks to hardware through a few port functions (`app_port_uart_send`,
 `app_port_millis`, …) implemented in the board-specific glue.
 
-**Energy calibration** is stored in internal flash (`cal_store.c`, the last 2 KB page,
-Bank2 page 127 dual-bank = `0x0807F800`, magic + CRC16) and **survives a reboot**. It
+**Energy calibration** is stored in internal flash (`cal_store.c`, the last page,
+magic + CRC16) and **survives a reboot**. The address is derived from the factory
+flash-size register: `0x0807F800` on the Nucleo (512 KB), `0x0801F000` on the target board
+(128 KB) in single-bank mode. The target board runs **only with `DBANK=0`**: for 128 KB in
+dual-bank mode the reference manual and the HAL disagree on where bank 2 starts, so the
+firmware refuses to write rather than guess. Every write is verified by reading back. It
 keeps the 11 raw BecqMoni-format words; the `-cal`/CRC-32 protocol is described in
 [protocol.md](protocol.md). It can be written from BecqMoni ("Write to device") or by our
 tool (`-wcal`); read back via `-cal` (BecqMoni format) or `-rcal` (our format). On stage 1
@@ -40,7 +44,7 @@ tool (`-wcal`); read back via `-cal` (BecqMoni format) or `-rcal` (our format). 
 |---|---|---|---|
 | 1 | Nucleo-G474RE | shproto over VCP → BecqMoni draws a test spectrum | ✅ working |
 | 2 | Nucleo-G474RE | DAC→ADC loopback: real pulses, peak detect, real histogram | ✅ working |
-| 3 | Target MCU board | OPAMP shaper, real PMT pulses, HV, Pt1000 compensation | ⏳ pending hardware |
+| 3 | Target MCU board | OPAMP shaper, real PMT pulses, HV, Pt1000 compensation | ⏳ boards in production; VREFBUF reference, 128 KB linker script and first power-up procedure ready — [`firmware/board_g474cb/`](../../firmware/board_g474cb/README.md) (RU) |
 
 On the Nucleo, stage 2 closes the loop entirely on-chip: a TIM7 Poisson scheduler
 fires the DAC with realistic pulse shapes, a jumper feeds DAC (PA4/A2) back into the
@@ -57,9 +61,15 @@ For each ADC sample the detector:
    trigger re-arms only after the signal falls below `threshold/2`.
 3. **Rejects pile-up**: once a developed peak (`≥ 2×threshold`) starts falling,
    a renewed rise from the fall minimum marks the event as pile-up and discards it.
-4. **Measures amplitude** by fitting a quadratic (parabola) by least squares over
-   `2m+1` samples around the maximum and taking the vertex height — a sub-LSB,
-   unbiased estimate that maps directly to a channel of the 8192-bin histogram.
+4. **Measures amplitude** in one of two ways:
+   - **by shape template** (`dsp_set_template`, target-board mode): least squares
+     `y ≈ A·h + B` over a window around the maximum, where `h` is the reference pulse shape
+     in 32 sub-sample phases (`dsp_template.h`). On a model of the target chain this gives
+     0.44 % electronic FWHM at 30 kcps versus 7.4 % for the parabola, −0.02 % amplitude bias
+     instead of −10 %, and ±0.03 % linearity up to 3.5 MeV, at ~18 % CPU at 30 kcps. After the
+     first spectrum the template is replaced with one recorded from the real chain;
+   - **by parabola** over `2m+1` samples (no `dsp_set_template` call) — the Nucleo loopback
+     mode, where the pulse is wide.
 
 Polarity is configurable, but **both the Nucleo loopback and the target board need
 `+1`**: the PMT anode sinks current, the TIA output rises, so the ADC pulse goes UP

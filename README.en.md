@@ -18,6 +18,9 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md) · [simulations](docs/en/simulations.md)
 
+> 🏭 **October 2026:** the boards are in production and all components are in hand. Next step —
+> assembly and first power-up.
+
 ---
 
 ## Key Specifications
@@ -30,8 +33,8 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 | Target FWHM @ Cs-137 | 6.0–6.5 % |
 | Spectrum channels | 8192 |
 | Count rate | up to ~30 000 cps |
-| MCU | STM32G474 @ 170 MHz (12-bit ADC, 4 Msps) |
-| HV supply | 0 … −1500 V (MAX1847 + 8-stage CW multiplier) |
+| MCU | STM32G474CBT6 (LQFP-48) @ 170 MHz, 12-bit ADC 4 Msps, on-chip op-amps |
+| HV supply | 0 … −1500 V (MAX1847 + 4-stage CW multiplier) |
 | Interface | USB-C → UART 600 kbps (FT231X), shproto protocol |
 | Power | USB 5 V, ~370 mA |
 | Form factor | Cylindrical stack, Ø45 mm boards |
@@ -48,10 +51,10 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  │  LP5907 · AMS1117 · TPS60400 · FT231X  │
  ├─────────────────────────────────────────┤
  │  HV board         Ø45 mm               │
- │  MAX1847 · IRLML0040 · CW ×8 · −1500 V │
+ │  MAX1847 · IRLML0060 · CW ×4 · −1500 V │
  ├─────────────────────────────────────────┤
  │  MCU board        Ø45 mm               │
- │  STM32G474 · CR-RC² shaper · ADC · SPI │
+ │  STM32G474CBT6 · CR-RC² · ADC · SPI    │
  ├─────────────────────────────────────────┤
  │  Divider board    Ø42–45 mm            │  ← Hamamatsu R1307 + NaI(Tl)
  │  R1307 divider · MMBTA42 buffers       │
@@ -59,11 +62,13 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  └─────────────────────────────────────────┘
 ```
 
-Inter-board connections:
-- **Signal**: RG-178 coax + U.FL (Divider → MCU, ~470 mV for Cs-137)
-- **±5 V_A power**: JST PH 3-pin (MCU → Divider)
-- **−HV**: shielded ≥5 kV wire along stack edge (HV → Divider)
-- **All other signals**: 2×N 2.54 mm pin headers
+Inter-board connections — no connectors:
+- **Stack bus**: Ø1.5 mm collet pins on an R20 mm arc, coaxial across all boards (44 sites:
+  USB 11, HV 15, MCU 13, divider 5); the divider's ±5 V_A supply runs on it too
+- **Signal** (Divider → MCU, ~470 mV for Cs-137): thin coax soldered to pads
+- **−HV**: shielded ≥5 kV wire (HV → Divider) through a Ø4.5 mm hole in the MCU board
+- **Pt1000** on the crystal housing: twisted pair to MCU-board pads
+- Mechanics: three M2.5 standoffs in the centre of each board
 
 ### Signal Chain
 
@@ -96,17 +101,15 @@ NaI(Tl) + R1307             Divider board                 MCU board
 
 | Task | Status |
 |---|---|
-| Schematic — USB/Power board | ✅ Done (ERC 0) |
-| Schematic — HV board | ✅ Done (ERC 0) |
-| Schematic — MCU board | ✅ Done (ERC 0) |
-| Schematic — Divider board | ✅ Done (ERC 0) |
-| LTspice: input TIA (ADA4817) + divider | ✅ Validated (`sim_divider_complete`: Zt=499 Ω, buffers biased ~96 µA, B-E diodes) |
-| LTspice sim2: CR-RC² shaper | ✅ Done (PF=0.202, pulse width ~1.5 µs) |
-| LTspice sim3: noise budget | ✅ Done (σ=76.9 µV rms with TIA, 0.25 ch; 94.4 with former AD8000) |
-| BOM with MPN + footprints | ✅ Done (177 comp.: 74 caps / 17 MPN, 63 R, all active) |
-| PCB layout | 🚧 2 layers, all four boards routed, schematic parity 0. HV clearance norms (3 mm/kV) encoded in `.kicad_dru`. ⚠ 59 spots remain where the ground pour comes closer to HV nets than the norm |
-| STM32 firmware | 🚧 Stages 1–2 + self-test + energy calibration in flash running on Nucleo (shproto, real histogram); stage 3 on the target board |
+| Schematics of all 4 boards | ✅ Done (ERC 0) |
+| LTspice: TIA + active divider, shaper, noise, HV loop | ✅ Validated (`simulation/`) |
+| BOM with MPN + footprints | ✅ 176 components. Device cost **6 749 RUB** in cash (8 540 RUB including parts from own stock, detector excluded) — [`docs/cost.md`](docs/cost.md) |
+| PCB layout | ✅ 2 layers, 4 boards in one 187.5 × 45 mm panel, HV clearance norms 3 mm/kV in `.kicad_dru`. MCU board re-routed for LQFP-48 (October 2026) |
+| PCB fabrication | 🏭 In production (PS-Electro, 1.5 mm, no silkscreen) |
+| Components | ✅ All received and checked, except the REF35250 reference — until it arrives the ADC runs from the on-chip VREFBUF 2.5 V |
+| STM32 firmware | 🚧 Stages 1–2 on Nucleo: shproto, real histogram, self-test, energy calibration in flash, amplitude by pulse-shape template. For stage 3 the VREFBUF reference, 128 KB linker script and first power-up procedure are ready ([`firmware/board_g474cb/`](firmware/board_g474cb/README.md)) |
 | Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
+| v2 — 1 000 000 cps | 🔬 Research: pile-up separation, digitising straight from the TIA — [`v2/`](v2/design.md) (Russian). v1 goes to hardware first: it is also the measurement bench for v2 |
 
 ---
 
@@ -121,18 +124,22 @@ gamma-spectrometer/
 │   ├── usb_power_board.md            # USB/Power board overview
 │   ├── usb_power_board_schematic.md  # USB/Power board — detailed schematic
 │   ├── hv_board_schematic.md         # HV board — detailed schematic
+│   ├── mcu_lqfp48_migration.md       # MCU board move to LQFP-48
+│   ├── fab_pselectro.md              # Fab requirements and check
+│   ├── cost.md                       # Cost breakdown
 │   ├── cheatsheet_mistakes.md        # Design rules & past mistakes log
 │   └── refs/                         # Datasheets
-├── firmware/                         # STM32G474 firmware (stages 1–2 run on Nucleo)
+├── firmware/
+│   ├── core/                         # Portable core (shproto, DSP, histogram)
+│   ├── gamma_stage1/                 # Stages 1–2 on Nucleo-G474RE
+│   └── board_g474cb/                 # Stage-3 groundwork (target board)
 ├── host/                             # PC software `gammapult` (Win32/ImGui, GUI + CLI)
 ├── pcb/
-│   └── gamma_spectrometer/           # KiCad project (all 4 boards)
-└── simulation/
-    ├── models/                       # SPICE models (opamp_g474, ADA4817, AD8000)
-    ├── scripts/                      # Python analysis scripts
-    ├── sim1_ad8000.cir               # AD8000 stability & bandwidth
-    ├── sim2_shaper.cir               # CR-RC² pulse shaper
-    └── sim3_noise.cir                # Full noise budget
+│   └── gamma_spectrometer/           # KiCad project (all 4 boards, panel, Gerbers)
+├── simulation/                       # LTspice + Python: signal chain, noise, HV loop, TIA parasitics
+├── stock/                            # Purchasing, delivery check, cost script
+├── review/                           # Independent design reviews
+└── v2/                               # 1 Mcps instrument research
 ```
 
 ---
@@ -142,12 +149,14 @@ gamma-spectrometer/
 | Contribution | FWHM |
 |---|---|
 | PMT R1307 + NaI(Tl) statistics | 6.3 % |
-| HV ripple (typical) | 0.3–0.5 % |
+| HV ripple (after the output RC filter — a few nV) | negligible |
 | ADC nonlinearity (12-bit, ENOB ~10.5) | 0.1 % |
-| Electronics noise (σ = 94.4 µV rms) | **0.064 %** |
-| **Total** | **~6.32 %** |
+| Electronics noise (σ = 76.9 µV rms with the ADA4817 TIA) | **0.05 %** |
+| Digital processing (shape template, 30 kcps, Monte Carlo) | 0.44 % |
+| **Total** | **≈6.3 %** |
 
-Electronics noise is **two orders of magnitude below** PMT statistics — resolution is PMT-limited, not electronics-limited.
+Electronics and processing are an order of magnitude below PMT statistics — resolution is
+limited by the crystal and PMT, not by the signal chain.
 
 ---
 
