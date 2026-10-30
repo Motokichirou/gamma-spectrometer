@@ -12,13 +12,13 @@
 board_vref_status_t board_vref_init(void)
 {
     __HAL_RCC_SYSCFG_CLK_ENABLE();
-#if defined(BOARD_VREF_EXTERNAL)
-    /* U301 впаян: выход буфера выключен и отключён от вывода VREF+ */
+#if !defined(BOARD_VREF_INTERNAL)
+    /* штатно: U301 впаян, выход буфера выключен и отключён от вывода VREF+ */
     HAL_SYSCFG_DisableVREFBUF();
     HAL_SYSCFG_VREFBUF_HighImpedanceConfig(SYSCFG_VREFBUF_HIGH_IMPEDANCE_ENABLE);
     return BOARD_VREF_OK;
 #else
-    /* U301 не впаян: буфер 2.5 В на вывод VREF+ */
+    /* отладка без U301: буфер 2.5 В на вывод VREF+ */
     HAL_SYSCFG_VREFBUF_VoltageScalingConfig(SYSCFG_VREFBUF_VOLTAGE_SCALE1);   /* 2.5 В */
     HAL_SYSCFG_VREFBUF_HighImpedanceConfig(SYSCFG_VREFBUF_HIGH_IMPEDANCE_DISABLE);
     /* HAL ждёт VRR (готовность) с таймаутом; C303 = 1 мкФ заряжается за единицы мс */

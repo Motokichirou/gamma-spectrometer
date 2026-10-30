@@ -18,7 +18,7 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md) · [simulations](docs/en/simulations.md)
 
-> 🏭 **October 2026:** the boards are in production and all components are in hand. Next step —
+> 🔧 **Late October 2026:** the boards are made and all components are in hand. Next step —
 > assembly and first power-up.
 
 ---
@@ -105,9 +105,9 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | LTspice: TIA + active divider, shaper, noise, HV loop | ✅ Validated (`simulation/`) |
 | BOM with MPN + footprints | ✅ 176 components. Device cost **6 749 RUB** in cash (8 540 RUB including parts from own stock, detector excluded) — [`docs/cost.md`](docs/cost.md) |
 | PCB layout | ✅ 2 layers, 4 boards in one 187.5 × 45 mm panel, HV clearance norms 3 mm/kV in `.kicad_dru`. MCU board re-routed for LQFP-48 (October 2026) |
-| PCB fabrication | 🏭 In production (PS-Electro, 1.5 mm, no silkscreen) |
-| Components | ✅ All received and checked, except the REF35250 reference — until it arrives the ADC runs from the on-chip VREFBUF 2.5 V |
-| STM32 firmware | 🚧 Stages 1–2 on Nucleo: shproto, real histogram, self-test, energy calibration in flash, amplitude by pulse-shape template. For stage 3 the VREFBUF reference, 128 KB linker script and first power-up procedure are ready ([`firmware/board_g474cb/`](firmware/board_g474cb/README.md)) |
+| PCB fabrication | ✅ Received (PS-Electro, 1.5 mm, no silkscreen) |
+| Components | ✅ All received and checked |
+| STM32 firmware | 🚧 Stages 1–2 on Nucleo: shproto, real histogram, self-test, energy calibration in flash, amplitude by pulse-shape template. For stage 3 the ADC reference setup, 128 KB linker script and first power-up procedure are ready ([`firmware/board_g474cb/`](firmware/board_g474cb/README.md)) |
 | Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
 | v2 — 1 000 000 cps | 🔬 Research: pile-up separation, digitising straight from the TIA — [`v2/`](v2/design.md) (Russian). v1 goes to hardware first: it is also the measurement bench for v2 |
 

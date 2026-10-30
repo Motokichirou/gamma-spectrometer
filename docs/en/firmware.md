@@ -44,7 +44,7 @@ tool (`-wcal`); read back via `-cal` (BecqMoni format) or `-rcal` (our format). 
 |---|---|---|---|
 | 1 | Nucleo-G474RE | shproto over VCP → BecqMoni draws a test spectrum | ✅ working |
 | 2 | Nucleo-G474RE | DAC→ADC loopback: real pulses, peak detect, real histogram | ✅ working |
-| 3 | Target MCU board | OPAMP shaper, real PMT pulses, HV, Pt1000 compensation | ⏳ boards in production; VREFBUF reference, 128 KB linker script and first power-up procedure ready — [`firmware/board_g474cb/`](../../firmware/board_g474cb/README.md) (RU) |
+| 3 | Target MCU board | OPAMP shaper, real PMT pulses, HV, Pt1000 compensation | ⏳ boards and parts in hand, assembly; ADC reference setup, 128 KB linker script and first power-up procedure ready — [`firmware/board_g474cb/`](../../firmware/board_g474cb/README.md) (RU) |
 
 On the Nucleo, stage 2 closes the loop entirely on-chip: a TIM7 Poisson scheduler
 fires the DAC with realistic pulse shapes, a jumper feeds DAC (PA4/A2) back into the

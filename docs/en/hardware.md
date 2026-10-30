@@ -96,7 +96,7 @@ The signal-processing and interface core.
 - Analog shaper: **CR** (10 kΩ + 100 pF + 10 kΩ) → **RC** (1 kΩ + 510 pF + 1 kΩ),
   forming a CR-RC²-style pulse, followed by a ×4 PGA into the ADC.
 - **REF35250** voltage reference (2.500 V, 12 ppm/°C, SOT-23-6) plus DC-bias dividers
-  for the ADC baseline. Without it the board runs from the MCU's on-chip VREFBUF (2.500 V ±0.16 %).
+  for the ADC baseline. As a fallback the board also runs without it, from the MCU's on-chip VREFBUF (2.500 V ±0.16 %).
 - **W25Q64** SPI flash, 16 MHz crystal (CL 9 pF).
 - **Pt1000** temperature sensor (thin-film, class A, wire leads) on the crystal housing,
   read ratiometrically via ADC4 for thermal-drift compensation.
