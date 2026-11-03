@@ -105,34 +105,75 @@ static void sysclk_to_hse(void)
     /* HSE = 16 МГц, как HSI: делители UART и SysTick не меняются */
 }
 
+static void adc_on(ADC_TypeDef *a)
+{
+    a->CR &= ~ADC_CR_DEEPPWD;
+    a->CR |= ADC_CR_ADVREGEN;
+    uint32_t t = ms; while (ms - t < 2) {}
+    a->CR |= ADC_CR_ADCAL;
+    while (a->CR & ADC_CR_ADCAL) {}
+    t = ms; while (ms - t < 1) {}
+    a->ISR = ADC_ISR_ADRDY;
+    a->CR |= ADC_CR_ADEN;
+    while (!(a->ISR & ADC_ISR_ADRDY)) {}
+    a->SMPR1 = 0x3FFFFFFFu;  /* все каналы: 640.5 такта */
+    a->SMPR2 = 0x07FFFFFFu;
+}
+
 static void adc_init(void)
 {
     RCC->AHB2ENR |= RCC_AHB2ENR_ADC12EN;
     (void)RCC->AHB2ENR;
     ADC12_COMMON->CCR = (1u << ADC_CCR_CKMODE_Pos) | ADC_CCR_VREFEN; /* HCLK/1 */
-    ADC1->CR &= ~ADC_CR_DEEPPWD;
-    ADC1->CR |= ADC_CR_ADVREGEN;
-    uint32_t t = ms; while (ms - t < 2) {}
-    ADC1->CR |= ADC_CR_ADCAL;
-    while (ADC1->CR & ADC_CR_ADCAL) {}
-    t = ms; while (ms - t < 1) {}
-    ADC1->ISR = ADC_ISR_ADRDY;
-    ADC1->CR |= ADC_CR_ADEN;
-    while (!(ADC1->ISR & ADC_ISR_ADRDY)) {}
-    ADC1->SMPR2 = (ADC1->SMPR2 & ~(7u << 24)) | (7u << 24); /* канал 18: 640.5 такта */
-    ADC1->SQR1 = (18u << ADC_SQR1_SQ1_Pos);                  /* L = 0, SQ1 = VREFINT */
+    adc_on(ADC1);
+    adc_on(ADC2);
 }
 
-static uint32_t adc_vrefint(void)
+static uint32_t adc_read(ADC_TypeDef *a, uint32_t ch)
 {
+    a->SQR1 = ch << ADC_SQR1_SQ1_Pos;   /* L = 0 */
     uint32_t sum = 0;
     for (int i = 0; i < 16; i++) {
-        ADC1->ISR = ADC_ISR_EOC;
-        ADC1->CR |= ADC_CR_ADSTART;
-        while (!(ADC1->ISR & ADC_ISR_EOC)) {}
-        sum += ADC1->DR;
+        a->ISR = ADC_ISR_EOC;
+        a->CR |= ADC_CR_ADSTART;
+        while (!(a->ISR & ADC_ISR_EOC)) {}
+        sum += a->DR;
     }
     return sum / 16;
+}
+static uint32_t adc_vrefint(void) { return adc_read(ADC1, 18); }
+
+/* ОУ тракта: OPAMP1 и OPAMP2 — внешняя обвязка (VINP0/VINM0), OPAMP3 — PGA x4 от PB0 */
+static void opamp_init(void)
+{
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+    (void)RCC->APB2ENR;
+    OPAMP1->CSR = OPAMP_CSR_OPAMPxEN;
+    OPAMP2->CSR = OPAMP_CSR_OPAMPxEN;
+    OPAMP3->CSR = OPAMP_CSR_OPAMPxEN | (2u << OPAMP_CSR_VMSEL_Pos) | OPAMP_CSR_PGGAIN_0;
+}
+
+static void report(uint32_t vref_mv)
+{
+    static const struct { const char *name; uint8_t adc2; uint8_t ch; const char *exp; } t[] = {
+        { "PA0 HV_MONITOR ", 0,  1, "~2440 (HV=0)" },
+        { "PA1 V_A (OA1+) ", 0,  2, "1616" },
+        { "PA3 OA1-       ", 0,  4, "1616" },
+        { "PA2 OA1 out    ", 0,  3, "~2420" },
+        { "PA7 V_A (OA2+) ", 1,  4, "1616" },
+        { "PA5 OA2-       ", 1, 13, "1616" },
+        { "PA6 OA2 out    ", 1,  3, "~1616" },
+        { "PB0 V_B (OA3+) ", 0, 15, "99" },
+        { "PB1 OA3 out ADC", 0, 12, "~400" },
+        { "PB12 TSENS_IN  ", 0, 11, "?" },
+    };
+    uart_puts("---- analog, mV (expected) ----\n");
+    for (unsigned i = 0; i < sizeof t / sizeof t[0]; i++) {
+        uint32_t raw = adc_read(t[i].adc2 ? ADC2 : ADC1, t[i].ch);
+        uint32_t mv = (raw * vref_mv + 2047) / 4095;
+        uart_puts(t[i].name); uart_puts(" raw="); uart_dec(raw);
+        uart_puts(" "); uart_dec(mv); uart_puts(" mV  ("); uart_puts(t[i].exp); uart_puts(")\n");
+    }
 }
 
 static void jump_to_bootloader(void)
@@ -148,6 +189,8 @@ static void jump_to_bootloader(void)
     for (int i = 0; i < 8; i++) { NVIC->ICER[i] = 0xFFFFFFFFu; NVIC->ICPR[i] = 0xFFFFFFFFu; }
 
     ADC1->CR |= ADC_CR_ADDIS;
+    ADC2->CR |= ADC_CR_ADDIS;
+    OPAMP1->CSR = 0; OPAMP2->CSR = 0; OPAMP3->CSR = 0;
     RCC->AHB2RSTR |= RCC_AHB2RSTR_ADC12RST;  RCC->AHB2RSTR &= ~RCC_AHB2RSTR_ADC12RST;
     RCC->APB2RSTR |= RCC_APB2RSTR_USART1RST; RCC->APB2RSTR &= ~RCC_APB2RSTR_USART1RST;
     RCC->APB2ENR &= ~RCC_APB2ENR_USART1EN;
@@ -193,6 +236,7 @@ int main(void)
         uart_puts("SYSCLK = HSE 16 MHz (this line readable => crystal OK)\n");
     }
 
+    opamp_init();
     adc_init();
     uart_puts("type !boot to jump to system bootloader\n");
 
@@ -216,6 +260,7 @@ int main(void)
             uart_puts(" VREFINT raw="); uart_dec(raw);
             uart_puts(" cal="); uart_dec(VREFINT_CAL);
             uart_puts(" -> VREF+="); uart_dec(vref_mv); uart_puts(" mV\n");
+            if (n % 5 == 1) report(vref_mv);
         }
     }
 }
