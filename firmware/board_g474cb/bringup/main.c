@@ -402,6 +402,45 @@ static int noise_pt(const char *a, uint32_t vref_mv)
     return 0;
 }
 
+/* Pt1000: R303 10к от VREF+ -> узел -> Pt1000 -> GND; узел на PB12 = ADC1_IN11.
+ * Ратиометрично: R = 10к * raw / (4095 - raw), опора сокращается.
+ * T по Каллендару — Ван Дюзену (T >= 0): R = R0 (1 + A T + B T^2). */
+#define PT_R0    1000.0f
+#define PT_RPU   10056.0f       /* R303 эффективное: калибровка 2026-11-05 по ИВТМ-7 (25.2 °C), номинал 10к ±1 % */
+#define PT_A     3.9083e-3f
+#define PT_B     (-5.775e-7f)
+static float sqrt_n(float x) { if (x <= 0) return 0; float r = x > 1 ? x : 1; for (int k = 0; k < 30; k++) r = 0.5f * (r + x / r); return r; }
+static float pt_raw_f;          /* усреднённый код (256 отсчётов, 640.5 такта) */
+static void pt_measure(void)
+{
+    uint32_t sum = 0;
+    ADC1->SQR1 = 11u << ADC_SQR1_SQ1_Pos;
+    for (int i = 0; i < 256; i++) {
+        ADC1->ISR = ADC_ISR_EOC;
+        ADC1->CR |= ADC_CR_ADSTART;
+        while (!(ADC1->ISR & ADC_ISR_EOC)) {}
+        sum += ADC1->DR;
+    }
+    pt_raw_f = sum / 256.0f;
+}
+static void pt_print(void)
+{
+    float raw = pt_raw_f;
+    if (raw > 4000.0f) { uart_puts(" Pt=open"); return; }
+    float R = PT_RPU * raw / (4095.0f - raw);
+    float T = (-PT_A + sqrt_n(PT_A * PT_A - 4.0f * PT_B * (1.0f - R / PT_R0))) / (2.0f * PT_B);
+    static float Tf = -1000.0f;                       /* сглаживание τ ≈ 10 с (замер раз в 1 с) */
+    Tf = (Tf < -500.0f) ? T : Tf + (T - Tf) * 0.1f;
+    uart_puts(" Pt R="); put_f(R * 10.0f); uart_puts("e-1 T=");
+    for (int k = 0; k < 2; k++) {
+        float t = k ? Tf : T;
+        if (k) uart_puts(" Tf=");
+        if (t < 0) { uart_putc('-'); t = -t; }
+        uint32_t c = (uint32_t)(t * 100.0f + 0.5f);
+        uart_dec(c / 100); uart_putc('.'); uart_putc('0' + (c / 10) % 10); uart_putc('0' + c % 10); uart_puts("C");
+    }
+}
+
 static void help(void)
 {
     uart_puts("commands: hv <0..1200> | hv off | hvzero | a | n | !boot\n");
@@ -495,7 +534,10 @@ int main(void)
                 else vdd_d_mv += (vb - vdd_d_mv) / 64.0f;   /* τ ≈ 64 с */
             }
             uart_puts("t="); uart_dec(n++);
-            uart_puts(" VREF+="); uart_dec(vref_mv); uart_puts(" ");
+            pt_measure();
+            uart_puts(" VREF+="); uart_dec(vref_mv);
+            pt_print();
+            uart_puts(" ");
             hv_status(vref_mv);
         }
     }
