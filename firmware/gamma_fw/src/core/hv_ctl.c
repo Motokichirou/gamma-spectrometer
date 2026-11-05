@@ -22,11 +22,15 @@
  * на мгновение роняет оценку скорости и включает подстройку, пока выход ещё разряжается.
  *
  * Защита "over". После большого снижения уставки без нагрузки (τ ≈ 16 с) выход к 30 с от команды
- * ещё на сотни вольт выше уставки (1200 → 100: ≈ 330 В), а 30 с SPEC считает от команды. Поэтому
- * "over" проверяется, только когда (а) с команды прошло > 30 с, (б) выход устоялся и (в) монитор
- * не падает. При настоящем перенапряжении монитор стоит или растёт — «устоялся» выставляется сразу
- * после выдержки, (в) выполнено; выход, сам разряжающийся к уставке, не проходит ни (б), ни (в).
- * "abs" (> 1300 В) от этого не зависит.
+ * ещё на сотни вольт выше уставки (1200 → 100: ≈ 330 В). Поэтому "over" проверяется, только когда
+ * (а) с КОНЦА РАМПЫ (рампа дошла до уставки) прошло > 30 с, (б) выход устоялся — перестал сам идти
+ * к уставке (см. выше) и (в) усреднённый монитор не падает (наклон ≥ 0). При настоящем
+ * перенапряжении монитор стоит или растёт — «устоялся» выставляется сразу после выдержки, (в)
+ * выполнено; выход, сам разряжающийся к уставке, не проходит ни (б), ни (в). "abs" (> 1300 В) от
+ * этого не зависит.
+ *
+ * Время выдержек — насыщающиеся счётчики, накапливаемые по dt тиков (at_ms), а не разность
+ * now_ms − t0: переполнение millis через 49.7 сут их не сбрасывает и не взводит раньше времени.
  *
  * Известное поведение без нагрузки: внешняя петля (τ ≈ 10 с) при инерции выхода τ ≈ 16 с даёт
  * перерегулирование, если после снижения уставки добавка неверна (модель 1000 → 500 при смене
@@ -42,6 +46,7 @@
 #define HOLD_MS       6000u   /* выдержка после рампы: 3 с + 3·τ монитора */
 #define SETTLE_TAU_S  20.0f   /* > τ разряда выхода (до 16 с) */
 #define SETTLE_CONFIRM_MS 2000u /* условие «устоялся» держится подряд — шум монитора не обманет */
+#define AGE_SAT_MS    0x7FFFFFFFu /* потолок счётчика выдержки */
 
 static float absf(float x) { return x < 0.0f ? -x : x; }
 
@@ -53,9 +58,9 @@ void hv_init(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
     h->target = h->ramp = h->trim = 0.0f;
     h->mon_f = h->mon_slow = 0.0f;
     h->mon_seeded = h->near_ceil = h->en = false;
-    h->at_target = h->settled = h->over_armed = false;
-    h->settle_ms = 0;
-    h->last_ms = h->changed_ms = h->at_target_ms = 0;
+    h->at_target = h->settled = false;
+    h->settle_ms = h->at_ms = 0;
+    h->last_ms = 0;
     h->trip = h->off_why = NULL;
 }
 
@@ -86,7 +91,8 @@ int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
 {
     if (!(volts >= 0.0f && volts <= HV_MAX_SET_V)) return -1;   /* и NaN */
     if (!h->en && volts == 0.0f) {            /* уже выключено: ENABLE не трогаем, квитируем аварию */
-        h->trip = NULL;                       /* off_why остаётся — см. hv_ctl.h */
+        h->trip = NULL;                       /* как любая hv_set: причина и авария сброшены */
+        h->off_why = NULL;
         return 0;
     }
     if (h->en && volts == h->target) return 0; /* повтор: не откладывать "over", не трогать trim */
@@ -101,9 +107,8 @@ int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
         h->trim = 0.0f;
     }
     h->target = volts;
-    h->changed_ms = now_ms;
-    h->at_target = h->settled = h->over_armed = false;
-    h->settle_ms = 0;
+    h->at_target = h->settled = false;
+    h->settle_ms = h->at_ms = 0;
     h->trip = NULL;
     h->off_why = NULL;
     clamp_trim(h);
@@ -114,8 +119,8 @@ void hv_off(hv_ctl_t *h, const char *why)
 {
     h->en = false;
     h->target = h->ramp = h->trim = 0.0f;
-    h->at_target = h->settled = h->over_armed = false;
-    h->settle_ms = 0;
+    h->at_target = h->settled = false;
+    h->settle_ms = h->at_ms = 0;
     h->off_why = why;
 }
 
@@ -174,8 +179,9 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
     /* подстройка — только на стоящей уставке, после того как выход устоялся, по достоверному монитору */
     float e = h->target - h->mon_f;
     float slope = (h->mon_f - h->mon_slow) / SLOW_TAU_S;       /* В/с */
-    if (h->ramp == h->target && !h->at_target) { h->at_target = true; h->at_target_ms = now_ms; }
-    if (h->at_target && !h->settled && !h->near_ceil && now_ms - h->at_target_ms >= HOLD_MS) {
+    if (h->ramp == h->target && !h->at_target) { h->at_target = true; h->at_ms = 0; }
+    else if (h->at_target && h->at_ms < AGE_SAT_MS) h->at_ms += dms;   /* dms ≤ 100: не переполнится */
+    if (h->at_target && !h->settled && !h->near_ceil && h->at_ms >= HOLD_MS) {
         bool approaching = e * slope > 0.0f && absf(slope) * SETTLE_TAU_S >= absf(e);
         if (absf(e) <= HV_DEADBAND_V || !approaching) {
             h->settle_ms += dms;
@@ -195,10 +201,8 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
         trip(h, "abs", "TRIP |V| > 1300 V by monitor");
         return 0;
     }
-    /* выход разряжается медленно (τ ≈ 2…16 с): уставка стоит > 30 с, выход устоялся, монитор не падает.
-       Флаг ставится один раз — переполнение now_ms − changed_ms (49.7 сут) защиту не снимает. */
-    if (!h->over_armed && now_ms - h->changed_ms > HV_TRIP_OVER_MS) h->over_armed = true;
-    if (h->ramp == h->target && h->over_armed && h->settled && slope >= 0.0f
+    /* выход разряжается медленно (τ ≈ 2…16 с): с конца рампы > 30 с, выход устоялся, монитор не падает */
+    if (h->at_target && h->at_ms > HV_TRIP_OVER_MS && h->settled && slope >= 0.0f
         && h->mon_f > h->target + HV_TRIP_OVER_V) {
         trip(h, "over", "TRIP monitor > setpoint + 150 V");
         return 0;

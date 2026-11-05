@@ -281,8 +281,8 @@ static void test_repeat_set_keeps_over_trip(void)
     CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
 }
 
-/* hv_set(0) при выключенном ВВ не включает ENABLE даже на один тик; квитирует аварию
-   (trip → NULL), причину выключения оставляет. */
+/* hv_set(0) при выключенном ВВ не включает ENABLE даже на один тик; квитирует аварию:
+   trip и причина выключения сбрасываются, как при любой принятой уставке. */
 static void test_set_zero_when_off(void)
 {
     hv_ctl_t h; hv_init(&h, ZERO, K);
@@ -299,7 +299,15 @@ static void test_set_zero_when_off(void)
     CHECK(hv_set(&h, 0.0f, now) == 0);
     CHECK(!hv_enabled(&h));
     CHECK(hv_trip_reason(&h) == NULL);
-    CHECK(hv_off_reason(&h) == why);
+    CHECK(hv_off_reason(&h) == NULL);
+    CHECK(hv_tick(&h, mon_mv_of(0), VDD, now + 10) == 0);
+    CHECK(!hv_enabled(&h));
+    /* то же после обычного выключения командой */
+    hv_set(&h, 100.0f, now);
+    hv_off(&h, "cmd");
+    CHECK(hv_off_reason(&h) && strcmp(hv_off_reason(&h), "cmd") == 0);
+    CHECK(hv_set(&h, 0.0f, now) == 0);
+    CHECK(hv_off_reason(&h) == NULL && hv_trip_reason(&h) == NULL && !hv_enabled(&h));
 }
 
 /* Подъём уставки с отмасштабированной добавкой: hv_trim() не выше потолка CW и во время рампы. */
@@ -354,11 +362,98 @@ static void test_trip_over(void)
     hv_ctl_t h; hv_init(&h, ZERO, K);
     hv_set(&h, 1000.0f, 0);
     uint32_t now = 0; float out = 0;
-    run_model(&h, 0.916f, &now, 3100, &out);      /* 31 с с момента уставки */
+    run_model(&h, 0.916f, &now, 4100, &out);      /* рампа 10 с + 31 с */
     CHECK(hv_enabled(&h));
     for (int i = 0; i < 1000 && hv_enabled(&h); i++) { now += 10; hv_tick(&h, mon_mv_of(1151.0f), VDD, now); }
     CHECK(!hv_enabled(&h));
     CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+}
+
+/* Выдержка 30 с — от конца рампы, а не от команды: рампа 0 → 1000 идёт 10 с; перенапряжение
+   с 15 с по 39 с (29 с после рампы) не срабатывает, к 41 с — срабатывает. */
+static void test_over_hold_from_ramp_end(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 0.916f, &now, 1500, &out);      /* 15 с */
+    while (now < 39000u) { now += 10; hv_tick(&h, mon_mv_of(1160.0f), VDD, now); }
+    CHECK(hv_enabled(&h));
+    while (now < 42000u && hv_enabled(&h)) { now += 10; hv_tick(&h, mon_mv_of(1160.0f), VDD, now); }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+}
+
+/* Переполнение millis (49.7 сут) посреди работы: подъём, выдержка и защита идут как обычно —
+   ни преждевременного "over" на переходе через 0, ни потери защиты после него. */
+static void test_millis_wrap(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    uint32_t now = 0xFFFFFFFFu - 15000u;          /* через 15 с — переход через 0 */
+    hv_tick(&h, mon_mv_of(0.0f), VDD, now);
+    CHECK(hv_set(&h, 1000.0f, now) == 0);
+    float out = 0;
+    for (int i = 0; i < 2000; i++) {              /* 20 с: рампа 10 с, выход 0.916·CW */
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
+        out = 0.916f * cw_of(d, VDD);
+    }
+    CHECK(now < 10000u);                          /* перешли через 0 */
+    CHECK_NEAR(hv_ramp(&h), 1000.0, 1e-3);
+    /* перенапряжение сразу после перехода: до 30 с с конца рампы — не срабатывает */
+    for (int i = 0; i < 1500; i++) { now += 10; hv_tick(&h, mon_mv_of(1160.0f), VDD, now); }
+    CHECK(hv_enabled(&h));
+    for (int i = 0; i < 2000 && hv_enabled(&h); i++) { now += 10; hv_tick(&h, mon_mv_of(1160.0f), VDD, now); }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+    /* рампа не ускоряется на переходе: подъём 0 → 300 через переход идёт 100 В/с */
+    hv_init(&h, ZERO, K);
+    now = 0xFFFFFFFFu - 995u;
+    hv_tick(&h, mon_mv_of(0.0f), VDD, now);
+    hv_set(&h, 300.0f, now);
+    for (int i = 0; i < 100; i++) { now += 10; hv_tick(&h, mon_mv_of(0.0f), VDD, now); }
+    CHECK_NEAR(hv_ramp(&h), 100.0, 1e-3);
+}
+
+/* Настоящее перенапряжение после большого снижения уставки: выход разрядился (τ 16 с, шум монитора),
+   потом монитор поднимается до уставки + 151 и стоит — "over" срабатывает. */
+static void over_after_lowering(float from, float to, float noise_amp)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, from, 0);
+    uint32_t now = 0; float out = 0;
+    for (int i = 0; i < 9000; i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out + noise(noise_amp)), VDD, now);
+        out = 0.916f * cw_of(d, VDD);
+    }
+    hv_set(&h, to, now);
+    for (int i = 0; i < 20000; i++) {             /* 200 с: разряд к уставке */
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out + noise(noise_amp)), VDD, now);
+        out += (0.916f * cw_of(d, VDD) - out) * (0.01f / 16.0f);
+    }
+    CHECK(hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) == NULL);
+    /* авария: выход растёт к уставке + 151 (τ 2 с) и стоит */
+    int t_trip = -1;
+    for (int i = 0; i < 6000 && hv_enabled(&h); i++) {
+        now += 10;
+        out += (to + 151.0f - out) * (0.01f / 2.0f);
+        hv_tick(&h, mon_mv_of(out + noise(noise_amp)), VDD, now);
+        if (!hv_enabled(&h)) t_trip = i;
+    }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+    CHECK(t_trip >= 0 && t_trip < 3000);          /* за ≤ 30 с от начала аварии */
+}
+
+static void test_over_after_lowering(void)
+{
+    over_after_lowering(1200.0f, 100.0f, 0.0f);
+    over_after_lowering(1000.0f, 200.0f, 0.0f);
+    over_after_lowering(1000.0f, 200.0f, 10.0f);
+    over_after_lowering(1200.0f, 100.0f, 40.0f);
 }
 
 static void test_no_over_trip_before_30s(void)
@@ -412,6 +507,9 @@ int main(void)
     test_set_vref();
     test_set_cal();
     test_trip_over();
+    test_over_hold_from_ramp_end();
+    test_millis_wrap();
+    test_over_after_lowering();
     test_no_over_trip_before_30s();
     test_near_ceiling();
     return T_DONE();

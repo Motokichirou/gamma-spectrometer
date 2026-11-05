@@ -11,8 +11,10 @@
  *    и после того, как выход «устоялся» (выдержка + монитор перестал идти к уставке — см. hv_ctl.c);
  *  - монитор |V| = (zero − V_mon)/k; у потолка АЦП (≥ 4090 кодов) — «≈0, не точно»;
  *  - защита по усреднённому монитору: > 1300 В → выкл ("abs", всегда);
- *    > уставки + 150 В → выкл ("over"), если уставка стоит > 30 с, выход устоялся и монитор
- *    не падает (выход, сам разряжающийся к сниженной уставке, — не авария; см. hv_ctl.c).
+ *    > уставки + 150 В → выкл ("over"), если с конца рампы (рампа дошла до уставки) прошло > 30 с,
+ *    выход устоялся и усреднённый монитор не падает (выход, сам разряжающийся к сниженной
+ *    уставке, — не авария; см. hv_ctl.c). Выдержки — по накопленному dt, переполнение millis
+ *    (49.7 сут) на них не влияет.
  */
 #ifndef HV_CTL_H
 #define HV_CTL_H
@@ -42,8 +44,8 @@ typedef struct {
     float mon_slow;               /* медленный фильтр монитора — для оценки скорости */
     bool  mon_seeded, near_ceil, en;
     bool  at_target, settled;     /* рампа дошла до уставки; выход устоялся — можно подстраивать */
-    bool  over_armed;             /* с последней смены уставки прошло > 30 с (ставится один раз) */
-    uint32_t last_ms, changed_ms, at_target_ms;
+    uint32_t last_ms;
+    uint32_t at_ms;               /* мс с конца рампы (Σ dt, насыщается) — выдержка и защита "over" */
     uint32_t settle_ms;           /* сколько подряд выполняется условие «устоялся» */
     const char *trip, *off_why;
 } hv_ctl_t;
@@ -57,8 +59,9 @@ int   hv_set_vref(hv_ctl_t *h, float vref_mv);
 int   hv_set_cal(hv_ctl_t *h, float zero_mv, float k_mv_per_v);
 /* 0…1200 В; 0 — ок, −1 — вне диапазона. Включает ENABLE; 0 В — плавный спуск и выключение.
    Повтор той же уставки ничего не меняет (не откладывает защиту "over").
-   0 В при выключенном ВВ ENABLE не включает — это квитирование аварии: сбрасывает только
-   hv_trip_reason; hv_off_reason остаётся (ВВ по-прежнему выключено по этой причине). */
+   Любая принятая уставка сбрасывает hv_trip_reason и hv_off_reason (в NULL). В том числе 0 В при
+   выключенном ВВ: ENABLE не включается (ни на один тик), это квитирование аварии — trip и причина
+   выключения сбрасываются, как при любой другой уставке. */
 int   hv_set(hv_ctl_t *h, float volts, uint32_t now_ms);
 void  hv_off(hv_ctl_t *h, const char *why);
 /* Шаг 10 мс: монитор (мВ), амплитуда ШИМ (мВ, уже усреднённая) → скважность 0…4095. */
@@ -68,7 +71,8 @@ float hv_mon_volts(const hv_ctl_t *h, float mon_mv);
 bool  hv_near_ceiling(const hv_ctl_t *h);
 bool  hv_enabled(const hv_ctl_t *h);              /* → PB10 и D102 */
 const char *hv_trip_reason(const hv_ctl_t *h);    /* NULL, "abs", "over" */
-const char *hv_off_reason(const hv_ctl_t *h);     /* последний why из hv_off/защиты, NULL — не выключали */
+const char *hv_off_reason(const hv_ctl_t *h);     /* последний why из hv_off/защиты; NULL — не
+                                                     выключали или после hv_set (квитировано) */
 float hv_trim(const hv_ctl_t *h);
 float hv_ramp(const hv_ctl_t *h);
 float hv_setpoint(const hv_ctl_t *h);
