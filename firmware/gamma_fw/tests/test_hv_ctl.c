@@ -10,6 +10,14 @@
 #define VDD  3296.0f
 
 static float mon_mv_of(float volts) { return ZERO - K * volts; }
+
+/* Шум монитора (SPEC §5: ±5…10 В на 1000 В, до ±40 В на 1200): равномерный ±amp, LCG. */
+static uint32_t lcg_ = 12345u;
+static float noise(float amp)
+{
+    lcg_ = lcg_ * 1664525u + 1013904223u;
+    return amp * ((float)(lcg_ >> 8) / 8388608.0f - 1.0f);
+}
 static float cw_of(uint16_t duty, float vdd) { return (float)duty / 4096.0f * vdd / 1000.0f * 454.5f; }
 
 /* Прогон модели «выход = ratio·CW» (без инерции) на n тиков по 10 мс; возвращает последний выход. */
@@ -95,12 +103,31 @@ static void test_trim_converges(void)
     hv_ctl_t h; hv_init(&h, ZERO, K);
     hv_set(&h, 1000.0f, 0);
     uint32_t now = 0; float out = 0;
-    run_model(&h, 0.916f, &now, 6000, &out);      /* 60 с */
+    /* 70 с: рампа 10 с + выдержка/оценка скорости ≈ 18 с + подтверждение 2 с + интегратор τ ≈ 10 с */
+    run_model(&h, 0.916f, &now, 7000, &out);
     CHECK(hv_enabled(&h));
-    CHECK_NEAR(out, 1000.0, 3.0);
-    CHECK_NEAR(hv_mon_avg(&h), 1000.0, 3.0);
+    /* ±3 В мёртвой зоны + шаг ШИМ (0.4 В на CW): подход снизу встаёт на 997.0 ± шаг */
+    CHECK_NEAR(out, 1000.0, 3.5);
+    CHECK_NEAR(hv_mon_avg(&h), 1000.0, 3.5);
     /* точное значение 1000/0.916 − 1000 = 91.7; подход снизу останавливается на краю мёртвой зоны */
     CHECK(hv_trim(&h) > 88.0f && hv_trim(&h) < 92.5f);
+}
+
+/* То же с шумом монитора ±10 В: подстройка сходится, ложных срабатываний нет. */
+static void test_trim_converges_noisy(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    for (int i = 0; i < 9000; i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out + noise(10.0f)), VDD, now);
+        out = 0.916f * cw_of(d, VDD);
+    }
+    CHECK(hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) == NULL);
+    CHECK_NEAR(out, 1000.0, 4.0);
+    CHECK(hv_trim(&h) > 86.0f && hv_trim(&h) < 97.0f);
 }
 
 static void test_deadband(void)
@@ -169,22 +196,27 @@ static void test_trip_abs(void)
     CHECK(hv_trip_reason(&h) == NULL);
 }
 
-/* 1000 → 500; выход отстаёт от CW с τ (разряд через делитель), коэффициент цепочки тот же 0.916.
-   Добавка после масштабирования верна (0.916·(500 + 44.4) ≈ 498.7 — в мёртвой зоне), поэтому
-   подстройка, пока монитор догоняет, не должна её стирать и ронять выход ниже уставки. */
-static void lowering_case(float tau_s, int n_ticks)
+/* from → to; выход отстаёт от CW с τ (разряд через делитель / без нагрузки), коэффициент цепочки
+   тот же 0.916. Добавка после масштабирования верна (1000 → 500: 0.916·(500 + 44.4) ≈ 498.7 —
+   в мёртвой зоне), поэтому подстройка, пока монитор догоняет, не должна её стирать и ронять выход
+   ниже уставки, а защита "over" — срабатывать на разряжающемся выходе. noise_amp — шум монитора, В. */
+static void lowering_case(float from, float to, float tau_s, float noise_amp, int n_ticks)
 {
     hv_ctl_t h; hv_init(&h, ZERO, K);
-    hv_set(&h, 1000.0f, 0);
+    hv_set(&h, from, 0);
     uint32_t now = 0; float out = 0;
-    run_model(&h, 0.916f, &now, 6000, &out);
-    CHECK(hv_set(&h, 500.0f, now) == 0);
+    for (int i = 0; i < 9000; i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out + noise(noise_amp)), VDD, now);
+        out = 0.916f * cw_of(d, VDD);
+    }
+    CHECK(hv_set(&h, to, now) == 0);
     float t_scaled = hv_trim(&h);
-    CHECK(t_scaled > 40.0f);
+    CHECK(t_scaled > 0.07f * to);
     float trim_min = t_scaled, out_min = out;
     for (int i = 0; i < n_ticks; i++) {
         now += 10;
-        uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
+        uint16_t d = hv_tick(&h, mon_mv_of(out + noise(noise_amp)), VDD, now);
         float target = 0.916f * cw_of(d, VDD);
         out += (target - out) * (0.01f / tau_s);
         if (hv_trim(&h) < trim_min) trim_min = hv_trim(&h);
@@ -193,14 +225,23 @@ static void lowering_case(float tau_s, int n_ticks)
     CHECK(hv_enabled(&h));
     CHECK(hv_trip_reason(&h) == NULL);
     CHECK(trim_min >= 0.9f * t_scaled);
-    CHECK(out_min >= 500.0f - 5.0f);
-    CHECK_NEAR(out, 500.0, 3.5);
+    CHECK(out_min >= to - 5.0f);
+    CHECK_NEAR(out, to, 3.5);
 }
 
 static void test_no_false_trip_after_lowering(void)
 {
-    lowering_case(2.0f, 9000);    /* 90 с */
-    lowering_case(16.0f, 15000);  /* 150 с */
+    lowering_case(1000.0f, 500.0f, 2.0f, 0.0f, 9000);     /* 90 с */
+    lowering_case(1000.0f, 500.0f, 16.0f, 0.0f, 15000);   /* 150 с */
+    /* большое снижение без нагрузки: к 30 с от команды выход ещё на сотни вольт выше уставки */
+    lowering_case(1200.0f, 100.0f, 16.0f, 0.0f, 20000);   /* 200 с */
+    lowering_case(1000.0f, 200.0f, 16.0f, 0.0f, 20000);
+    lowering_case(1200.0f, 300.0f, 16.0f, 0.0f, 20000);
+    /* то же с шумом монитора */
+    lowering_case(1000.0f, 500.0f, 2.0f, 10.0f, 9000);
+    lowering_case(1000.0f, 500.0f, 16.0f, 10.0f, 15000);
+    lowering_case(1000.0f, 200.0f, 16.0f, 10.0f, 20000);
+    lowering_case(1200.0f, 100.0f, 16.0f, 40.0f, 20000);
 }
 
 /* Добавка неверна после снижения (цепочка сменила коэффициент) — подстройка всё же доходит. */
@@ -240,7 +281,8 @@ static void test_repeat_set_keeps_over_trip(void)
     CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
 }
 
-/* hv_set(0) при выключенном ВВ не включает ENABLE даже на один тик. */
+/* hv_set(0) при выключенном ВВ не включает ENABLE даже на один тик; квитирует аварию
+   (trip → NULL), причину выключения оставляет. */
 static void test_set_zero_when_off(void)
 {
     hv_ctl_t h; hv_init(&h, ZERO, K);
@@ -248,6 +290,49 @@ static void test_set_zero_when_off(void)
     CHECK(!hv_enabled(&h));
     CHECK(hv_tick(&h, mon_mv_of(0), VDD, 10) == 0);
     CHECK(!hv_enabled(&h));
+    hv_set(&h, 1200.0f, 20);
+    uint32_t now = 20;
+    for (int i = 0; i < 1000 && hv_enabled(&h); i++) { now += 10; hv_tick(&h, mon_mv_of(1301.0f), VDD, now); }
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "abs") == 0);
+    const char *why = hv_off_reason(&h);
+    CHECK(why != NULL);
+    CHECK(hv_set(&h, 0.0f, now) == 0);
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) == NULL);
+    CHECK(hv_off_reason(&h) == why);
+}
+
+/* Подъём уставки с отмасштабированной добавкой: hv_trim() не выше потолка CW и во время рампы. */
+static void test_trim_clamped_during_ramp(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 997.0f / 1098.0f, &now, 9000, &out);   /* trim ≈ 98 */
+    CHECK(hv_set(&h, 1200.0f, now) == 0);                 /* масштаб → ≈ 118 */
+    for (int i = 0; i < 2500; i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
+        out = (997.0f / 1098.0f) * cw_of(d, VDD);
+        CHECK(hv_ramp(&h) + hv_trim(&h) <= 1300.0f + 1e-3f);
+    }
+}
+
+/* Опора монитора: вне 2000…3400 мВ отвергается, прежнее значение остаётся. */
+static void test_set_vref(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    float mv4092 = 4092.0f * 2500.0f / 4095.0f;
+    volatile float zero = 0.0f;
+    CHECK(hv_set_vref(&h, 0.0f) == -1);
+    CHECK(hv_set_vref(&h, -5.0f) == -1);
+    CHECK(hv_set_vref(&h, 1999.0f) == -1);
+    CHECK(hv_set_vref(&h, 3401.0f) == -1);
+    CHECK(hv_set_vref(&h, zero / zero) == -1);                           /* NaN */
+    CHECK_NEAR(hv_mon_volts(&h, mv4092), 0.0, 1e-9);                     /* 2500 осталось */
+    CHECK_NEAR(hv_mon_volts(&h, mon_mv_of(500.0f)), 500.0, 1e-3);
+    CHECK(hv_set_vref(&h, 3300.0f) == 0);
+    CHECK_NEAR(hv_mon_volts(&h, mv4092), (ZERO - mv4092) / K, 1e-3);     /* уже не потолок */
 }
 
 /* Калибровка монитора: только при выключенном ВВ, остальное состояние не сбрасывает. */
@@ -298,7 +383,7 @@ static void test_near_ceiling(void)
     hv_tick(&h, mon_mv_of(10.0f), VDD, 20);
     CHECK(!hv_near_ceiling(&h));
     /* другая опора */
-    hv_set_vref(&h, 2490.0f);
+    CHECK(hv_set_vref(&h, 2490.0f) == 0);
     CHECK_NEAR(hv_mon_volts(&h, 4091.0f * 2490.0f / 4095.0f), 0.0, 1e-9);
     /* у потолка подстройка не идёт: ВВ малое, монитор «≈0, не точно» */
     hv_init(&h, ZERO + 40.0f, K);                 /* TL431 в плюсе: ноль выше потолка */
@@ -314,6 +399,7 @@ int main(void)
     test_ramp_100vps();
     test_set_zero_turns_off();
     test_trim_converges();
+    test_trim_converges_noisy();
     test_deadband();
     test_trim_rescale();
     test_cw_ceiling();
@@ -322,6 +408,8 @@ int main(void)
     test_trim_after_lowering_wrong_ratio();
     test_repeat_set_keeps_over_trip();
     test_set_zero_when_off();
+    test_trim_clamped_during_ramp();
+    test_set_vref();
     test_set_cal();
     test_trip_over();
     test_no_over_trip_before_30s();
