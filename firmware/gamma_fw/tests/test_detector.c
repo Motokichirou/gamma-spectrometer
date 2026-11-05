@@ -356,10 +356,10 @@ static void test_template_large_values(void)
         for (unsigned k = 0; k < DET_NS; k++) tpl_big[p][k] = 20000;
     reset(DET_THR_DEF);
     det_set_template(&det, tpl_big);
-    CHECK_NEAR(det.tpl_ihh[0], 1.0 / (7.0 * 20000.0 * 20000.0), 1e-14);
+    CHECK_NEAR(det.tph[0].ihh, 1.0 / (7.0 * 20000.0 * 20000.0), 1e-14);
     for (unsigned k = 0; k < DET_NS; k++) tpl_big[0][k] = 32767;
     det_set_template(&det, tpl_big);
-    CHECK_NEAR(det.tpl_ihh[0] * 7.0 * 32767.0 * 32767.0, 1.0, 1e-6);
+    CHECK_NEAR(det.tph[0].ihh * 7.0 * 32767.0 * 32767.0, 1.0, 1e-6);
     /* эталон ×2 (пик 32767 вместо 16384): импульсы принимаются, канал — вдвое меньше */
     for (unsigned p = 0; p < DET_NPH; p++)
         for (unsigned k = 0; k < DET_NS; k++) {

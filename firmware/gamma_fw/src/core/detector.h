@@ -141,6 +141,14 @@ typedef struct {
     float    base;           /* база, от которой считан импульс, коды АЦП */
 } det_cap_t;
 
+/* строка эталона для подгонки: отсчёты парами в словах (h0|h1<<16, h2|h3, h4|h5, h6) — скалярное
+   произведение на 7 отсчётов = 4 SMLAD; Σh и 1/Σh² рядом, одна строка — 24 байта подряд */
+typedef struct {
+    uint32_t h[4];
+    float    sh;                  /* (float)Σh — точно, |Σh| ≤ 7·32768 < 2^24 */
+    float    ihh;                 /* 1/Σh² (0 — строка нулевая) */
+} det_tph_t;
+
 typedef struct {
     /* конфигурация */
     det_cfg_t cfg;
@@ -148,8 +156,7 @@ typedef struct {
     float     gain;
     const int16_t (*tpl)[DET_NS];
     det_emit_fn emit;
-    float     tpl_ihh[DET_NPH];   /* 1/Σh² по строке */
-    int32_t   tpl_sh[DET_NPH];    /* Σh по строке */
+    det_tph_t tph[DET_NPH];       /* эталон для подгонки: строки, Σh, 1/Σh² (det_set_template) */
 
     /* база и шум */
     int       init;
@@ -190,7 +197,7 @@ typedef struct {
     uint16_t  guard_left;
     int16_t   peak, lpeak, fall_min;
     uint16_t  imax, len;
-    int16_t   buf[DET_BUF];       /* s − bint */
+    int16_t   buf[DET_BUF];       /* s − pbint; окно подгонки читается словами (memcpy) */
 
     det_stats_t st;
 } det_t;

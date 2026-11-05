@@ -23,8 +23,12 @@
 #     обращение к данным в CCM (AN4296: код в CCM, данные в SRAM1 — чтобы этого не было);
 #   - чтение констант из флеш (эталон tpl_* — static const): 4 WS при 156 МГц, кэш данных ART
 #     8 строк × 32 байта (LRU), промах +4 такта.
+#   - LDR/STR слова без выравнивания на 4: +1 такт (два обращения к шине).
 #   Без модели памяти эмулятор давал 77 тактов/отсчёт медленного пути и 1175 на подгонку против
-#   111 и 1620 по DWT на плате (2026-11-06) — с ней совпадает (см. вывод для ДО).
+#   111 и 1620 по DWT на плате (2026-11-06); с ней — 93 и 1328, т. е. ДО всё ещё на 15–20 % ниже
+#   платы (штраф CCM 2 такта даёт 108/отсчёт, но подгонку не догоняет: CYC_CCM_PEN=2 run.sh).
+#   В новой прошивке det_t в ОЗУ (main.c), к CCM ПОСЛЕ не обращается — эта неопределённость его
+#   не касается; быстрый проход (код в CCM, данные в ОЗУ) с платой совпал: 3.57 против 3.4.
 import argparse, os, re, struct, subprocess, sys
 
 import numpy as np
@@ -51,11 +55,12 @@ FLAGS = ['-mcpu=cortex-m4', '-mthumb', '-mfpu=fpv4-sp-d16', '-mfloat-abi=hard',
          '-std=gnu11', '-O2', '-g', '-Wall', '-Wextra', '-fno-math-errno',
          '-ffunction-sections', '-fdata-sections', '-DSTM32G474xx']
 
-def build(variant):
+def build(variant, det_ram=False):
     tc = toolchain()
     os.makedirs(OUT, exist_ok=True)
-    elf = os.path.join(OUT, variant + '.elf')
-    srcs, defs = [os.path.join(HERE, 'harness.c')], []
+    tag = variant + ('_ram' if det_ram else '')
+    elf = os.path.join(OUT, tag + '.elf')
+    srcs, defs = [os.path.join(HERE, 'harness.c')], (['-DDET_IN_RAM'] if det_ram else [])
     if variant in ('new', 'both'):
         srcs.append(os.path.join(FW, 'src', 'core', 'detector.c')); defs.append('-DWITH_NEW')
     if variant in ('ref', 'both'):
@@ -82,7 +87,7 @@ def build(variant):
     if variant != 'both':
         dis = subprocess.run([tc + '/arm-none-eabi-objdump', '-d', '--no-show-raw-insn', elf],
                              capture_output=True, text=True).stdout
-        open(os.path.join(OUT, variant + '.dis'), 'w', encoding='utf-8').write(dis)
+        open(os.path.join(OUT, tag + '.dis'), 'w', encoding='utf-8').write(dis)
     return elf, syms, sorted(funcs)
 
 def load_segments(elf):
@@ -141,6 +146,7 @@ def classify(ins):
     return 1, False, isbr
 
 STOP = 0x080FFF00
+CCM_PEN = int(os.environ.get('CYC_CCM_PEN', '1'))   # такт на обращение к данным в CCM из кода в CCM
 
 class Emu:
     def __init__(self, elf, syms, funcs, count=True, memmodel=True):
@@ -201,17 +207,17 @@ class Emu:
         if p is None:
             return
         pc, fn = p[0], p[3]
-        c = 0
+        c = 1 if (size == 4 and addr & 3) else 0         # LDR/STR без выравнивания — два обращения
         if 0x10000000 <= addr < 0x10010000:
             if 0x10000000 <= pc < 0x10010000:
-                c = 1                                   # I- и D-шина в один банк CCM
+                c += CCM_PEN                            # I- и D-шина в один банк CCM
         elif 0x08000000 <= addr < 0x08100000:
             line = addr >> 5
             dc = self.dcache
             if line in dc:
                 dc.remove(line)
             else:
-                c = 4                                   # промах кэша данных ART: 4 WS
+                c += 4                                  # промах кэша данных ART: 4 WS
                 if len(dc) >= 8:
                     dc.pop(0)
             dc.append(line)
@@ -341,7 +347,8 @@ def stats_of(emu, p):
     return dict(accepted=acc, rej_pileup=pil, rej_shape=shp, rej_width=wid, rej_budget=bud)
 
 def measure(variant, args):
-    elf, syms, funcs = build(variant)
+    det_ram = args.det_place == 'ram' or (args.det_place == 'fw' and variant == 'new')
+    elf, syms, funcs = build(variant, det_ram)
     p = variant + '_'
     Emu.want_prof = bool(args.prof)
     emu = Emu(elf, syms, funcs, count=True, memmodel=not args.no_mem)
@@ -371,12 +378,13 @@ def measure(variant, args):
         emu.write('h_buf', data[b0 * BLK:(b0 + nb) * BLK].tobytes())
         for b in range(nb):
             emu.call(p + 'block', b * BLK, BLK)
-    tot, fast, fit, fsamp = emu.cyc, emu.fcyc.get('fast_scan', 0), emu.fcyc.get('fit', 0), emu.fast_samples
+    tot, fast, fsamp = emu.cyc, emu.fcyc.get('fast_scan', 0), emu.fast_samples
+    fit = emu.fcyc.get('fit', 0) + emu.fcyc.get('finish', 0)          # ДО: fit + finish, ПОСЛЕ: одна fit
     st1 = stats_of(emu, p)
     if args.prof:                                   # такты по адресам функции --prof (на порцию)
         lo, hi = emu.func_range(args.prof)
         dis = {}
-        for ln in open(os.path.join(OUT, variant + '.dis'), encoding='utf-8'):
+        for ln in open(os.path.join(OUT, variant + ('_ram' if det_ram else '') + '.dis'), encoding='utf-8'):
             m = re.match(r'\s*([0-9a-f]+):\s+(.*)', ln)
             if m:
                 dis[int(m.group(1), 16)] = m.group(2)
@@ -395,7 +403,7 @@ def measure(variant, args):
              slow_samples_per_pulse=slow_samples / max(1, trig),
              cpu=100.0 * tot / nblk / (blk_ms * CPU), trig=trig, fits=fits, acc=d['accepted'],
              rate=trig / (nblk * blk_ms), top=sorted(emu.fcyc.items(), key=lambda kv: -kv[1])[:8],
-             tot=tot, nblk=nblk)
+             tot=tot, nblk=nblk, mem=emu.mem_pen / max(1, trig))
     return r
 
 def report(r):
@@ -405,8 +413,9 @@ def report(r):
     print(f"  быстрый проход (fast_scan) в потоке:       {r['fast_per']:.2f} такт/отсч")
     print(f"  медленный путь:                            {r['slow_per_pulse']:.0f} тактов/импульс "
           f"({r['slow_samples_per_pulse']:.1f} отсч/импульс)")
-    print(f"    из них подгонка (fit):                   {r['fit_per']:.0f} тактов/подгонку")
+    print(f"    из них подгонка и выдача (fit+finish):   {r['fit_per']:.0f} тактов/подгонку")
     print(f"    без подгонки:                            {r['slow_nofit_per_sample']:.1f} такт/отсч медл. пути")
+    print(f"  в том числе модель памяти (CCM, флеш):     {r['mem']:.0f} тактов/импульс")
     print(f"  триггеров {r['trig']} (подгонок {r['fits']}, принято {r['acc']}), "
           f"{r['rate'] / 1e3:.1f} ктриг/с; ЦП при 156 МГц: {r['cpu']:.1f} %")
     print('  по функциям, тактов/порцию: ' + ', '.join(f"{k} {v / r['nblk']:.0f}" for k, v in r['top']))
@@ -464,7 +473,7 @@ def equiv(args):
             for rate in (30000, 120000):
                 scen.append((kind, sig, rate))
     for idx, (kind, sig, rate) in enumerate(scen):
-        s, npl = make_stream(shape, 12, rate, args.seed + idx, kind=kind, sigma=sig)
+        s, npl = make_stream(shape, 40, rate, args.seed + idx, kind=kind, sigma=sig)
         total['pulses'] += npl
         blks = [BLK] if idx % 3 == 0 else ([BLK, 7, 1, 333, 4096, 5000] if idx % 3 == 1 else [1000, 3, 2048])
         cap = idx % 2 == 0
@@ -496,7 +505,8 @@ def equiv(args):
     if fails:
         print('РАСХОЖДЕНИЯ: ' + '; '.join(fails[:20]))
         return 1
-    print('новый детектор совпал со старым бит в бит (каналы, статистика, база, σ, порог, окна)')
+    print('новый детектор совпал со старым бит в бит (каналы, статистика, база, σ, порог, окна, '
+          'суммы базы, счёт ступеньки, состояние)')
     return 0
 
 def main():
@@ -505,6 +515,9 @@ def main():
     ap.add_argument('--equiv', action='store_true')
     ap.add_argument('--no-mem', action='store_true', help='без модели памяти (конфликт CCM, флеш WS)')
     ap.add_argument('--prof', metavar='ФУНКЦИЯ', help='такты по инструкциям функции (на порцию)')
+    ap.add_argument('--det-place', choices=('fw', 'ccm', 'ram'), default='fw',
+                    help='где det_t: fw — как в прошивке (ДО — CCM, как в main.c до c247193+; ПОСЛЕ — ОЗУ, '
+                         'как сейчас), ccm/ram — у обоих')
     ap.add_argument('--rate', type=float, default=30000)
     ap.add_argument('--blocks', type=int, default=20)
     ap.add_argument('--seed', type=int, default=1)

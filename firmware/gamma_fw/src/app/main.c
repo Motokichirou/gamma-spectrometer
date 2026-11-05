@@ -111,7 +111,10 @@ static bool      sec_vrefint_new, sec_vbat_new, sec_pt_new;
 /* ---- состояние приложения ---- */
 static settings_t live;
 static hv_ctl_t   hv;
-static CCM_BSS det_t det;                       /* горячие данные детектора — рядом с его кодом */
+/* Данные детектора — в ОЗУ (SRAM1), а не в CCM рядом с его кодом: код медленного пути исполняется
+   из CCM, и обращение к данным там же идёт в тот же банк, что и выборка команд (I- и D-шина, AN4296) —
+   по модели tools/cyc это +1 такт на обращение, ≈ 170 тактов на импульс. */
+static det_t det;
 static CCM_BSS uint16_t  osc_buf[OSC_MAX * OSC_W];
 static CCM_BSS det_cap_t osc_info[OSC_MAX];
 static bool       osc_on;

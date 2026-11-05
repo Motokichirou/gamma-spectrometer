@@ -1,17 +1,28 @@
 /* harness_body.h — тело обвязки, включается из harness.c с P() (префикс), T() (det_/detref_),
  * M() (DET_/DETREF_). Без защиты от повторного включения — так задумано. */
 
+#ifdef DET_IN_RAM
+T(t) P(det);                     /* --det-ram: det_t в ОЗУ */
+#else
 CCM_BSS T(t) P(det);             /* как в main.c: det_t в CCM SRAM */
+#endif
 uint16_t P(ch)[CHMAX];               /* выданные каналы с последнего <p>_clear */
 uint32_t P(nch);
 uint16_t P(capbuf)[CAPN * CAPW];
 T(cap_t) P(capinfo)[CAPN];
 
-/* снимок состояния для сверки: статистика, база и σ побитно, порог, окна */
+/* снимок состояния для сверки: статистика, база и σ побитно, порог, окна, внутреннее состояние */
 struct P(dump_s) {
     T(stats_t) st;
-    float    base, sigma;
+    float    base, sigma, var;
     uint32_t thr, measuring, capn;
+    int32_t  bint;                   /* внутреннее — сверка бит в бит (как tests/test_det_equiv.c) */
+    uint32_t qn;
+    uint64_t qsum, qsq;
+    uint32_t stk_n;
+    int32_t  stk_s1;
+    int64_t  stk_s2;
+    uint32_t state, pos0, fits_left, cap_on;
 } P(out);
 
 static void P(emit)(uint16_t c)
@@ -58,4 +69,16 @@ void P(dump)(void)
     P(out).thr = T(thr)(&P(det));
     P(out).measuring = (uint32_t)T(thr_measuring)(&P(det));
     P(out).capn = T(capture_count)(&P(det));
+    P(out).var = P(det).var;
+    P(out).bint = P(det).bint;
+    P(out).qn = P(det).qn;
+    P(out).qsum = P(det).qsum;
+    P(out).qsq = P(det).qsq;
+    P(out).stk_n = P(det).stk_n;
+    P(out).stk_s1 = P(det).stk_s1;
+    P(out).stk_s2 = P(det).stk_s2;
+    P(out).state = P(det).state;
+    P(out).pos0 = P(det).pos0;
+    P(out).fits_left = P(det).fits_left;
+    P(out).cap_on = P(det).cap_on;
 }

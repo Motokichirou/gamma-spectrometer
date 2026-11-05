@@ -95,7 +95,10 @@ static void compare(size_t blk)
     nn = nr = 0;
     if (bad) {
         if (tot_fails < 10)
-            printf("  РАСХОЖДЕНИЕ: %s, порция %u, маска 0x%x\n", cur_tag, (unsigned)blk, bad);
+            printf("  РАСХОЖДЕНИЕ: %s, порция %u, маска 0x%x; состояние %u/%u, ступенька %u/%u %d/%d "
+                   "%lld/%lld, каналов %d/%d\n", cur_tag, (unsigned)blk, bad, dn.state, dr.state,
+                   dn.stk_n, dr.stk_n, dn.stk_s1, dr.stk_s1, (long long)dn.stk_s2, (long long)dr.stk_s2,
+                   nn, nr);
         tot_fails++;
     }
 }
