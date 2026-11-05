@@ -150,6 +150,10 @@ static void adc_init(void)
     ADC12_COMMON->CCR = (3u << ADC_CCR_CKMODE_Pos) | ADC_CCR_VREFEN | ADC_CCR_VBATSEL; /* HCLK/4 = 32 МГц */
     adc_on(ADC1);
     adc_on(ADC2);
+    RCC->AHB2ENR |= RCC_AHB2ENR_ADC345EN;
+    (void)RCC->AHB2ENR;
+    ADC345_COMMON->CCR = (3u << ADC_CCR_CKMODE_Pos);   /* HCLK/4 */
+    adc_on(ADC4);
 }
 
 static uint32_t adc_read(ADC_TypeDef *a, uint32_t ch)
@@ -174,6 +178,9 @@ static void opamp_init(void)
     OPAMP1->CSR = OPAMP_CSR_OPAMPxEN;
     OPAMP2->CSR = OPAMP_CSR_OPAMPxEN;
     OPAMP3->CSR = OPAMP_CSR_OPAMPxEN | (2u << OPAMP_CSR_VMSEL_Pos) | OPAMP_CSR_PGGAIN_0;
+    /* Pt1000: узел ~0.25 В -> x8 -> ~2 В на ADC4; 1 LSB = 0.09 °C вместо 0.75 (2026-11-06) */
+    OPAMP6->CSR = OPAMP_CSR_OPAMPxEN | (2u << OPAMP_CSR_VMSEL_Pos) | (2u << OPAMP_CSR_PGGAIN_Pos) |
+                  OPAMP_CSR_OPAMPINTEN;   /* VPSEL = 0: PB12 */
 }
 
 static void report(uint32_t vref_mv)
@@ -406,7 +413,8 @@ static int noise_pt(const char *a, uint32_t vref_mv)
  * Ратиометрично: R = 10к * raw / (4095 - raw), опора сокращается.
  * T по Каллендару — Ван Дюзену (T >= 0): R = R0 (1 + A T + B T^2). */
 #define PT_R0    1000.0f
-#define PT_RPU   10056.0f       /* R303 эффективное: калибровка 2026-11-05 по ИВТМ-7 (25.2 °C), номинал 10к ±1 % */
+#define PT_GAIN  8.0f            /* OPAMP6 PGA */
+#define PT_RPU   10024.5f       /* R303 + усиление OPAMP6: калибровка 2026-11-06 по ИВТМ-7 25.5 °C */
 #define PT_A     3.9083e-3f
 #define PT_B     (-5.775e-7f)
 static float sqrt_n(float x) { if (x <= 0) return 0; float r = x > 1 ? x : 1; for (int k = 0; k < 30; k++) r = 0.5f * (r + x / r); return r; }
@@ -414,20 +422,21 @@ static float pt_raw_f;          /* усреднённый код (256 отсчё
 static void pt_measure(void)
 {
     uint32_t sum = 0;
-    ADC1->SQR1 = 11u << ADC_SQR1_SQ1_Pos;
+    ADC4->SQR1 = 17u << ADC_SQR1_SQ1_Pos;             /* VOPAMP6 */
     for (int i = 0; i < 256; i++) {
-        ADC1->ISR = ADC_ISR_EOC;
-        ADC1->CR |= ADC_CR_ADSTART;
-        while (!(ADC1->ISR & ADC_ISR_EOC)) {}
-        sum += ADC1->DR;
+        ADC4->ISR = ADC_ISR_EOC;
+        ADC4->CR |= ADC_CR_ADSTART;
+        while (!(ADC4->ISR & ADC_ISR_EOC)) {}
+        sum += ADC4->DR;
     }
     pt_raw_f = sum / 256.0f;
 }
 static void pt_print(void)
 {
     float raw = pt_raw_f;
-    if (raw > 4000.0f) { uart_puts(" Pt=open"); return; }
-    float R = PT_RPU * raw / (4095.0f - raw);
+    if (raw > 4080.0f) { uart_puts(" Pt=open/over"); return; }
+    float x = raw / (4095.0f * PT_GAIN);
+    float R = PT_RPU * x / (1.0f - x);
     float T = (-PT_A + sqrt_n(PT_A * PT_A - 4.0f * PT_B * (1.0f - R / PT_R0))) / (2.0f * PT_B);
     static float Tf = -1000.0f;                       /* сглаживание τ ≈ 10 с (замер раз в 1 с) */
     Tf = (Tf < -500.0f) ? T : Tf + (T - Tf) * 0.1f;

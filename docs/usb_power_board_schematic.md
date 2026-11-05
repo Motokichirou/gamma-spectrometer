@@ -35,11 +35,11 @@
 | C114 | 100нФ | Device:C | −5V_A фильтр |
 | C115 | 47мкФ X5R | Device:C | +5V_HV bulk |
 | C116 | 100нФ | Device:C | +5V_HV bypass |
-| R101 | 330Ом | Device:R | LED D101 (CBUS0 → синий) |
+| R101 | 330Ом | Device:R | LED D101 (CBUS0 → оранжевый) |
 | R102 | 330Ом | Device:R | LED D102 (статус → зелёный) |
 | R_CC101 | 5.1кОм | Device:R | USB-C CC1 → GND |
 | R_CC102 | 5.1кОм | Device:R | USB-C CC2 → GND |
-| D101 | LED синий | Device:LED | USB активность, от FT231XQ CBUS0 |
+| D101 | LED оранжевый (на плате; в BOM был синий) | Device:LED | горит при передаче ПК → МК: CBUS0 = TXDEN по умолчанию (2026-11-06) |
 | D102 | LED зелёный | Device:LED | Статус, управление от MCU (global label LED) |
 
 ---
@@ -266,7 +266,7 @@ MAX1847 + IRLML0060 + CW-умножитель: **~112 мА** @ 5В (typ при U
 | 9 | USBDM (D−) | net D_N ← от U_ESD I/O1 |
 | 17 | TXD | global label UART_TX (→ MCU RX) |
 | 1 | RXD | global label UART_RX (← MCU TX) |
-| 15 | CBUS0 | R1/R101 (330Ом) → D5/D101 (LED синий) → GND |
+| 15 | CBUS0 | R1/R101 (330Ом) → D5/D101 (LED, на плате оранжевый) → GND |
 | 19,6,18,4,5,2 | RTS,CTS,DTR,DSR,DCD,RI | No Connect |
 | 14,7,16 | CBUS1,CBUS2,CBUS3 | No Connect |
 
@@ -280,7 +280,7 @@ MAX1847 + IRLML0060 + CW-умножитель: **~112 мА** @ 5В (typ при U
 - **C18 (KiCad: C109)**: 100 нФ X7R 0402 (3V3OUT bypass)
 - C16, C17 не размещены — FT231 VCC/VCCIO питается от +3.3V_D; bypass: общие C105/C107
 - **R1 (KiCad: R102)**: 330 Ом 0402
-- **D5 (KiCad: D101)**: LED синий 0402 (Würth 150040BS73240)
+- **D5 (KiCad: D101)**: LED 0402 — в BOM синий Würth 150040BS73240, на плате стоит оранжевый
 
 ---
 
