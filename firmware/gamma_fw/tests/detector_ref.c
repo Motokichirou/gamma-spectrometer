@@ -314,6 +314,8 @@ CCM_FUNC static void cap_continue(detref_t *d, const uint16_t *s, size_t n)
    amp, phase — амплитуда (коды) и выбранная строка эталона (для записи окна). */
 CCM_FUNC static int fit(detref_t *d, uint16_t *ch, float *amp, uint8_t *phase)
 {
+    if (d->imax < DETREF_IPK)                 /* окно за началом буфера (исправлено и в detector.c) */
+        return 0;
     const int16_t *y = d->buf + (d->imax - DETREF_IPK);
     const float frac = d->pbase - (float)d->pbint;      /* y_ист = y − frac */
     const int32_t thr = d->cfg.thr;

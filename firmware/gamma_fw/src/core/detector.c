@@ -370,6 +370,10 @@ static inline int32_t fbits(float x)
    функции: результаты не ходят через память. */
 CCM_FUNC static void fit(det_t *d)
 {
+    /* максимум на до-триггерном отсчёте buf[0] (порог снижен или база упала между порциями):
+       окно ушло бы за начало буфера — отбраковка по форме */
+    if (d->imax < DET_IPK)
+        goto reject;
     const int16_t *y = d->buf + (d->imax - DET_IPK);
     const int32_t thr = d->cfg.thr;
     /* выброс 1–2 отсчёта: подряд выше thr/2 вокруг пика меньше DET_MIN_HALF отсчётов — до всего
@@ -572,7 +576,11 @@ trigger:                                     /* *p — триггер: нача�
     }
 pulse:
     bmax = buf + d->cfg.max_w + 1;
-    if (pbint != bint || (hl == half && stk_n >= DET_BASE_N - DET_BUF))
+    /* общий режим и тогда, когда между порциями поменялись порог или ширина: порог вырос при
+       falling (быстрый спад не проверяет lpeak ≥ 2·thr) или max_w уменьшилась ниже набранной
+       ширины (bp > bmax — plim ниже переполнился бы) */
+    if (pbint != bint || (hl == half && stk_n >= DET_BASE_N - DET_BUF) || bp > bmax
+        || (falling && lpeak < thr2))
         goto pulse_g;
 pulse_f:
     p0 = p;
@@ -663,7 +671,13 @@ pulse_g:                                     /* общий режим (база 
                 }
             }
         }
-        if (dev <= thr) goto term;
+        /* ширина — до конца импульса, как в прежнем коде: width = len − 1 после отсчёта выше
+           порога и len − 2 после отсчёта ниже (он в ширину не входит). Штатно на отсчёте ниже
+           порога bp ≤ bmax + 1; больше — только если max_w уменьшили посреди импульса */
+        if (dev <= thr) {
+            if (bp - bmax > 1) goto wide;
+            goto term;
+        }
         if (bp > bmax) goto wide;
     }
     goto out;

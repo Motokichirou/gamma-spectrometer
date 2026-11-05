@@ -190,8 +190,105 @@ static void hook_dac(unsigned k)
     if (k == 30) both_hold(0);
 }
 
+/* ---- смена порога/ширины между порциями посреди импульса и максимум на buf[0] (ревью slowpath) ---- */
+static size_t fed;
+static void feed_to(size_t b)                     /* sbuf[fed, b) — одной порцией, сверка */
+{
+    det_process_block(&dn, sbuf + fed, b - fed);
+    detref_process_block(&dr, sbuf + fed, b - fed);
+    compare((unsigned)tot_blocks);
+    tot_blocks++;
+    fed = b;
+}
+static void put_dev(size_t at, const int *dv, size_t k)   /* отсчёты bint + dv[] */
+{
+    for (size_t q = 0; q < k; q++) sbuf[at + q] = (uint16_t)(dn.bint + dv[q]);
+}
+/* шум σ 1.2 вокруг 645 на 3 порции; первые 2 — разгон базы */
+static void quiet_stream(uint32_t seed, uint16_t thr, uint8_t maxw)
+{
+    size_t n = 3u * BLK;
+    pg_init(&pg, tpl_3467k, 64, seed);
+    memset(fbuf, 0, n * sizeof fbuf[0]);
+    pg_add_noise(&pg, fbuf, n, 1.2f);
+    pg_quantize(fbuf, sbuf, n, 645.0f);
+    both_init(thr, 0, 0, 1, maxw);
+    fed = 0;
+    feed_to(2u * BLK);
+}
+static void test_midpulse(void)
+{
+    const size_t P = 2u * BLK + 100u;
+    det_stats_t s0, s1;
+
+    /* 1. порог снижен 1000 → 30 при поднятом последнем отсчёте порции: импульс «37 37 34 31 28»
+       с до-триггерным buf[0] = 680 выше всех ⇒ imax = 0, окно подгонки ушло бы за начало буфера
+       (прежде: выход за массив, на ПК — аварийное завершение) ⇒ отбраковка по форме */
+    cur_tag = "imax = 0";
+    quiet_stream(7001, 1000, 16);
+    { static const int a[] = { 680 }; put_dev(P - 1, a, 1); }
+    feed_to(P);
+    both_thr(30);
+    { static const int a[] = { 37, 37, 34, 31, 28 }; put_dev(P, a, 5); }
+    det_get_stats(&dn, &s0);
+    feed_to(P + 5);
+    feed_to(P + 200);
+    det_get_stats(&dn, &s1);
+    CHECK(s1.rej_shape == s0.rej_shape + 1u && s1.accepted == s0.accepted);
+
+    /* 2. порог вырос 9 → 200 на спаде (falling, lpeak 188 < 2·thr): повторный рост уже не
+       наложение — импульс доходит до хвоста окна, как в прежнем коде */
+    cur_tag = "порог вырос на спаде";
+    quiet_stream(7002, 9, 16);
+    { static const int a[] = { 50, 120, 188, 130 }; put_dev(P, a, 4); }
+    feed_to(P);
+    feed_to(P + 4);
+    both_thr(200);
+    { static const int a[] = { 368, 579, 291, 156 }; put_dev(P + 4, a, 4); }
+    det_get_stats(&dn, &s0);
+    feed_to(P + 200);
+    det_get_stats(&dn, &s1);
+    CHECK(s1.rej_pileup == s0.rej_pileup);
+
+    /* 3. max_w уменьшена 64 → 10 при набранной ширине 20: отбраковка по ширине на следующем
+       отсчёте, и выше, и ниже порога (прежде plim переполнялся и импульс принимался) */
+    for (unsigned v = 0; v < 2; v++) {
+        cur_tag = v ? "max_w 64 → 10, отсчёт выше порога" : "max_w 64 → 10, отсчёт ниже порога";
+        quiet_stream(7003 + v, 9, 64);
+        int a[21];
+        for (unsigned q = 0; q < 20; q++) a[q] = 100;
+        put_dev(P, a, 20);
+        feed_to(P);
+        feed_to(P + 20);
+        both_width(1, 10);
+        a[0] = v ? 100 : 5; a[1] = 5;
+        put_dev(P + 20, a, 2);
+        det_get_stats(&dn, &s0);
+        feed_to(P + 200);
+        det_get_stats(&dn, &s1);
+        CHECK(s1.rej_width == s0.rej_width + 1u);
+    }
+
+    /* 4. граница в общем режиме: порог 9 → 100 на спаде (lpeak 188 < 200 ⇒ общий режим) и
+       max_w 16 → 6; импульс кончается при ширине ровно 6 — не шире max_w, не отбраковка */
+    cur_tag = "ширина = max_w в общем режиме";
+    quiet_stream(7005, 9, 16);
+    { static const int a[] = { 50, 120, 188, 130 }; put_dev(P, a, 4); }
+    feed_to(P);
+    feed_to(P + 4);
+    both_thr(100);
+    both_width(1, 6);
+    { static const int a[] = { 150, 140, 5 }; put_dev(P + 4, a, 3); }
+    det_get_stats(&dn, &s0);
+    feed_to(P + 200);
+    det_get_stats(&dn, &s1);
+    CHECK(s1.rej_width == s0.rej_width && s1.rej_pileup == s0.rej_pileup);
+    feed_to(3u * BLK);
+}
+
 static void test_equiv(void)
 {
+    test_midpulse();
     static const float sig[] = { 1.2f, 1.5f, 1.8f };
     static const double rates[] = { 30000.0, 100000.0 };
     static const char *kn[] = { "Cs", "Am", "Co", "широкий" };
