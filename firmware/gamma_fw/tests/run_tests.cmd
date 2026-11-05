@@ -6,7 +6,7 @@ set HERE=%~dp0
 set SRC=%HERE%..\src\core
 set OUT=%HERE%out
 if not exist "%OUT%" mkdir "%OUT%"
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
+call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1 || exit /b 1
 
 set TESTS=smoke
 set SRC_smoke=
