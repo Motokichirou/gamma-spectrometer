@@ -407,6 +407,7 @@ void proto_send_pulse(const uint16_t *s, size_t n)
 }
 
 void proto_flash_defaults(void) { flash_st = FL_DEFAULTS; }
+void proto_flash_loaded(void) { flash_st = FL_OK; }
 void proto_set_temperature(float t_c) { temp_c = t_c; }
 bool proto_acquiring(void) { return acquiring; }
 

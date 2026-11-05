@@ -614,6 +614,13 @@ static void test_flash_defaults_status(void)
     CHECK(strcmp(proto_flash_status(), "err") == 0);
     proto_init(&port, &live);                            /* перезапуск — снова "none" */
     CHECK(strcmp(proto_flash_status(), "none") == 0);
+    proto_flash_loaded();                                /* при старте загружено из флеш */
+    CHECK(strcmp(proto_flash_status(), "ok") == 0);
+    cmd("-sta");                                         /* отложенная запись и её отмена -defaults */
+    CHECK(eq(cmd("-save"), "-ok deferred\r\n"));
+    cmd("-defaults");
+    CHECK(strcmp(proto_flash_status(), "ok") == 0);
+    cmd("-sto");
 }
 
 static void test_pulse_frames(void)

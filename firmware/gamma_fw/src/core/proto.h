@@ -119,13 +119,16 @@ void proto_send_text(const char *s);            /* произвольный те
 void proto_set_temperature(float t_c);
 bool proto_acquiring(void);
 /* Состояние настроек во флеш для -gst:
- *   "none"     — с запуска не записывали, во флеш верные настройки (или приложение не сообщало);
+ *   "none"     — приложение не сообщило, что во флеш (после proto_init);
  *   "defaults" — во флеш пусто или битые настройки, работаем на умолчаниях (proto_flash_defaults);
- *   "ok" / "pending" / "err" — последняя запись прошла / отложена до остановки набора / сбой.
+ *   "ok"       — настройки при старте загружены из флеш (proto_flash_loaded) или последняя запись прошла;
+ *   "pending" / "err" — запись отложена до остановки набора / сбой записи.
  * -defaults состояние не меняет (в ОЗУ; флеш не тронута до -save). */
 const char *proto_flash_status(void);
 /* Приложение при старте: настройки во флеш не прошли settings_valid, взяты умолчания.
    Звать после proto_init; сбрасывается первой удачной записью. */
 void proto_flash_defaults(void);
+/* Приложение при старте: настройки загружены из флеш (settings_valid прошёл) → "ok". */
+void proto_flash_loaded(void);
 
 #endif

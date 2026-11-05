@@ -23,7 +23,13 @@
  * PA4; по окончании серии — текст "-ok dac done <n>", PA4 снова Hi-Z). Добавка к периоду — один
  * отсчёт АЦП в тактах ЦП (45 при 2.5 такта, 57 при 6.5), чтобы фаза ступеньки была равномерной.
  *
- * Флеш — Task 12 (пока заглушка). Буферы, которые проверяет build.sh:
+ * Task 12: настройки — страница 0x0801 F000 внутренней флеш (hw/flash_int + core/flashstore):
+ * при старте загрузка (не прошла settings_valid — умолчания и flash=defaults в -gst; ВВ при старте
+ * не включается никогда), запись — только из proto (settings_commit) и только при остановленном
+ * наборе; p_commit это проверяет ещё раз. W25Q64 — в глубокий сон сразу после такта (hw/spiflash),
+ * до любого включения ВВ.
+ *
+ * Буферы, которые проверяет build.sh:
  *  - adc_dma_buf — 2 порции по 8192 отсчёта = 32 КБ, DMA по кругу, в src/hw/adc_sig.c (только ОЗУ:
  *    CCM SRAM на G4 шине DMA недоступна);
  *  - uart_tx_ring — кольцо передачи 8 КБ (≥ PROTO_TX_FRAME_MAX, proto.h) — в src/hw/uart.c;
@@ -59,6 +65,8 @@
 #include "hvpwm.h"
 #include "dactest.h"
 #include "dac_test.h"
+#include "flash_int.h"
+#include "spiflash.h"
 
 #define OSC_MAX       64u                       /* окон -osc за раз (CCM: 64·32·2 = 4 КБ) */
 #define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
@@ -158,7 +166,13 @@ static void osc_stop(void)
 static void p_tx(const uint8_t *p, size_t n) { uart_tx(p, n); }
 static size_t p_tx_free(void) { return uart_tx_free(); }
 static uint32_t p_millis(void) { return millis(); }
-static bool p_commit(const settings_t *s) { (void)s; return false; }    /* флеш — Task 12 */
+/* запись настроек во флеш: стирание страницы останавливает ЦП на ~25 мс — в наборе нельзя
+   (SPEC §7.9). proto зовёт только вне набора; здесь — страховка. */
+static bool p_commit(const settings_t *s)
+{
+    if (acq.run) return false;
+    return flash_settings_store(s);
+}
 static void p_acq_start(void)
 {
     det_set_thr(&det, live.thr_codes);         /* авто-порог: σ при старте набора */
@@ -402,6 +416,7 @@ int main(void)
         NVIC->ICPR[i] = 0xFFFFFFFFu;
     }
     bool hse = clock_init();                   /* 156 МГц; false — от HSI */
+    spiflash_sleep();                          /* W25Q64 — в глубокий сон до всего остального (SPEC §5) */
     timebase_init(clock_hz());
     uart_init(HW_UART_BAUD);
     __enable_irq();
@@ -409,10 +424,15 @@ int main(void)
     hv_enable_pin(false);
     hvpwm_init();                              /* CCR1 = 0: PA8 из «выход 0» в AF без выброса */
 
-    settings_defaults(&live);                  /* флеш — Task 12 */
-    if (!settings_valid(&live)) settings_defaults(&live);
+    /* настройки: пусто/битые/другая версия/DBANK = 1 → умолчания (Review Focus 1) */
+    bool fl_ok = flash_settings_load(&live);
+    if (!fl_ok) settings_defaults(&live);
+    live.hv_setpoint_v = 0.0f;                 /* ВВ при старте не включается никогда (SPEC §3) */
+    live.reserved_boot = 0;
+    settings_seal(&live);
+    if (live.tpl_valid) tpl_now = (const int16_t (*)[DET_NS])live.tpl;
     proto_init(&port, &live);
-    proto_flash_defaults();
+    if (fl_ok) proto_flash_loaded(); else proto_flash_defaults();
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     svc_aux_init(&aux, adc_aux_vrefint_cal());
     svc_init(&svc_ctx);
@@ -425,10 +445,11 @@ int main(void)
     }
 
     {   /* стартовое сообщение (кадр 0x03): такт и причина сброса; отказ HSE — сообщить (SPEC §2) */
-        char m[96];
-        snprintf(m, sizeof m, "gamma_fw start: clk %s %lu MHz%s, reset %s\r\n",
+        char m[128];
+        snprintf(m, sizeof m, "gamma_fw start: clk %s %lu MHz%s, reset %s, flash %s\r\n",
                  hse ? "HSE" : "HSI(HSE FAIL)", (unsigned long)(clock_hz() / 1000000u),
-                 clock_pll_ok() ? "" : " (PLL FAIL)", reset_cause());
+                 clock_pll_ok() ? "" : " (PLL FAIL)", reset_cause(),
+                 fl_ok ? "ok" : flash_layout_ok() ? "defaults" : "defaults (DBANK=1: no save)");
         proto_send_text(m);
     }
 
