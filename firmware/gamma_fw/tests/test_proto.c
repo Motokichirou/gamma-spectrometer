@@ -563,6 +563,37 @@ static void test_defaults_hv_on(void)
     CHECK(live.hv_mon_zero_mv == 2460.0f && live.thr_codes == 0);
 }
 
+/* Ревью Fable: -defaults во время набора отменяет отложенную запись — -sto не пишет умолчания во флеш */
+static void test_defaults_cancels_pending(void)
+{
+    reset();
+    const double c[5] = { 0.5, 0.4, 0, 0, 0 };
+    uint32_t w[11]; becq_coef_to_words(1, c, w);
+    CHECK(eq(cmd("-save"), "-ok saved\r\n"));            /* флеш: "ok" */
+    CHECK(n_commit == 1);
+    CHECK(eq(cmd("-sta"), "-ok\r\n"));
+    send_cal_words(w);
+    CHECK(strcmp(proto_flash_status(), "pending") == 0);
+    CHECK(eq(cmd("-defaults"), "-ok defaults\r\n"));
+    CHECK(strcmp(proto_flash_status(), "ok") == 0);       /* как до отложенной записи */
+    CHECK(eq(cmd("-sto"), "-ok\r\n"));
+    CHECK(n_commit == 1);                                  /* умолчания во флеш не ушли */
+    /* после -defaults новая отложенная запись работает как обычно */
+    CHECK(eq(cmd("-sta"), "-ok\r\n"));
+    CHECK(eq(cmd("-save"), "-ok deferred\r\n"));
+    CHECK(eq(cmd("-sto"), "-ok\r\n"));
+    CHECK(n_commit == 2 && strcmp(proto_flash_status(), "ok") == 0);
+    /* при битой флеш ("defaults") отмена возвращает "defaults" */
+    reset();
+    proto_flash_defaults();
+    cmd("-sta");
+    send_cal_words(w);
+    cmd("-defaults");
+    CHECK(strcmp(proto_flash_status(), "defaults") == 0);
+    cmd("-sto");
+    CHECK(n_commit == 0);
+}
+
 /* Состояние флеш "defaults": во флеш битые/пустые настройки — до первой удачной записи */
 static void test_flash_defaults_status(void)
 {
@@ -623,6 +654,7 @@ int main(void)
     test_defaults();
     test_defaults_hv_on();
     test_flash_defaults_status();
+    test_defaults_cancels_pending();
     test_pulse_frames();
     return T_DONE();
 }

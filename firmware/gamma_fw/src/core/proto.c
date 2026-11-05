@@ -27,6 +27,7 @@ static shproto_rx_t rx;
 static bool     acquiring;
 static bool     pending;          /* запись настроек отложена до -sto */
 static uint8_t  flash_st;
+static uint8_t  flash_st_prev;    /* состояние до отложенной записи — вернуть при её отмене */
 static uint8_t  boot_idx;         /* сколько символов "!boot" уже совпало */
 static float    temp_c;
 static uint32_t cal_stage[BECQ_WORDS];
@@ -102,6 +103,7 @@ static int request_commit(void)
 {
     settings_seal(L);
     if (acquiring) {
+        if (!pending) flash_st_prev = flash_st;
         pending = true;
         flash_st = FL_PENDING;
         return 0;
@@ -314,6 +316,9 @@ static void handle_text(const uint8_t *p, size_t n)
         if (P->hv_on && P->hv_on()) { proto_send_text("-err hv_on\r\n"); return; }
         settings_defaults(L);
         cal_mask = 0; tpl_mask = 0;
+        /* умолчания — только в ОЗУ: отложенная запись (-cal/-save во время набора) отменяется,
+           иначе -sto записал бы во флеш умолчания вместо отложенного */
+        if (pending) { pending = false; flash_st = flash_st_prev; }
         changed(PROTO_APPLY_ALL);
         proto_send_text("-ok defaults\r\n");
     } else if (tok_is(s, tl, "-thr")) {
@@ -349,7 +354,7 @@ void proto_init(const proto_port_t *port, settings_t *live)
     shproto_rx_init(&rx);
     acquiring = false;
     pending = false;
-    flash_st = FL_NONE;
+    flash_st = flash_st_prev = FL_NONE;
     boot_idx = 0;
     temp_c = 0.0f;
     cal_mask = 0;
