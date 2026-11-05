@@ -14,10 +14,14 @@ C314/C317 = 1 мкФ). Импульс боевой платы короткий: 
 непрерывный пик 1.0), то есть на 13 % больше, чем давала парабола. Энергокалибровка
 это поглощает, но старые калибровки после смены алгоритма недействительны.
 
-Запуск: python simulation/fix_c320/gen_template.py [вариант]   (по умолчанию V2)
+Запуск: python simulation/fix_c320/gen_template.py [вариант] [--fs F] [--nph N] [--out путь] [--name имя]
+  без аргументов — прежнее поведение: V2, 4 Мвыб/с, 32 фазы → firmware/core/dsp_template.h.
+  Для gamma_fw (3.4667 Мвыб/с, 64 фазы):
+    python -I simulation/fix_c320/gen_template.py --fs 3466666.67 --nph 64 \
+        --out firmware/gamma_fw/src/core/tpl_3467k.h --name tpl_3467k
 """
+import argparse
 import os
-import sys
 
 import numpy as np
 
@@ -61,7 +65,22 @@ def rows(g, s):
 
 
 def main():
-    name = sys.argv[1] if len(sys.argv) > 1 else 'V2'
+    global FS, T, NPH
+    ap = argparse.ArgumentParser(description='эталон формы импульса (Q14) из отклика LTspice')
+    ap.add_argument('variant', nargs='?', default='V2', help='вариант схемы: out/<вариант>_tran.npz')
+    ap.add_argument('--fs', type=float, default=FS, help='частота выборки, выб/с (4e6)')
+    ap.add_argument('--nph', type=int, default=NPH, help='число суб-отсчётных фаз (32)')
+    ap.add_argument('--out', default=DST, help='выходной .h (firmware/core/dsp_template.h)')
+    ap.add_argument('--name', default='dsp_template',
+                    help='имя массива; от него же стража и макросы')
+    a = ap.parse_args()
+    FS, T, NPH = a.fs, 1 / a.fs, a.nph
+    name, arr = a.variant, a.name
+    if arr == 'dsp_template':                     # прежние имена — байт в байт
+        guard, pfx, user = 'DSP_TEMPLATE_H', 'DSP_TPL', 'dsp.c'
+    else:
+        guard, pfx, user = arr.upper() + '_H', arr.upper(), 'детекторе'
+    fname = os.path.basename(a.out)
     g, s = shape(name)
     R = rows(g, s)
     q = np.rint(R * (1 << Q)).astype(int)
@@ -75,10 +94,10 @@ def main():
     print(f'  строка фазы 0: ' + ' '.join(f'{x:+.3f}' for x in R[0]))
 
     lines = [
-        '/* dsp_template.h — эталон формы импульса для подгонки в dsp.c (СГЕНЕРИРОВАНО).',
+        f'/* {fname} — эталон формы импульса для подгонки в {user} (СГЕНЕРИРОВАНО).',
         ' *',
         f' * Генератор: simulation/fix_c320/gen_template.py, источник формы — {name}_tran.npz',
-        f' * (LTspice, шейпер боевой платы). Частота выборки {FS / 1e6:.0f} Мвыб/с.',
+        f' * (LTspice, шейпер боевой платы). Частота выборки {FS / 1e6:g} Мвыб/с.',
         ' *',
         f' * {NPH} суб-отсчётных фаз × {NS} отсчётов, формат Q{Q} (16384 = пик аналогового импульса).',
         f' * Максимум каждой строки стоит на позиции {IPK} — окно берётся относительно buf[imax].',
@@ -87,24 +106,24 @@ def main():
         ' * Руками не править: перегенерировать скриптом. Позже эталон можно набрать на реальной',
         ' * плате (усреднение ~10 000 импульсов, как в BecqMoni) и подставить той же таблицей.',
         ' */',
-        '#ifndef DSP_TEMPLATE_H',
-        '#define DSP_TEMPLATE_H',
+        f'#ifndef {guard}',
+        f'#define {guard}',
         '',
         '#include <stdint.h>',
         '',
-        f'#define DSP_TPL_NPH  {NPH}u',
-        f'#define DSP_TPL_NS   {NS}u',
-        f'#define DSP_TPL_IPK  {IPK}u',
-        f'#define DSP_TPL_Q    {Q}u',
+        f'#define {pfx}_NPH  {NPH}u',
+        f'#define {pfx}_NS   {NS}u',
+        f'#define {pfx}_IPK  {IPK}u',
+        f'#define {pfx}_Q    {Q}u',
         '',
-        f'static const int16_t dsp_template[DSP_TPL_NPH][DSP_TPL_NS] = {{',
+        f'static const int16_t {arr}[{pfx}_NPH][{pfx}_NS] = {{',
     ]
     for p in range(NPH):
         lines.append('    { ' + ', '.join(f'{v:6d}' for v in q[p]) + ' },')
-    lines += ['};', '', '#endif /* DSP_TEMPLATE_H */', '']
-    with open(DST, 'w', encoding='utf-8', newline='\n') as f:
+    lines += ['};', '', f'#endif /* {guard} */', '']
+    with open(a.out, 'w', encoding='utf-8', newline='\n') as f:
         f.write('\n'.join(lines))
-    print('записано:', DST)
+    print('записано:', a.out)
 
 
 if __name__ == '__main__':
