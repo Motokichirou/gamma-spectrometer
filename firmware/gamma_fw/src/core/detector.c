@@ -31,6 +31,9 @@ static inline uint32_t SMLAD(uint32_t a, uint32_t b, uint32_t acc)
 static inline uint32_t SMUAD(uint32_t a, uint32_t b) { return SMLAD(a, b, 0u); }
 #endif
 
+/* уточнение фазы в fit() без «& 63»: грубые фазы кратны DET_COARSE ≥ 3 и c + 2 < DET_NPH */
+typedef char det_coarse_ok[(DET_COARSE >= 3u && DET_NPH % DET_COARSE == 0u) ? 1 : -1];
+
 /* Развернуть грубый поиск фазы (16 фаз): без развёртки — счётчик, адрес строки и переход на фазу. */
 #if defined(__GNUC__) && !defined(__clang__)
 #define DET_UNROLL16 _Pragma("GCC unroll 16")
@@ -391,12 +394,12 @@ CCM_FUNC static void fit(det_t *d)
         DET_PHASE(p);
     if (bp < 0)
         goto reject;
-    {                                                               /* уточнение ±2 из 64 */
-        const int c = bp, m = (int)(DET_NPH - 1u);
-        DET_PHASE((c - 2) & m);
-        DET_PHASE((c - 1) & m);
-        DET_PHASE((c + 1) & m);
-        DET_PHASE((c + 2) & m);
+    {                       /* уточнение ±2 из 64; c кратно DET_COARSE ≥ 3 — через 0 переходят только −1, −2 */
+        const int c = bp;
+        DET_PHASE(c ? c - 2 : (int)DET_NPH - 2);
+        DET_PHASE(c ? c - 1 : (int)DET_NPH - 1);
+        DET_PHASE(c + 1);
+        DET_PHASE(c + 2);
     }
 
     float best_yh;                                                  /* YH выбранной фазы — заново, */
@@ -449,8 +452,8 @@ reject:
  *  - счёт ступеньки — без сумм на отсчёт: только счётчик и начало серии залипших (rs); Σdb, Σdb² —
  *    по [rs, p) при выходе, переходе в IDLE или пересчёте (обычно серия к этому моменту уже сброшена
  *    спокойным отсчётом, и суммировать нечего);
- *  - быстрый режим PULSE (pbint == bint, база не заморожена, до пересчёта ступеньки далеко):
- *    db = dev > thr ≥ thr/2 у всех отсчётов, кроме последнего, — счёт без сравнений;
+ *  - быстрый режим PULSE (pbint == bint, до пересчёта ступеньки далеко): db = dev > thr ≥ thr/2 у
+ *    всех отсчётов, кроме последнего, — счёт без сравнений (база заморожена — все отсчёты сбросы);
  *  - триггер в POST/GUARD: импульс начинается до учёта ступеньки на этом отсчёте (тот учитывается уже
  *    в PULSE). Порядок не важен: START ступеньку не трогает, а пересчёт на отсчёте-триггере
  *    невозможен — взвод обнуляет счёт, после него до триггера меньше DET_BUF отсчётов;
@@ -565,12 +568,11 @@ trigger:                                     /* *p — триггер: нача�
         bp = buf + 1; ip = buf;
         lpeak = 0; falling = 0; pileup = 0; npile = 0;
         bmax = buf + d->cfg.max_w + 1;
-        if (hl != half) goto pulse_g;        /* pbint == bint, счёт ступеньки мал — быстрый режим */
-        goto pulse_f;
+        goto pulse_f;                        /* pbint == bint, счёт ступеньки — с нуля: быстрый режим */
     }
 pulse:
     bmax = buf + d->cfg.max_w + 1;
-    if (pbint != bint || hl != half || stk_n >= DET_BASE_N - DET_BUF)
+    if (pbint != bint || (hl == half && stk_n >= DET_BASE_N - DET_BUF))
         goto pulse_g;
 pulse_f:
     p0 = p;
@@ -622,12 +624,17 @@ fall_f:                                      /* быстрый режим, сп�
         } while (p < plim);
     }
 end_f:                                       /* кончилась порция или ширина */
-    stk_n += (uint32_t)(p - p0);
+    if (hl == half) {
+        stk_n += (uint32_t)(p - p0);
+    } else {                                 /* база заморожена: каждый отсчёт — сброс счёта */
+        stk_n = 0; rs = p; carried = 0;
+    }
     dead += (uint32_t)(p - p0);
     if (bp > bmax) goto wide;
     goto out;
 term_f:
-    stk_n += (uint32_t)(p - p0) - 1u;        /* последний отсчёт — ниже порога: общий учёт */
+    if (hl == half)                          /* заморожена — сбросит STUCK ниже */
+        stk_n += (uint32_t)(p - p0) - 1u;    /* последний отсчёт — ниже порога: общий учёт */
     dead += (uint32_t)(p - p0);
     STUCK(v, p);
     goto term;

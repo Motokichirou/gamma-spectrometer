@@ -355,11 +355,14 @@ def measure(variant, args):
     tplname = 'tpl_dac' if args.kind == 'dac' else 'tpl_3467k'
     shape = Shape(load_tpl(tplname))
     s, npulse = make_stream(shape, args.blocks + 4, args.rate, args.seed, kind=args.kind)
-    emu.call(p + 'init', 9, 0, 1 if args.kind == 'dac' else 0, 0, 0)
+    dac = args.kind == 'dac'                 # режим самотеста ЦАП, как в main.c: tpl_dac, порог 24
+    emu.call(p + 'init', 24 if dac else 9, 0, 1 if dac else 0, 0, 64 if dac else 0)  # (DACT_THR), ширина 64
     # разгон базы на двух порциях шума, затем две порции шума — замер холостого хода
     emu.write('h_buf', s[:2 * BLK].tobytes())
     for b in range(2):
         emu.call(p + 'block', b * BLK, BLK)
+    if dac:
+        emu.call(p + 'hold', 1)              # база заморожена (det_set_base_hold)
     noise = make_stream(shape, 2, 0, args.seed + 1000)[0]
     emu.write('h_buf', noise.tobytes())
     emu.reset_counts()
