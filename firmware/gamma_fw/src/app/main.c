@@ -7,19 +7,23 @@
  * Task 9: ОУ тракта и Pt1000 (opamp), служебные АЦП ADC2/4/5 (adc_aux — после 1.5 с),
  * ШИМ HV_CONTROL TIM1 38.1 кГц и HV_ENABLE/D102 (hvpwm); пересчёт и сглаживание замеров,
  * проверка VREF+ и сервисные команды -hv/-hvzero/-hvk/-ptcal/-gst/-diag — core/svc.c.
+ * Task 10: сигнальный ADC3_IN1 непрерывно по DMA (adc_sig; запуск сразу после служебных АЦП —
+ * тоже не раньше 1.5 с). Главный цикл: adc_sig_take → потерянные порции в мёртвое время
+ * (det_add_lost) → det_process_block, такты DWT до/после → загрузка ЦП (статус 0x04, -gst cpu).
+ * Импульсы идут в спектр только во время набора (детектор работает всегда: база, σ, осциллограф).
+ * Учёт времени набора, живого времени и скоростей — core/acq.c; там же команды -smp, -noise, -osc.
  *
  * Задача 10 мс: adc_aux_poll → svc_aux_10ms (монитор, мВ; NaN — замер устарел) → hv_tick →
  * hvpwm_set, hv_enable_pin(hv_enabled). Задача 1 с: svc_aux_1s (VREF+ 2500 ± 15 мВ — иначе
  * ВВ не включается, при включённом — выкл; при выключенном — перекалибровка АЦП), +3.3V_D τ 60 с,
- * Pt1000 τ 10 с → термокомпенсация и T1 в -inf.
+ * Pt1000 τ 10 с → термокомпенсация (det_set_gain) и T1 в -inf; скорости и загрузка ЦП (acq_tick_1s).
  *
- * Остальное железо — Task 10–12; пока на его месте заглушки, но весь core уже вызывается отсюда:
- * штатная сборка проверяет линковку core, размещение горячего кода в CCM и бюджет ОЗУ (build.sh)
- * вместе с буферами, которые займут драйверы:
- *  - adc_dma_buf — 2 порции по 8192 отсчёта = 32 КБ, DMA по кругу. Только в ОЗУ: CCM SRAM на G4
- *    шине DMA недоступна (Task 10; флаг adc_ready пока всегда 0);
+ * Флеш и ЦАП — Task 11–12 (пока заглушки). Буферы, которые проверяет build.sh:
+ *  - adc_dma_buf — 2 порции по 8192 отсчёта = 32 КБ, DMA по кругу, в src/hw/adc_sig.c (только ОЗУ:
+ *    CCM SRAM на G4 шине DMA недоступна);
  *  - uart_tx_ring — кольцо передачи 8 КБ (≥ PROTO_TX_FRAME_MAX, proto.h) — в src/hw/uart.c;
  *  - стек 4 КБ — _Min_Stack_Size в gamma_fw.ld, куча 2 КБ — _Min_Heap_Size (strtod newlib).
+ * Окна осциллографа — в CCM (только ЦП).
  */
 #include "stm32g474xx.h"
 #include "ccm.h"
@@ -38,6 +42,7 @@
 #include "tpl_3467k.h"
 #include "hwcalc.h"
 #include "svc.h"
+#include "acq.h"
 #include "clock.h"
 #include "gpio.h"
 #include "timebase.h"
@@ -45,10 +50,12 @@
 #include "boot.h"
 #include "opamp.h"
 #include "adc_aux.h"
+#include "adc_sig.h"
 #include "hvpwm.h"
 
-#define ADC_DMA_LEN   (2u * DET_BLK_DEF)
-#define OSC_MAX       16u
+#define OSC_MAX       64u                       /* окон -osc за раз (CCM: 64·32·2 = 4 КБ) */
+#define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
+#define BLK_WAIT_MS   20u                       /* ожидание порции для -noise/-osc raw (порция 2.4…3 мс) */
 #define AUX_START_MS  1500u                     /* калибровка АЦП — не раньше 1.5 с (SPEC §3.3) */
 
 
@@ -69,11 +76,10 @@ void SystemInit(void)
     __ISB();
 }
 
-/* ---- буферы и сигналы драйверов, которых ещё нет (заглушки Task 10) ---- */
-static uint16_t adc_dma_buf[ADC_DMA_LEN];       /* DMA АЦП — в ОЗУ */
-static volatile uint8_t  adc_ready;             /* 1 — первая половина, 2 — вторая (прерывание DMA) */
-/* адрес для DMA (CMAR) — заглушка настройки канала; заодно не даёт выбросить буфер при сборке */
-static uint16_t *volatile adc_dma_dst;
+/* ---- сигнальный АЦП ---- */
+static bool      sig_on;
+static uint32_t  lost_seen;                     /* потерянные порции, уже отданные в det_add_lost */
+static uint32_t  busy_cyc, tick_cyc;            /* такты обработки за секунду; DWT на прошлом тике */
 
 /* ---- служебные замеры ---- */
 static svc_aux_t aux;
@@ -87,12 +93,47 @@ static bool      sec_vrefint_new, sec_vbat_new, sec_pt_new;
 static settings_t live;
 static hv_ctl_t   hv;
 static CCM_BSS det_t det;                       /* горячие данные детектора — рядом с его кодом */
-static uint16_t   osc_buf[OSC_MAX * (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)];
-static det_cap_t  osc_info[OSC_MAX];
+static CCM_BSS uint16_t  osc_buf[OSC_MAX * OSC_W];
+static CCM_BSS det_cap_t osc_info[OSC_MAX];
+static bool       osc_on;
+static uint16_t   osc_n;
+static uint32_t   osc_t0;
 static const int16_t (*tpl_now)[DET_NS] = tpl_3467k;
-/* время набора: от -sta, накапливается между -sto/-sta, обнуляется -rst */
-static bool     acq_run;
-static uint32_t acq_since_ms, acq_acc_ms;
+/* учёт набора: время от -sta, накапливается между -sto/-sta, обнуляется -rst; мёртвое время */
+static acq_t      acq;
+
+static det_stats_t stats(void)
+{
+    det_stats_t ds;
+    det_get_stats(&det, &ds);
+    return ds;
+}
+
+/* порция сигнала: потерянные до неё — в мёртвое время, обработка с замером тактов */
+static void process_block(const uint16_t *b, size_t n)
+{
+    uint32_t l = adc_sig_lost();
+    if (l != lost_seen) { det_add_lost(&det, (l - lost_seen) * DET_BLK_DEF); lost_seen = l; }
+    uint32_t c0 = cycles();
+    det_process_block(&det, b, n);
+    busy_cyc += cycles() - c0;
+}
+
+/* следующая порция (не дольше BLK_WAIT_MS); NULL — АЦП не идёт */
+static const uint16_t *wait_block(size_t *n)
+{
+    uint32_t t0 = millis();
+    const uint16_t *b;
+    while ((b = adc_sig_take(n)) == NULL)
+        if (millis() - t0 > BLK_WAIT_MS) return NULL;
+    return b;
+}
+
+static void osc_stop(void)
+{
+    det_set_capture(&det, NULL, NULL, DET_CAP_PRE_DEF, DET_CAP_POST_DEF, 0);
+    osc_on = false;
+}
 
 /* ---- порт proto ---- */
 static void p_tx(const uint8_t *p, size_t n) { uart_tx(p, n); }
@@ -102,17 +143,23 @@ static bool p_commit(const settings_t *s) { (void)s; return false; }    /* фл�
 static void p_acq_start(void)
 {
     det_set_thr(&det, live.thr_codes);         /* авто-порог: σ при старте набора */
-    if (!acq_run) { acq_run = true; acq_since_ms = millis(); }
+    if (osc_on) {                              /* выдача окон блокирует цикл — при наборе нельзя */
+        osc_stop();
+        proto_send_text("-err osc acq\r\n");
+    }
+    det_stats_t ds = stats();
+    acq_start(&acq, millis(), &ds);
 }
 static void p_acq_stop(void)
 {
-    if (acq_run) { acq_acc_ms += millis() - acq_since_ms; acq_run = false; }
+    det_stats_t ds = stats();
+    acq_stop(&acq, millis(), &ds);
 }
 static void p_acq_clear(void)
 {
     spectrum_clear();
-    acq_acc_ms = 0;
-    acq_since_ms = millis();
+    det_stats_t ds = stats();
+    acq_clear(&acq, millis(), &ds);
 }
 /* "!boot": ВВ выкл (логика и выводы), ответ хосту (gfw.py flash ждёт его, чтобы не слать "!boot"
    повторно уже загрузчику), переход. boot_enter_system сам выключает выводы ВВ и досылает UART. */
@@ -126,9 +173,11 @@ static void p_boot(void)
 }
 static void p_status(proto_status_t *st)
 {
-    uint32_t ms = acq_acc_ms + (acq_run ? millis() - acq_since_ms : 0u);
-    st->elapsed_s = ms / 1000u;
-    st->cps = spectrum_total();
+    det_stats_t ds = stats();
+    st->elapsed_s = acq_real_ms(&acq, millis()) / 1000u;
+    st->cpu_x10 = acq.cpu_x10;
+    st->cps = acq.cps_acc;                     /* принятые за последнюю секунду */
+    st->invalid = acq_invalid(&acq, &ds);      /* отбракованные за набор с -rst */
 }
 static bool p_hv_on(void) { return hv_enabled(&hv); }
 
@@ -146,14 +195,17 @@ static void p_apply(uint32_t what)
 /* ---- сервис (core/svc.c) ---- */
 static void s_fill_gst(svc_gst_t *g)
 {
-    det_stats_t ds;
-    det_get_stats(&det, &ds);
-    uint32_t ms = acq_acc_ms + (acq_run ? millis() - acq_since_ms : 0u);
+    det_stats_t ds = stats();
+    uint32_t now = millis();
     g->base = det_baseline(&det);
     g->sigma = det_sigma(&det);
-    g->rej = ds.rej_pileup + ds.rej_shape + ds.rej_width + ds.rej_budget;
-    g->real_s = (float)ms / 1000.0f;
-    g->live_s = g->real_s;                     /* мёртвое время, cps, cpu, lost — Task 10 */
+    g->cps_in = acq.cps_in;                    /* за последнюю секунду, в наборе и вне его */
+    g->cps_acc = acq.cps_acc;
+    g->rej = acq.cps_rej;                      /* отбракованные за секунду: cps_in = cps_acc + rej */
+    g->real_s = (float)acq_real_ms(&acq, now) / 1000.0f;
+    g->live_s = acq_live_s(&acq, now, &ds);
+    g->cpu_pct = (float)acq.cpu_x10 / 10.0f;
+    g->lost = adc_sig_lost();
     g->pwm = hv_duty;
     g->flash = proto_flash_status();
 }
@@ -167,15 +219,73 @@ static bool s_diag(svc_diag_t *d)
 }
 static const svc_ctx_t svc_ctx = { &hv, &live, &aux, p_millis, s_fill_gst, s_diag };
 
+/* ---- сигнальный тракт (core/acq.c) ---- */
+static bool a_acquiring(void) { return acq.run; }
+static bool a_ready(void) { return sig_on && adc_sig_running(); }
+static uint8_t a_smp_get(void) { return adc_sig_smp() == ADC_SIG_SMP_6C5 ? 6u : 2u; }
+static uint32_t a_fs(void) { return adc_sig_fs(); }
+static bool a_smp_set(uint8_t smp)
+{
+    bool ok = adc_sig_set_smp(smp == 6u ? ADC_SIG_SMP_6C5 : ADC_SIG_SMP_2C5);
+    acq_set_fs(&acq, adc_sig_fs());
+    return ok;
+}
+static bool a_noise(acq_noise_t *o)
+{
+    size_t n;
+    const uint16_t *b = wait_block(&n);
+    if (!b) return false;
+    acq_noise(b, n, o);
+    process_block(b, n);                       /* порцию не терять */
+    return true;
+}
+/* сырая порция: АЦП на время передачи (≈ 0.3 с при 600 000 бод) стоит, порция не перезаписывается */
+static bool a_osc_raw(uint32_t *n_out)
+{
+    size_t n;
+    const uint16_t *b = wait_block(&n);
+    if (!b) return false;
+    adc_sig_hold();
+    proto_send_pulse(b, n);
+    bool ok = adc_sig_resume();
+    *n_out = (uint32_t)n;
+    return ok;
+}
+static bool a_osc_arm(uint16_t n)
+{
+    det_set_capture(&det, osc_buf, osc_info, DET_CAP_PRE_DEF, DET_CAP_POST_DEF, n);
+    osc_n = n;
+    osc_t0 = millis();
+    osc_on = true;
+    return true;
+}
+static const acq_ctx_t acq_ctx = {
+    a_acquiring, a_ready, a_smp_get, a_smp_set, a_fs, a_noise, a_osc_raw, a_osc_arm, OSC_MAX
+};
+
+/* -osc n: записано n окон или вышло время — выдать кадрами 0x02 и строками сведений */
+static void osc_poll(void)
+{
+    if (!osc_on) return;
+    uint16_t k = det_capture_count(&det);
+    if (k < osc_n && millis() - osc_t0 < ACQ_OSC_TIMEOUT_MS) return;
+    char line[128];
+    for (uint16_t i = 0; i < k; i++) {
+        proto_send_pulse(osc_buf + (size_t)i * OSC_W, OSC_W);
+        acq_osc_line(line, sizeof line - 2u, i, &osc_info[i]);
+        strcat(line, "\r\n");
+        proto_send_text(line);
+    }
+    osc_stop();
+    snprintf(line, sizeof line, "-ok osc done %u\r\n", (unsigned)k);
+    proto_send_text(line);
+}
+
 static void p_service(const char *cmd, char *reply, size_t cap)
 {
     if (svc_handle(cmd, reply, cap)) return;
-    if (strcmp(cmd, "-osc") == 0) {
-        det_set_capture(&det, osc_buf, osc_info, DET_CAP_PRE_DEF, DET_CAP_POST_DEF, OSC_MAX);
-        snprintf(reply, cap, "-ok osc");
-    } else if (strncmp(cmd, "-dac", 4) == 0 || strncmp(cmd, "-noise", 6) == 0 || strncmp(cmd, "-smp", 4) == 0) {
-        snprintf(reply, cap, "-err notyet");    /* Task 10–11 */
-    }
+    if (acq_handle(&acq_ctx, cmd, reply, cap)) return;
+    if (strncmp(cmd, "-dac", 4) == 0) snprintf(reply, cap, "-err notyet");    /* Task 11 */
     /* иначе ответ пуст — proto ответит -err unknown */
 }
 
@@ -184,7 +294,7 @@ static const proto_port_t port = {
     p_apply, p_tx_free, p_hv_on
 };
 
-static void emit(uint16_t ch) { spectrum_add(ch); }
+static void emit(uint16_t ch) { if (acq.run) spectrum_add(ch); }   /* в спектр — только в наборе */
 
 /* причина сброса для стартового сообщения (RCC->CSR), флаги затем сбрасываются */
 static const char *reset_cause(void)
@@ -212,7 +322,7 @@ static void task_10ms(uint32_t now)
     hv_enable_pin(hv_enabled(&hv));
 }
 
-/* шаг 1 с: VREF+, +3.3V_D, Pt1000, термокомпенсация, выдача спектра */
+/* шаг 1 с: VREF+, +3.3V_D, Pt1000, термокомпенсация, скорости и загрузка ЦП, выдача спектра */
 static void task_1s(void)
 {
     if (aux_on) {
@@ -221,12 +331,22 @@ static void task_1s(void)
         sec_vrefint_new = sec_vbat_new = sec_pt_new = false;
         hv_set_vref(&hv, svc_vref_mv(&aux));
         if (!hv_enabled(&hv)) { hv_duty = 0; hvpwm_set(0); hv_enable_pin(false); }  /* выкл по VREF+ — сразу */
-        if (recal) adc_aux_recalibrate();      /* опора не устоялась к калибровке (SPEC §3.3) */
+        if (recal) {                           /* опора не устоялась к калибровке (SPEC §3.3) */
+            adc_aux_recalibrate();
+            if (sig_on && !acq.run) adc_sig_recalibrate();     /* в наборе — без дыры в потоке */
+        }
     }
     pt_state_t pst;
     float raw = aux.pt_raw;                    /* сглаженный τ 10 с; NaN — ещё нет → без поправки */
     det_set_gain(&det, tc_corr_raw(raw, live.pt_rpu_ohm, live.tc_t0_c, live.tc_k1, live.tc_k2, &pst));
     if (pst == PT_OK) proto_set_temperature(pt_temp_c(pt_resistance(raw, live.pt_rpu_ohm)));
+    {   /* скорости и загрузка ЦП за секунду */
+        det_stats_t ds = stats();
+        uint32_t c = cycles();
+        acq_tick_1s(&acq, &ds, busy_cyc, c - tick_cyc);
+        tick_cyc = c;
+        busy_cyc = 0;
+    }
     proto_tick_1s();
 }
 
@@ -249,7 +369,6 @@ int main(void)
     hv_enable_pin(false);
     hvpwm_init();                              /* CCR1 = 0: PA8 из «выход 0» в AF без выброса */
 
-    adc_dma_dst = adc_dma_buf;                 /* «DMA АЦП по кругу» — Task 10 */
     settings_defaults(&live);                  /* флеш — Task 12 */
     if (!settings_valid(&live)) settings_defaults(&live);
     proto_init(&port, &live);
@@ -260,6 +379,10 @@ int main(void)
     det_cfg_t cfg = { live.thr_codes, DET_MINW_DEF, DET_MAXW_DEF, 0.0f, 0 };
     det_init(&det, &cfg, tpl_now, emit);
     spectrum_clear();
+    {
+        det_stats_t ds = stats();
+        acq_init(&acq, DET_FS_HZ, &ds);
+    }
 
     {   /* стартовое сообщение (кадр 0x03): такт и причина сброса; отказ HSE — сообщить (SPEC §2) */
         char m[96];
@@ -270,11 +393,15 @@ int main(void)
     }
 
     uint32_t t10 = millis(), t1s = t10;
+    tick_cyc = cycles();
     for (;;) {
-        uint8_t r = adc_ready;
-        if (r) {
-            adc_ready = 0;
-            det_process_block(&det, adc_dma_buf + (r - 1u) * DET_BLK_DEF, DET_BLK_DEF);
+        size_t bn;
+        const uint16_t *blk = adc_sig_take(&bn);
+        if (blk) {
+            process_block(blk, bn);
+            osc_poll();
+        } else if (osc_on && millis() - osc_t0 >= ACQ_OSC_TIMEOUT_MS) {
+            osc_poll();                        /* АЦП встал — выдать, что успели */
         }
         uint8_t rb[64];
         size_t n;
@@ -286,6 +413,10 @@ int main(void)
             aux_tried = true;
             aux_on = adc_aux_init();
             if (!aux_on) proto_send_text("gamma_fw: aux ADC init FAIL, HV locked\r\n");
+            /* сигнальный ADC3 — после служебных: CCR ADC345 пишет adc_aux_init */
+            else if (!(sig_on = adc_sig_init(ADC_SIG_SMP_2C5)))
+                proto_send_text("gamma_fw: signal ADC init FAIL\r\n");
+            else acq_set_fs(&acq, adc_sig_fs());
         }
         if (now - t10 >= 10u) {
             /* отстали (долгая операция) — не догонять пачкой: шаг ВВ рассчитан на 10 мс */

@@ -1,0 +1,40 @@
+/* adc_sig.h — сигнальный АЦП: ADC3_IN1 (PB1 = выход OPAMP3), непрерывно, DMA по кругу (SPEC §7.1).
+ *
+ * Такт ADC345 = PLLP 52 МГц (adc_aux_init пишет ADC345_COMMON->CCR — звать ПОСЛЕ него, не раньше
+ * 1.5 с от сброса: калибровка на недостоявшейся REF35250 даёт −64 кода, SPEC §3.3).
+ * Выборка 2.5 такта (SMP = 0, 3.4667 Мвыб/с) или 6.5 (SMP = 1, 2.7368 Мвыб/с) + 12.5 преобразование.
+ * DMA1_Channel1 (DMAMUX1_Channel0, запрос 37 — ADC3), буфер 2 × DET_BLK_DEF отсчётов по кругу
+ * (adc_dma_buf, 32 КБ, только ОЗУ: CCM для DMA недоступна). Прерывания HT/TC отмечают готовую
+ * половину (порцию 8192 отсчёта = 2.36 мс).
+ *
+ * Потери: каждая готовая половина получает номер; adc_sig_take отдаёт самую свежую и считает
+ * пропущенные номера в adc_sig_lost() — их время приложение относит в мёртвое (det_add_lost).
+ * Порцию надо обработать до того, как DMA вернётся в эту половину (≈ 2.36 мс после take).
+ */
+#ifndef ADC_SIG_H
+#define ADC_SIG_H
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#define ADC_SIG_SMP_2C5  0u   /* код SMP: 2.5 такта */
+#define ADC_SIG_SMP_6C5  1u   /* 6.5 такта */
+
+/* Включить ADC3: калибровка, канал, DMA, непрерывный запуск. false — АЦП не ответил. */
+bool  adc_sig_init(uint8_t smp_code);
+bool  adc_sig_running(void);
+uint8_t adc_sig_smp(void);                    /* текущий код SMP */
+uint32_t adc_sig_fs(void);                    /* выборка, Гц (по такту АЦП и SMP) */
+/* Готовая порция (DET_BLK_DEF отсчётов) или NULL. */
+const uint16_t *adc_sig_take(size_t *n);
+uint32_t adc_sig_lost(void);                  /* порций, не забранных вовремя (с init) */
+/* Сменить выборку: стоп → SMPR → запуск. Счёт потерь не трогается. */
+bool  adc_sig_set_smp(uint8_t smp_code);
+/* Остановить преобразования и DMA (буфер замирает: порцию из take можно читать сколько угодно)
+   и запустить снова; пропуск на время остановки потерей не считается. */
+bool  adc_sig_hold(void);
+bool  adc_sig_resume(void);
+/* Перекалибровать ADC3 (вместе с adc_aux_recalibrate, когда VREF+ был вне нормы при калибровке). */
+bool  adc_sig_recalibrate(void);
+
+#endif

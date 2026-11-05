@@ -83,5 +83,23 @@ check(not gfw.hv_settled(["495", "497"], 500, 5), "settle: мало замеро
 check(gfw.hv_settled(["300", "496", "501.2", "504.9"], 500, 5), "settle: 3 подряд в допуске")
 check(not gfw.hv_settled(["496", "506", "501"], 500, 5), "settle: выброс")
 check(not gfw.hv_settled(["nan", "x", "500"], 500, 5), "settle: нечисло")
+# 0x02: запись режется по 512 отсчётов, index — номер первого отсчёта, total — длина записи
+rec = [(645 + i) & 0xFFFF for i in range(1100)]
+chunks = [struct.pack("<HH%dH" % len(rec[i:i + 512]), i, len(rec), *rec[i:i + 512]) for i in range(0, 1100, 512)]
+check(gfw.decode_pulse(chunks[2])[:2] == (1024, 1100) and len(gfw.decode_pulse(chunks[2])[2]) == 76, "0x02 разбор")
+check(gfw.decode_pulse(b"\x00\x00\x01") is None, "0x02 нечётная длина")
+asm = gfw.PulseAsm()
+out = [asm.feed(c) for c in chunks]
+check(out[:2] == [None, None] and out[2] == rec, "0x02 сборка записи")
+asm = gfw.PulseAsm()
+check(asm.feed(chunks[0]) is None and asm.feed(chunks[2]) is None, "0x02 пропуск куска")
+check(asm.feed(chunks[0]) is None and asm.feed(chunks[1]) is None and asm.feed(chunks[2]) == rec,
+      "0x02 после пропуска — следующая запись цела")
+w = [645, 700, 660] + [645] * 29
+check(gfw.PulseAsm().feed(struct.pack("<HH32H", 0, 32, *w)) == w, "0x02 окно -osc одним кадром")
+check(gfw.pulse_summary([1, 3]) == "[0x02] 2 отсчётов: среднее 2.00 σ 1.00 мин 1 макс 3", "сводка 0x02")
+check(gfw.osc_waits_done("-osc 8") and gfw.osc_waits_done("-osc"), "-osc n ждёт done")
+check(not gfw.osc_waits_done("-osc raw") and not gfw.osc_waits_done("-oscx 3")
+      and not gfw.osc_waits_done("-noise"), "прочие не ждут")
 print("%d passed, %d failed" % (passed, failed))
 sys.exit(1 if failed or not passed else 0)

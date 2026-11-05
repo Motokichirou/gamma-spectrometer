@@ -1,7 +1,8 @@
 """gfw.py — хост для прошивки gamma_fw: shproto-клиент и перепрошивка через системный загрузчик.
 
   python -I gfw.py cmd "<текст>" [--port COM4] [--baud 600000] [--wait 1.5]
-        текстовая команда кадром 0x03, печать текстовых ответов (до первого ответа + 0.3 с тишины)
+        текстовая команда кадром 0x03, печать текстовых ответов (до первого ответа + 0.3 с тишины;
+        для "-osc <n>" — до "-ok osc done", не дольше --wait); записи 0x02 — строкой-сводкой
   python -I gfw.py listen <секунд> [--port COM4] [--baud 600000]
         печать текстовых кадров 0x03 и статусов 0x04, счёт кадров спектра 0x01
   python -I gfw.py gst [--watch <с>] [--period 1] [--settle <В> [--tol 5]] [--port COM4]
@@ -117,6 +118,45 @@ def decode_hist(pl):
     return off, [v & SPEC_MASK for v in struct.unpack_from("<%dI" % n, pl, 2)]
 
 
+def decode_pulse(pl):
+    """0x02 (осциллограф): index u16, total u16, отсчёты u16 — LE; запись режется по 512."""
+    if len(pl) < 4 or len(pl) % 2:
+        return None
+    idx, total = struct.unpack_from("<HH", pl)
+    n = (len(pl) - 4) // 2
+    return idx, total, list(struct.unpack_from("<%dH" % n, pl, 4))
+
+
+class PulseAsm:
+    """Сборка записей 0x02 из кусков: feed → готовая запись (список отсчётов) или None."""
+
+    def __init__(self):
+        self.buf, self.total = [], 0
+
+    def feed(self, pl):
+        d = decode_pulse(pl)
+        if d is None:
+            return None
+        idx, total, s = d
+        if idx == 0:
+            self.buf, self.total = [], total
+        if idx != len(self.buf) or total != self.total:   # потерян кусок — запись отбросить
+            self.buf, self.total = [], 0
+            return None
+        self.buf += s
+        if self.total and len(self.buf) >= self.total:
+            rec, self.buf, self.total = self.buf[:self.total], [], 0
+            return rec
+        return None
+
+
+def pulse_summary(rec):
+    n = len(rec)
+    m = sum(rec) / n
+    sd = (sum((v - m) ** 2 for v in rec) / n) ** 0.5
+    return "[0x02] %d отсчётов: среднее %.2f σ %.2f мин %d макс %d" % (n, m, sd, min(rec), max(rec))
+
+
 def text_of(pl):
     return pl.decode("ascii", "replace").rstrip("\r\n")
 
@@ -183,8 +223,20 @@ def _print_frames(frames, st):
                   if d else "[0x04] короткий кадр", flush=True)
         elif cmd == CMD_HIST:
             st["hist"] += 1
+        elif cmd == CMD_PULSE:
+            st["pulse"] = st.get("pulse", 0) + 1
+            rec = st.setdefault("asm", PulseAsm()).feed(pl)
+            if rec:
+                st["recs"] = st.get("recs", 0) + 1
+                print(pulse_summary(rec), flush=True)
         else:
             st["other"] += 1
+
+
+def osc_waits_done(text):
+    """-osc и -osc <n> отвечают сразу, а окна шлют по готовности; -osc raw — всё до ответа."""
+    t = text.split()
+    return bool(t) and t[0] == "-osc" and (len(t) == 1 or t[1] != "raw")
 
 
 def do_cmd(a):
@@ -195,15 +247,22 @@ def do_cmd(a):
         s.write(build_frame(CMD_TEXT, a.text.encode("ascii")))
         t0 = time.time()
         last_text = None
+        # -osc <n>: окна приходят позже ответа — ждать "-ok osc done" (или -err), не дольше --wait
+        need_done = osc_waits_done(a.text)
         while time.time() - t0 < a.wait:
             fr = p.feed(s.read(4096))
-            if any(c == CMD_TEXT for c, _ in fr):
+            texts = [text_of(pl) for c, pl in fr if c == CMD_TEXT]
+            if texts:
                 last_text = time.time()
+            if any(t.startswith("-ok osc done") or t.startswith("-err") for t in texts):
+                need_done = False
             _print_frames(fr, st)
-            if last_text and time.time() - last_text > 0.3:
+            if last_text and not need_done and time.time() - last_text > 0.3:
                 break
     if st["hist"] or st["stat"]:
         print(f"(попутно: 0x01 ×{st['hist']}, 0x04 ×{st['stat']})")
+    if st.get("pulse"):
+        print(f"(0x02: кадров {st['pulse']}, записей {st.get('recs', 0)})")
     if not st["text"]:
         print("нет текстового ответа", file=sys.stderr)
         return 1
@@ -218,7 +277,7 @@ def listen(port, baud, secs):
         while time.time() - t0 < secs:
             _print_frames(p.feed(s.read(4096)), st)
     print(f"итого за {secs:g} с: 0x03 ×{st['text']}, 0x01 ×{st['hist']}, 0x04 ×{st['stat']}, "
-          f"прочих ×{st['other']}, битых ×{p.bad}")
+          f"0x02 ×{st.get('pulse', 0)} (записей {st.get('recs', 0)}), прочих ×{st['other']}, битых ×{p.bad}")
     return st
 
 

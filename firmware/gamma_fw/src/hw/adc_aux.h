@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "svc.h"
+#include "stm32g474xx.h"
 
 typedef struct {
     float mon_raw;     bool mon_new;      /* коды 0…4095 (среднее ×256) */
@@ -36,5 +37,10 @@ bool  adc_aux_recalibrate(void);
    с монитора. false — АЦП не запущены или таймаут. */
 bool  adc_aux_diag(float raw[SVC_DIAG_N]);
 float adc_aux_vrefint_cal(void);      /* VREFINT_CAL @ 0x1FFF75AA (при VREF+ = 3.0 В) */
+/* Общие шаги для всех АЦП (и сигнального ADC3, adc_sig.c), с таймаутами:
+   adc_hw_off — остановить и выключить; adc_hw_cal_on — выкл → регулятор → калибровка
+   (single-ended) → вкл, все каналы 640.5 такта. false — АЦП не ответил. */
+bool  adc_hw_off(ADC_TypeDef *a);
+bool  adc_hw_cal_on(ADC_TypeDef *a);
 
 #endif

@@ -35,7 +35,7 @@ static bool wait_reg(volatile uint32_t *r, uint32_t m, uint32_t want, uint32_t u
 
 static void cr_set(ADC_TypeDef *a, uint32_t bit) { a->CR = (a->CR & ~CR_RS) | bit; }
 
-static bool adc_off(ADC_TypeDef *a)
+bool adc_hw_off(ADC_TypeDef *a)
 {
     if (a->CR & ADC_CR_ADSTART) {
         cr_set(a, ADC_CR_ADSTP);
@@ -49,9 +49,9 @@ static bool adc_off(ADC_TypeDef *a)
 }
 
 /* выкл → регулятор → калибровка (single-ended) → вкл; все каналы 640.5 такта */
-static bool adc_cal_on(ADC_TypeDef *a)
+bool adc_hw_cal_on(ADC_TypeDef *a)
 {
-    if (!adc_off(a)) return false;
+    if (!adc_hw_off(a)) return false;
     a->CR = 0;                                   /* DEEPPWD = 0 */
     a->CR = ADC_CR_ADVREGEN;
     delay_cycles(us_cycles(25u));                /* tADCVREG_STUP 20 мкс */
@@ -80,7 +80,7 @@ static bool start_all(void)
 {
     ADC_TypeDef *const all[4] = { ADC1, ADC2, ADC4, ADC5 };
     for (int i = 0; i < 4; i++)
-        if (!adc_cal_on(all[i])) return false;
+        if (!adc_hw_cal_on(all[i])) return false;
     adc_go(ADC2, CH_MON, true, OVS_256);
     ch4 = CH_VOP6;
     adc_go(ADC4, ch4, false, OVS_256);
@@ -96,7 +96,7 @@ bool adc_aux_init(void)
     /* CCR — только при выключенных АЦП группы (ADC3 ещё не включён) */
     ADC_TypeDef *const all[5] = { ADC1, ADC2, ADC3, ADC4, ADC5 };
     for (int i = 0; i < 5; i++)
-        if (!adc_off(all[i])) return false;
+        if (!adc_hw_off(all[i])) return false;
     uint32_t ck12, ck345;
     if (clock_pll_ok()) {
         ck12 = 1u << ADC_CCR_PRESC_Pos;          /* асинхронно PLLP 52 / 2 = 26 МГц */

@@ -8,7 +8,7 @@ set OUT=%HERE%out
 if not exist "%OUT%" mkdir "%OUT%"
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1 || exit /b 1
 
-set TESTS=smoke shproto settings becq_cal hv_ctl temp detector proto ring hwcalc svc
+set TESTS=smoke shproto settings becq_cal hv_ctl temp detector proto ring hwcalc svc acq
 set SRC_smoke=
 set SRC_shproto=shproto.c
 set SRC_settings=settings.c
@@ -20,6 +20,7 @@ set SRC_proto=proto.c shproto.c settings.c becq_cal.c spectrum.c fmt.c
 set SRC_ring=ring.c
 set SRC_hwcalc=hwcalc.c
 set SRC_svc=svc.c hv_ctl.c temp.c settings.c fmt.c
+set SRC_acq=acq.c fmt.c
 rem TSRC_* — вспомогательные исходники из tests\ (синтез потока и т. п.)
 set TSRC_detector=pulsegen_host.c
 
