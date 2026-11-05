@@ -1,0 +1,387 @@
+/* proto.c — команды и ответы по shproto (см. proto.h). Образец BecqMoni-части — firmware/core/app.c. */
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include "proto.h"
+#include "shproto.h"
+#include "becq_cal.h"
+#include "spectrum.h"
+
+#define PL_MAX   (2u + 4u * PROTO_CHUNK_CH)             /* самый длинный кадр — кусок спектра */
+#define TPL_ROWS 64u
+#define TPL_COLS 7u
+
+enum { FL_NONE, FL_OK, FL_PENDING, FL_ERR };
+
+static const proto_port_t *P;
+static settings_t *L;
+static shproto_rx_t rx;
+static bool     acquiring;
+static bool     pending;          /* запись настроек отложена до -sto */
+static uint8_t  flash_st;
+static uint8_t  boot_idx;         /* сколько символов "!boot" уже совпало */
+static float    temp_c;
+static uint32_t cal_stage[BECQ_WORDS];
+static uint16_t cal_mask;         /* бит i — слово i получено */
+static int16_t  tpl_stage[TPL_ROWS][TPL_COLS];
+static uint64_t tpl_mask;         /* бит i — строка i получена */
+
+static uint8_t txbuf[2u * (PL_MAX + 3u) + 3u];
+static uint8_t pl[PL_MAX];
+
+/* ---- передача ---- */
+static void send_frame(uint8_t cmd, const uint8_t *p, size_t n)
+{
+    size_t m = shproto_build(cmd, p, n, txbuf);
+    if (P && P->tx) P->tx(txbuf, m);
+}
+
+void proto_send_text(const char *s)
+{
+    send_frame(SHPROTO_CMD_TEXT, (const uint8_t *)s, strlen(s));
+}
+
+static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
+}
+
+/* Число с фиксированной точкой без %f (в newlib-nano его нет). dec ≤ 6. */
+static void fmt_fix(char *out, size_t cap, float v, int dec)
+{
+    static const uint32_t P10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000 };
+    if (!isfinite(v)) { snprintf(out, cap, "nan"); return; }
+    const char *sg = (v < 0.0f) ? "-" : "";
+    double a = fabs((double)v) * P10[dec] + 0.5;
+    if (a > 4.0e9) a = 4.0e9;
+    uint32_t q = (uint32_t)a;
+    uint32_t ip = q / P10[dec], fp = q % P10[dec];
+    if (q == 0) sg = "";                                   /* без "-0.0" */
+    if (dec == 0) snprintf(out, cap, "%s%lu", sg, (unsigned long)ip);
+    else snprintf(out, cap, "%s%lu.%0*lu", sg, (unsigned long)ip, dec, (unsigned long)fp);
+}
+
+/* ---- флеш: только при остановленном наборе (SPEC §7.9) ---- */
+static bool commit_now(void)
+{
+    settings_seal(L);
+    bool ok = P->settings_commit && P->settings_commit(L);
+    flash_st = ok ? FL_OK : FL_ERR;
+    pending = false;
+    return ok;
+}
+
+/* 1 — записано, 0 — отложено до -sto, −1 — ошибка записи */
+static int request_commit(void)
+{
+    settings_seal(L);
+    if (acquiring) {
+        pending = true;
+        flash_st = FL_PENDING;
+        return 0;
+    }
+    return commit_now() ? 1 : -1;
+}
+
+static void changed(uint32_t what)
+{
+    settings_seal(L);
+    if (P->apply) P->apply(what);
+}
+
+/* ---- разбор аргументов ---- */
+/* Целые через пробел, ровно max штук не обязательно: возвращает число, −1 — мусор. */
+static int parse_longs(const char *p, long *v, int max, int base)
+{
+    int n = 0;
+    for (;;) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) return n;
+        if (n >= max) return -1;
+        char *e;
+        v[n] = strtol(p, &e, base);
+        if (e == p || (*e && *e != ' ' && *e != '\t')) return -1;
+        n++; p = e;
+    }
+}
+
+static int parse_floats(const char *p, float *v, int max)
+{
+    int n = 0;
+    for (;;) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) return n;
+        if (n >= max) return -1;
+        char *e;
+        double d = strtod(p, &e);
+        if (e == p || (*e && *e != ' ' && *e != '\t') || !isfinite(d)) return -1;
+        v[n++] = (float)d; p = e;
+    }
+}
+
+/* ---- команды BecqMoni ---- */
+static void cmd_inf(void)
+{
+    char t[16], r[96];
+    fmt_fix(t, sizeof t, temp_c, 1);
+    snprintf(r, sizeof r, "GammaSpec v1 RISE %u FALL %u T1 %s F %lu VERSION 100",
+             (unsigned)PROTO_INF_RISE, (unsigned)PROTO_INF_FALL, t, (unsigned long)PROTO_INF_FS);
+    proto_send_text(r);
+}
+
+static void cmd_cal(const char *args)
+{
+    while (*args == ' ') args++;
+    if (!*args) {                                          /* 40 регистров */
+        char r[480];
+        if (becq_format_registers(L->becq_words, L->becq_valid != 0, PROTO_SERIAL, r, sizeof r))
+            proto_send_text(r);
+        else
+            proto_send_text("-err cal\r\n");
+        return;
+    }
+    char *e;
+    long idx = strtol(args, &e, 10);
+    if (e == args || idx < 0 || idx >= (long)BECQ_WORDS) { proto_send_text("-err cal\r\n"); return; }
+    while (*e == ' ') e++;
+    if (!*e) {                                             /* чтение одного слова */
+        char r[16];
+        snprintf(r, sizeof r, "%08lX", (unsigned long)(L->becq_valid ? L->becq_words[idx] : 0u));
+        proto_send_text(r);
+        return;
+    }
+    char *e2;
+    unsigned long w = strtoul(e, &e2, 16);
+    while (*e2 == ' ') e2++;
+    if (e2 == e || *e2) { proto_send_text("-err cal\r\n"); return; }
+    cal_stage[idx] = (uint32_t)w;
+    cal_mask |= (uint16_t)(1u << idx);
+    if (cal_mask != (1u << BECQ_WORDS) - 1u) { proto_send_text("-ok\r\n"); return; }
+
+    cal_mask = 0;                                          /* все 11 получены */
+    if (becq_checksum(cal_stage) != cal_stage[10]) {       /* битую сумму не хранить: BecqMoni */
+        proto_send_text("-err cal\r\n");                   /* падает на её чтении */
+        return;
+    }
+    memcpy(L->becq_words, cal_stage, sizeof cal_stage);
+    L->becq_valid = 1;
+    proto_send_text(request_commit() < 0 ? "-err flash\r\n" : "-ok\r\n");
+}
+
+/* ---- сервисные (только настройки) ---- */
+static void cmd_thr(const char *args)
+{
+    long v; char r[32];
+    int n = parse_longs(args, &v, 1, 10);
+    if (n < 0 || (n == 1 && (v < 0 || v > (long)PROTO_THR_MAX))) { proto_send_text("-err thr\r\n"); return; }
+    if (n == 1) { L->thr_codes = (uint16_t)v; changed(PROTO_APPLY_THR); }
+    snprintf(r, sizeof r, "-ok thr %u\r\n", (unsigned)L->thr_codes);
+    proto_send_text(r);
+}
+
+static void cmd_tc(const char *args)
+{
+    float v[3]; char a[3][24], r[96];
+    int n = parse_floats(args, v, 3);
+    if (n != 0 && n != 3) { proto_send_text("-err tc\r\n"); return; }
+    if (n == 3) { L->tc_t0_c = v[0]; L->tc_k1 = v[1]; L->tc_k2 = v[2]; changed(PROTO_APPLY_TC); }
+    fmt_fix(a[0], sizeof a[0], L->tc_t0_c, 3);
+    fmt_fix(a[1], sizeof a[1], L->tc_k1, 6);
+    fmt_fix(a[2], sizeof a[2], L->tc_k2, 6);
+    snprintf(r, sizeof r, "-ok tc %s %s %s\r\n", a[0], a[1], a[2]);
+    proto_send_text(r);
+}
+
+static void cmd_tplw(const char *args)
+{
+    long v[1 + TPL_COLS];
+    if (parse_longs(args, v, 1 + TPL_COLS, 10) != 1 + (int)TPL_COLS || v[0] < 0 || v[0] >= (long)TPL_ROWS) {
+        proto_send_text("-err tplw\r\n");
+        return;
+    }
+    for (unsigned i = 1; i <= TPL_COLS; i++)
+        if (v[i] < -32768 || v[i] > 32767) { proto_send_text("-err tplw\r\n"); return; }
+    for (unsigned i = 0; i < TPL_COLS; i++) tpl_stage[v[0]][i] = (int16_t)v[1 + i];
+    tpl_mask |= 1ull << v[0];
+    proto_send_text("-ok\r\n");
+}
+
+static void cmd_tplok(void)
+{
+    if (tpl_mask != ~0ull) {
+        unsigned got = 0; char r[32];
+        for (unsigned i = 0; i < TPL_ROWS; i++) got += (unsigned)((tpl_mask >> i) & 1u);
+        snprintf(r, sizeof r, "-err tpl %u/64\r\n", got);
+        proto_send_text(r);
+        return;
+    }
+    memcpy(L->tpl, tpl_stage, sizeof L->tpl);   /* между порциями: детектор сейчас не работает */
+    L->tpl_valid = 1;
+    tpl_mask = 0;
+    changed(PROTO_APPLY_TPL);
+    proto_send_text("-ok tpl\r\n");
+}
+
+static void cmd_save(void)
+{
+    int r = request_commit();
+    proto_send_text(r > 0 ? "-ok saved\r\n" : r == 0 ? "-ok deferred\r\n" : "-err flash\r\n");
+}
+
+/* ---- разбор текстового кадра ---- */
+static bool tok_is(const char *line, size_t tl, const char *name)
+{
+    return strlen(name) == tl && memcmp(line, name, tl) == 0;
+}
+
+static void handle_text(const uint8_t *p, size_t n)
+{
+    char line[SHPROTO_RX_MAX_PAYLOAD + 1];
+    if (n > SHPROTO_RX_MAX_PAYLOAD) n = SHPROTO_RX_MAX_PAYLOAD;
+    memcpy(line, p, n);
+    line[n] = 0;
+    for (size_t i = 0; i < n; i++) if (line[i] == 0) { n = i; break; }
+    while (n && (line[n - 1] == '\r' || line[n - 1] == '\n' || line[n - 1] == ' ' || line[n - 1] == '\t'))
+        line[--n] = 0;
+    char *s = line;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    if (*s != '-') return;                                 /* не команда — тишина */
+
+    size_t tl = strcspn(s, " \t");
+    const char *args = s + tl;
+
+    /* ⚠ ack-и BecqMoni — строго "-ok\r\n": AtomSpectra сверяет ответ точно. */
+    if (tok_is(s, tl, "-sta")) {
+        if (!acquiring) { acquiring = true; if (P->acq_start) P->acq_start(); }
+        proto_send_text("-ok\r\n");
+    } else if (tok_is(s, tl, "-sto")) {
+        acquiring = false;
+        if (P->acq_stop) P->acq_stop();
+        if (pending) commit_now();                         /* отложенная запись — ровно один раз */
+        proto_send_text("-ok\r\n");
+    } else if (tok_is(s, tl, "-rst")) {
+        if (P->acq_clear) P->acq_clear();
+        proto_send_text("-ok\r\n");
+    } else if (tok_is(s, tl, "-stt")) {
+        proto_send_text(acquiring ? "-ok collecting\r\n" : "-ok\r\n");
+    } else if (tok_is(s, tl, "-mode")) {
+        proto_send_text("-ok\r\n");
+    } else if (tok_is(s, tl, "-sho")) {
+        proto_send_text("-ok collecting\r\n");
+    } else if (tok_is(s, tl, "-inf")) {
+        cmd_inf();
+    } else if (tok_is(s, tl, "-cal")) {
+        cmd_cal(args);
+    } else if (tok_is(s, tl, "-save")) {
+        cmd_save();
+    } else if (tok_is(s, tl, "-defaults")) {
+        settings_defaults(L);
+        cal_mask = 0; tpl_mask = 0;
+        changed(PROTO_APPLY_ALL);
+        proto_send_text("-ok defaults\r\n");
+    } else if (tok_is(s, tl, "-thr")) {
+        cmd_thr(args);
+    } else if (tok_is(s, tl, "-tc")) {
+        cmd_tc(args);
+    } else if (tok_is(s, tl, "-tplw")) {
+        cmd_tplw(args);
+    } else if (tok_is(s, tl, "-tplok")) {
+        cmd_tplok();
+    } else if (tok_is(s, tl, "-tplclr")) {
+        L->tpl_valid = 0;
+        tpl_mask = 0;
+        changed(PROTO_APPLY_TPL);
+        proto_send_text("-ok tpl builtin\r\n");
+    } else {
+        char r[512];
+        r[0] = 0;
+        if (P->service) P->service(s, r, sizeof r - 2);
+        r[sizeof r - 3] = 0;
+        size_t rl = strlen(r);
+        if (!rl) { proto_send_text("-err unknown\r\n"); return; }
+        if (rl < 2 || r[rl - 2] != '\r' || r[rl - 1] != '\n') { r[rl] = '\r'; r[rl + 1] = '\n'; r[rl + 2] = 0; }
+        proto_send_text(r);
+    }
+}
+
+/* ---- публичное ---- */
+void proto_init(const proto_port_t *port, settings_t *live)
+{
+    P = port;
+    L = live;
+    shproto_rx_init(&rx);
+    acquiring = false;
+    pending = false;
+    flash_st = FL_NONE;
+    boot_idx = 0;
+    temp_c = 0.0f;
+    cal_mask = 0;
+    tpl_mask = 0;
+}
+
+void proto_rx(const uint8_t *p, size_t n)
+{
+    static const char BOOT[] = "!boot";
+    for (size_t i = 0; i < n; i++) {
+        uint8_t b = p[i];
+        /* "!boot" — подстрокой в сыром потоке; у шаблона нет самоперекрытия, кроме '!' */
+        if (b == (uint8_t)BOOT[boot_idx]) {
+            if (++boot_idx == 5u) {
+                boot_idx = 0;
+                if (P->enter_bootloader) P->enter_bootloader();
+            }
+        } else {
+            boot_idx = (b == '!') ? 1u : 0u;
+        }
+        if (shproto_rx_byte(&rx, b) && rx.cmd == SHPROTO_CMD_TEXT)
+            handle_text(rx.buf, rx.len);
+    }
+}
+
+void proto_tick_1s(void)
+{
+    if (!acquiring) return;
+    const uint32_t *spec = spectrum_data();
+    for (uint32_t off = 0; off < SPECTRUM_CHANNELS; off += PROTO_CHUNK_CH) {
+        put16(pl, (uint16_t)off);
+        for (uint32_t i = 0; i < PROTO_CHUNK_CH; i++)
+            put32(pl + 2 + 4 * i, spec[off + i] & SPECTRUM_MASK);
+        send_frame(SHPROTO_CMD_HISTOGRAM, pl, 2u + 4u * PROTO_CHUNK_CH);
+    }
+    /* статус — последним: по нему BecqMoni перерисовывает спектр */
+    proto_status_t st;
+    memset(&st, 0, sizeof st);
+    if (P->fill_status) P->fill_status(&st);
+    put32(pl, st.elapsed_s);
+    put16(pl + 4, st.cpu_x10);
+    put32(pl + 6, st.cps);
+    put32(pl + 10, st.invalid);
+    send_frame(SHPROTO_CMD_STAT, pl, 14);
+}
+
+void proto_send_pulse(const uint16_t *s, size_t n)
+{
+    if (n > 0xFFFFu) n = 0xFFFFu;
+    for (size_t i = 0; i < n; i += PROTO_PULSE_CHUNK) {
+        size_t k = n - i < PROTO_PULSE_CHUNK ? n - i : PROTO_PULSE_CHUNK;
+        put16(pl, (uint16_t)i);
+        put16(pl + 2, (uint16_t)n);
+        for (size_t j = 0; j < k; j++) put16(pl + 4 + 2 * j, s[i + j]);
+        send_frame(SHPROTO_CMD_PULSE, pl, 4u + 2u * k);
+    }
+}
+
+void proto_set_temperature(float t_c) { temp_c = t_c; }
+bool proto_acquiring(void) { return acquiring; }
+
+const char *proto_flash_status(void)
+{
+    switch (flash_st) {
+    case FL_OK:      return "ok";
+    case FL_PENDING: return "pending";
+    case FL_ERR:     return "err";
+    default:         return "none";
+    }
+}

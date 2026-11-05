@@ -1,0 +1,100 @@
+/*
+ * proto.h — команды и ответы по shproto (SPEC §9). Переносимый модуль, без железа.
+ *
+ * Хост → прибор: текстовые кадры 0x03. Ответ — один текстовый кадр 0x03.
+ *  - Команды BecqMoni — строго как ждёт upstream (docs/ru/protocol.md):
+ *      -sta / -sto / -rst      → "-ok\r\n"
+ *      -stt                    → "-ok collecting\r\n" (идёт набор) / "-ok\r\n"
+ *      -mode …                 → "-ok\r\n"
+ *      -sho                    → "-ok collecting\r\n"
+ *      -inf                    → "GammaSpec v1 RISE <r> FALL <f> T1 <t> F <fs> VERSION 100"
+ *                                 (токены [3], [5], [9] = r, f, fs — старый позиционный разбор
+ *                                 BecqMoni; пары RISE/FALL/F — новый DeadTimeFromInfo)
+ *      -cal                    → 40 регистров (becq_format_registers), [39] = серийник
+ *      -cal i                  → "XXXXXXXX" (слово i, как этап 1)
+ *      -cal i hex              → "-ok\r\n"; по приходу всех 11 слов с верной суммой —
+ *                                 в live-настройки и запись во флеш (при наборе — отложенная)
+ *  - Сервисные, обрабатываемые здесь (только настройки):
+ *      -save                   → "-ok saved" / "-ok deferred" (идёт набор) / "-err flash"
+ *      -defaults               → настройки по умолчанию в ОЗУ (не записываются до -save)
+ *      -thr [кодов|0]          → "-ok thr N" (0 — авто 5σ); без аргумента — запрос
+ *      -tc [t0 k1 k2]          → "-ok tc t0 k1 k2"; без аргументов — запрос
+ *      -tplw <фаза> <7 чисел>  → строка эталона в ОТДЕЛЬНЫЙ буфер (набор её не видит)
+ *      -tplok                  → все 64 строки получены → копия в live->tpl, tpl_valid = 1,
+ *                                 apply(PROTO_APPLY_TPL) (приложение зовёт det_set_template)
+ *      -tplclr                 → tpl_valid = 0 (встроенный эталон), apply(PROTO_APPLY_TPL)
+ *  - Прочие "-…" (-hv, -hvzero, -hvk, -ptcal, -gst, -diag, -osc, -dac, …) — в port->service;
+ *    пустой ответ сервиса (или нет сервиса) → "-err unknown\r\n".
+ *  - Текст не с '-' и нетекстовые кадры — тишина (как этап 1).
+ *
+ * "!boot" ищется подстрокой в сыром входном потоке (в кадре и вне его, в том числе разорванный
+ * между вызовами proto_rx) → port->enter_bootloader() (там же ВВ выкл, SPEC §4).
+ *
+ * Флеш (SPEC §7.9): port->settings_commit вызывается ТОЛЬКО при остановленном наборе.
+ * Запись во время набора откладывается до -sto и выполняется там ровно один раз.
+ *
+ * Прибор → хост раз в секунду при наборе (proto_tick_1s): 16 кадров 0x01 по 512 каналов
+ * ([offset u16][канал u32 & 0x7FFFFFF] LE), затем статус 0x04 (14 байт:
+ * [elapsed u32 СЕКУНДЫ][cpu u16, 0.1 %][cps u32][invalid u32] LE) — по нему BecqMoni
+ * перерисовывает спектр.
+ *
+ * Осциллограф (proto_send_pulse), кадр 0x02 — формат gamma_fw (BecqMoni его не знает):
+ *   [index u16][total u16][отсчёт u16 × k] LE, k ≤ PROTO_PULSE_CHUNK; запись длиннее
+ *   режется на кадры, index — номер первого отсчёта кадра в записи, total — длина записи.
+ *
+ * Контекст: proto_rx/proto_tick_1s вызывать из главного цикла — того же, где идёт
+ * det_process_block (поэтому -tplok меняет таблицу между порциями).
+ * port->tx обязан забрать данные до возврата (скопировать в свой буфер/DMA-кольцо или
+ * дождаться отправки): буфер кадра в proto один и переиспользуется.
+ */
+#ifndef PROTO_H
+#define PROTO_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include "settings.h"
+
+#define PROTO_SERIAL        "GS474-0001"
+#define PROTO_CHUNK_CH      512u           /* каналов в кадре 0x01 */
+#define PROTO_PULSE_CHUNK   512u           /* отсчётов в кадре 0x02 */
+#define PROTO_THR_MAX       1000u          /* потолок -thr, коды АЦП */
+/* -inf: мёртвое время для BecqMoni = (RISE + FALL + 1) / F. В отсчётах АЦП 3.4667 Мвыб/с:
+   фронт ≈ 3, спад до thr/2 ≈ 12 (CR-RC², τ 1 мкс / 0.51 мкс) ⇒ ≈ 4.6 мкс. Уточнить на плате
+   (Task 10). Живое время прибор и так считает сам (статус -gst). */
+#define PROTO_INF_RISE      3u
+#define PROTO_INF_FALL      12u
+#define PROTO_INF_FS        3466667u
+
+/* флаги для port->apply: что поменялось в live-настройках */
+#define PROTO_APPLY_THR     0x01u
+#define PROTO_APPLY_TC      0x02u
+#define PROTO_APPLY_TPL     0x04u
+#define PROTO_APPLY_ALL     0xFFFFFFFFu    /* -defaults */
+
+typedef struct { uint32_t elapsed_s; uint16_t cpu_x10; uint32_t cps; uint32_t invalid; } proto_status_t;
+
+typedef struct {                       /* железо/приложение, на ПК — заглушки */
+    void (*tx)(const uint8_t *p, size_t n);
+    uint32_t (*millis)(void);
+    bool (*settings_commit)(const settings_t *s); /* запись во флеш; вызывается только при остановленном наборе */
+    void (*acq_start)(void); void (*acq_stop)(void); void (*acq_clear)(void);
+    void (*enter_bootloader)(void);
+    void (*service)(const char *cmd, char *reply, size_t cap); /* сервисные команды, см. выше */
+    void (*fill_status)(proto_status_t *st);       /* время, cpu (0.1 %), cps, invalid */
+    void (*apply)(uint32_t what);  /* live-настройки изменены (PROTO_APPLY_*); может быть NULL */
+} proto_port_t;
+
+void proto_init(const proto_port_t *port, settings_t *live);
+void proto_rx(const uint8_t *p, size_t n);      /* сюда же ищется "!boot" */
+void proto_tick_1s(void);                       /* при наборе: спектр 0x01 кусками по 512 + статус 0x04 */
+void proto_send_pulse(const uint16_t *s, size_t n); /* 0x02 — осциллограф для gammapult */
+void proto_send_text(const char *s);            /* произвольный текстовый кадр 0x03 */
+
+/* Температура для -inf (T1), °C; приложение обновляет раз в секунду. */
+void proto_set_temperature(float t_c);
+bool proto_acquiring(void);
+/* Состояние записи настроек для -gst: "none", "ok", "pending", "err". */
+const char *proto_flash_status(void);
+
+#endif
