@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Серия count импульсов «ступенька вверх на step_code — полпериода — вниз» с периодом
+/* Серия count импульсов «ступенька вверх на step_code — DACT_HOLD_US — спуск лесенкой» с периодом
    period_us (+ случайная добавка 0…jit_cyc−1 тактов, jit_cyc — тактов ЦП на отсчёт АЦП).
    Неблокирующая. false — занято или параметры вне пределов (dactest.h). */
 bool dac_test_pulses(uint16_t step_code, uint16_t count, uint16_t period_us, uint16_t jit_cyc);

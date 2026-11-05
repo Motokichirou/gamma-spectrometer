@@ -208,6 +208,12 @@ static void cmd_gst(char *reply, size_t cap)
     putu(&o, "cps_in", g.cps_in);
     putu(&o, "cps_acc", g.cps_acc);
     putu(&o, "rej", g.rej);
+    putu(&o, "thr", g.thr);
+    if (o.w + 48u < cap) {          /* причины отбраковки с пуска: форма/ширина/наложение/бюджет */
+        int k = snprintf(reply + o.w, cap - o.w, " rej_swpb=%lu/%lu/%lu/%lu", (unsigned long)g.rej_shape,
+                         (unsigned long)g.rej_width, (unsigned long)g.rej_pile, (unsigned long)g.rej_budget);
+        if (k > 0) o.w += (size_t)k;
+    }
     putf(&o, "live_s", g.live_s, 1);
     putf(&o, "real_s", g.real_s, 1);
     putf(&o, "cpu", g.cpu_pct, 1);

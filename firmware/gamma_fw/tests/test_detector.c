@@ -259,6 +259,54 @@ static void test_baseline_tracking(void)
     CHECK_NEAR(det_sigma(&det), 1.82, 0.25);
 }
 
+
+/* Заморозка базы (самотест ЦАП): отрицательные импульсы и сдвиг «спокойных» базу не двигают,
+ * ступенька вверх не пересчитывает её; после отпускания — снова следит. Импульсы при заморозке
+ * считаются от замороженной базы. */
+static void test_base_hold(void)
+{
+    pg_init(&pg, tpl_3467k, 64, 4242u);
+    const size_t n = 12 * BLK;
+    memset(fbuf, 0, n * sizeof fbuf[0]);
+    for (double t = 2.0 * BLK + 100; t < 8.0 * BLK - 200; t += 347.0 + 44.0 * pg_uniform(&pg)) {
+        pg_add_pulse(&pg, fbuf, n, t, 500.0f);
+        /* «спуск ЦАП» лесенкой; у синтетической формы недолёт −4 % — отрицательные импульсы дают
+           выброс вверх, поэтому редкие и небольшие (на плате выброса нет, см. dactest.h) */
+        for (int k = 0; k < 2; k++)
+            pg_add_pulse(&pg, fbuf, n, t + 52.0 + 40.0 * k, -100.0f);
+    }
+    pg_add_noise(&pg, fbuf, n, 1.8f);
+    pg_quantize(fbuf, sbuf, n, BASE);
+    reset(DET_THR_DEF);
+    feed(2 * BLK, BLK);
+    CHECK_NEAR(det_baseline(&det), 645.0, 0.3);
+    det_set_base_hold(&det, 1);
+    for (size_t i = 2 * BLK; i < 8 * BLK; i += BLK) det_process_block(&det, sbuf + i, BLK);
+    CHECK_NEAR(det_baseline(&det), 645.0, 0.3);
+    CHECK_NEAR(det_sigma(&det), 1.8, 0.3);
+    double m, sd;
+    stats(&m, &sd);
+    CHECK(nch > 100);
+    printf("  заморозка базы: принято %d, канал %.2f (1000), база %.3f\n", nch, m, det_baseline(&det));
+    CHECK_NEAR(m, 2.0 * 500.0, 3.0);                               /* от замороженной базы */
+    det_set_base_hold(&det, 0);
+    for (size_t i = 8 * BLK; i < n; i += BLK) det_process_block(&det, sbuf + i, BLK);
+    CHECK_NEAR(det_baseline(&det), 645.0, 0.3);
+    /* ступенька вверх при заморозке — без пересчёта (base_jumps не растёт) */
+    for (size_t k = 0; k < 6 * BLK; k++) sbuf[k] = (uint16_t)(k < BLK ? 645 : 700);
+    reset(DET_THR_DEF);
+    det_process_block(&det, sbuf, BLK);
+    det_set_base_hold(&det, 1);
+    for (size_t i = BLK; i < 6 * BLK; i += BLK) det_process_block(&det, sbuf + i, BLK);
+    det_stats_t st;
+    det_get_stats(&det, &st);
+    CHECK(st.base_jumps == 0);
+    CHECK_NEAR(det_baseline(&det), 645.0, 0.01);
+    det_set_base_hold(&det, 0);
+    for (size_t i = 0; i < 2; i++) det_process_block(&det, sbuf + BLK, BLK);
+    CHECK_NEAR(det_baseline(&det), 700.0, 0.5);
+}
+
 /*
  * Перегрузка: 3 порции на +50 и обратно. По сигналу это не отличить от ступеньки базы:
  * после DET_BASE_N залипших отсчётов база переезжает наверх, после спада — сразу обратно
@@ -732,6 +780,7 @@ int main(void)
     test_block_boundary();
     test_baseline_tracking();
     test_baseline_step();
+    test_base_hold();
     test_template_swap();
     test_template_large_values();
     test_overload();

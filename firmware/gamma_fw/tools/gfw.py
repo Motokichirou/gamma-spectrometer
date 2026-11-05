@@ -17,8 +17,9 @@
         записать n окон импульсов (-osc пачками по 64, вне набора) → .npz: win (n×32 кода АЦП),
         base, amp, ph, pk, ch, pos, pre = 8 (имя на .npy заменяется на .npz). --dac — на время
         записи тестовые импульсы ЦАП (-dac <код> 65535 <период>, в конце -dac off). Печать:
-        невязка формы против эталона прошивки (src/core/tpl_3467k.h) — медиана по импульсам
-        rms(y − A·h)/A, %, подгонка как в детекторе (одна амплитуда, 64 фазы).
+        невязка формы против эталона прошивки (src/core/tpl_3467k.h; с --dac — tpl_dac.h, которым
+        детектор подгоняет импульсы ЦАП) — медиана по импульсам rms(y − A·h)/A, %, подгонка как
+        в детекторе (одна амплитуда, 64 фазы).
   python -I gfw.py tpl <pulses.npz> [--dry] [--out-h file.h] [--port COM4]
         эталон 64 фазы × 7 (Q14) из записанных окон: выравнивание по фазе (итерации подгонкой
         общей формы), усреднение на сетке 1/64 отсчёта, нормировка на непрерывный пик, строки
@@ -233,6 +234,7 @@ def lin_fit(x, y):
 TPL_NPH, TPL_NS, TPL_IPK, TPL_Q = 64, 7, 1, 14
 TPL_QMAX = 1 << TPL_Q
 TPL_H = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "core", "tpl_3467k.h")
+TPL_DAC_H = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "core", "tpl_dac.h")
 
 
 def parse_osc_line(text):
@@ -697,7 +699,10 @@ def do_osc(a):
     z = osc_arrays(got)
     np.savez(out, **z)
     print(f"записано {len(z['win'])} окон по {z['win'].shape[1]} отсчётов: {out}")
-    report_residual(z["win"], z["base"], int(z["pre"]), load_tpl_h(), "эталоне прошивки")
+    if a.dac:   # в режиме ЦАП детектор подгоняет эталоном tpl_dac.h (main.c, dactest.h)
+        report_residual(z["win"], z["base"], int(z["pre"]), load_tpl_h(TPL_DAC_H), "эталоне ЦАП (tpl_dac.h)")
+    else:
+        report_residual(z["win"], z["base"], int(z["pre"]), load_tpl_h(), "эталоне прошивки")
     return 0
 
 
@@ -755,7 +760,9 @@ def lin_point(s, p, code, n, period):
         return None
     if wait_text(s, p, lambda t: t.startswith("-ok dac done"), n * period * 1e-6 + 5.0, on) is None:
         print(f"-dac {code}: нет '-ok dac done'", file=sys.stderr)
-    last["spec"] = None                       # нужен спектр, выданный ПОСЛЕ конца серии
+    last["spec"] = None                       # нужен спектр, выданный ПОСЛЕ конца серии:
+    spec.got = set()                          # куски, пришедшие до "done", не в счёт (иначе в
+                                              # «полном» спектре — часть кусков с середины серии)
     t0 = time.time()
     while last["spec"] is None and time.time() - t0 < 3.0:
         wait_text(s, p, lambda t: False, 0.2, on)

@@ -8,6 +8,7 @@
 
 #define RX_LEN  1024u
 #define TX_LEN  8192u
+#define TX_DMA_MAX 1024u                         /* байт на одну передачу DMA: 17 мс при 600 000 */
 #define DMA_REQ_USART1_TX 25u                    /* RM0440 Табл. 91 (DMAMUX) */
 #define TXCH    DMA1_Channel2                    /* ↔ DMAMUX1_Channel1; DMA1_Channel1 — под АЦП (Task 10) */
 #define TXMUX   DMAMUX1_Channel1
@@ -25,6 +26,10 @@ static void tx_kick(void)
     const uint8_t *p;
     uint32_t n = ring_peek_contig(&tx, &p);
     if (!n) return;
+    /* не больше TX_DMA_MAX за раз: место в кольце освобождается только по концу передачи, а 8 КБ
+       одним куском идут 137 мс — дольше UART_TX_STALL_MS, и ждущий uart_tx бросал остаток кадра
+       (терялся 8-й…9-й кадр "-osc raw", замер 2026-11-06) */
+    if (n > TX_DMA_MAX) n = TX_DMA_MAX;
     TXCH->CCR &= ~DMA_CCR_EN;
     DMA1->IFCR = DMA_IFCR_CGIF2;
     TXCH->CMAR = (uint32_t)p;

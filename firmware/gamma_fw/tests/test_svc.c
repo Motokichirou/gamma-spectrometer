@@ -312,14 +312,16 @@ static void test_cmd_gst(void)
     gst_stub.base = 645.25f; gst_stub.sigma = 1.18f; gst_stub.cps_in = 120; gst_stub.cps_acc = 110;
     gst_stub.rej = 3; gst_stub.lost = 0; gst_stub.overrun = 0; gst_stub.live_s = 9.5f; gst_stub.real_s = 10.0f;
     gst_stub.cpu_pct = 7.2f; gst_stub.pwm = 0; gst_stub.flash = "defaults";
+    gst_stub.thr = 7; gst_stub.rej_shape = 4000000000u; gst_stub.rej_width = 4000000000u;
+    gst_stub.rej_pile = 4000000000u; gst_stub.rej_budget = 4000000000u;
     const char *g = svc("-gst");
     CHECK(starts(g, "-ok gst "));
     CHECK(strlen(g) < 500);
     static const char *keys[] = { "hv", "hv_set", "hv_out", "hv_trim", "hv_trip", "t", "vref", "base",
                                   "sigma", "cps_in", "cps_acc", "rej", "live_s", "real_s", "cpu", "lost",
-                                  "overrun",
+                                  "overrun", "thr", "rej_swpb",
                                   "flash", "vdd", "mon_mv", "hv_zero", "hv_k", "pt_rpu", "hv_pwm" };
-    char b[32];
+    char b[64];
     for (unsigned i = 0; i < sizeof keys / sizeof keys[0]; i++) {
         bool ok = kv(g, keys[i], b, sizeof b);
         if (!ok) printf("  нет ключа %s\n", keys[i]);
@@ -332,6 +334,8 @@ static void test_cmd_gst(void)
     CHECK(kv(g, "hv_trip", b, sizeof b) && strcmp(b, "-") == 0);
     CHECK(kv(g, "base", b, sizeof b) && strcmp(b, "645.25") == 0);
     CHECK(kv(g, "flash", b, sizeof b) && strcmp(b, "defaults") == 0);
+    CHECK(kv(g, "thr", b, sizeof b) && strcmp(b, "7") == 0);
+    CHECK(kv(g, "rej_swpb", b, sizeof b) && strcmp(b, "4000000000/4000000000/4000000000/4000000000") == 0);
     CHECK(strstr(g, "hv_off=") == NULL);
     svc("-hv 100");
     svc("-hv off");

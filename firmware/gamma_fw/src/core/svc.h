@@ -98,6 +98,8 @@ typedef struct {
     float base, sigma;          /* коды */
     uint32_t cps_in, cps_acc, rej, lost;
     uint32_t overrun;           /* порций, перезаписанных DMA во время обработки */
+    uint16_t thr;               /* действующий порог детектора, коды */
+    uint32_t rej_shape, rej_width, rej_pile, rej_budget;   /* отбраковка по причинам с пуска */
     float live_s, real_s, cpu_pct;
     uint16_t pwm;               /* текущая скважность ШИМ ВВ */
     const char *flash;          /* proto_flash_status() */

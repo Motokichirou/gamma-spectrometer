@@ -22,6 +22,7 @@
  * Task 11: тестовые импульсы ЦАП (-dac, core/dactest + hw/dac_test: TIM6 в прерывании пишет DAC1 на
  * PA4; по окончании серии — текст "-ok dac done <n>", PA4 снова Hi-Z). Добавка к периоду — один
  * отсчёт АЦП в тактах ЦП (45 при 2.5 такта, 57 при 6.5), чтобы фаза ступеньки была равномерной.
+ * На время серии детектор — в режиме самотеста ЦАП (эталон tpl_dac, ширина, база заморожена).
  *
  * Task 12: настройки — страница 0x0801 F000 внутренней флеш (hw/flash_int + core/flashstore):
  * при старте загрузка (не прошла settings_valid — умолчания и flash=defaults в -gst; ВВ при старте
@@ -51,6 +52,7 @@
 #include "detector.h"
 #include "spectrum.h"
 #include "tpl_3467k.h"
+#include "tpl_dac.h"
 #include "hwcalc.h"
 #include "svc.h"
 #include "acq.h"
@@ -72,6 +74,7 @@
 #define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
 #define BLK_WAIT_MS   20u                       /* ожидание порции для -noise/-osc raw (порция 2.4…3 мс) */
 #define AUX_START_MS  1500u                     /* калибровка АЦП — не раньше 1.5 с (SPEC §3.3) */
+#define DAC_MODE_TAIL_MS 20u                    /* режим ЦАП держится после серии: порции в DMA (≤ 5 мс) */
 
 
 /* Вызывается из Reset_Handler первым делом. Таблица векторов — наша:
@@ -115,6 +118,9 @@ static bool       osc_on;
 static uint16_t   osc_n;
 static uint32_t   osc_t0;
 static const int16_t (*tpl_now)[DET_NS] = tpl_3467k;
+/* режим самотеста ЦАП: эталон tpl_dac, ширина до DACT_MAXW, база заморожена (dactest.h) */
+static bool       dac_mode;
+static uint32_t   dac_end_ms;                   /* 0 — серия идёт; иначе момент, когда кончилась */
 /* учёт набора: время от -sta, накапливается между -sto/-sta, обнуляется -rst; мёртвое время */
 static acq_t      acq;
 
@@ -175,7 +181,7 @@ static bool p_commit(const settings_t *s)
 }
 static void p_acq_start(void)
 {
-    det_set_thr(&det, live.thr_codes);         /* авто-порог: σ при старте набора */
+    if (!dac_mode) det_set_thr(&det, live.thr_codes);   /* авто-порог: σ при старте набора */
     if (osc_on) {                              /* выдача окон блокирует цикл — при наборе нельзя */
         osc_stop();
         proto_send_text("-err osc acq\r\n");
@@ -219,10 +225,10 @@ static void p_apply(uint32_t what)
 {
     /* -defaults (proto пускает только при выключенном ВВ): калибровка монитора — и в hv_ctl */
     if (what == PROTO_APPLY_ALL) hv_set_cal(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
-    if (what & PROTO_APPLY_THR) det_set_thr(&det, live.thr_codes);
+    if ((what & PROTO_APPLY_THR) && !dac_mode) det_set_thr(&det, live.thr_codes);   /* ЦАП — по окончании */
     if (what & PROTO_APPLY_TPL) {
         tpl_now = live.tpl_valid ? (const int16_t (*)[DET_NS])live.tpl : tpl_3467k;
-        det_set_template(&det, tpl_now);
+        if (!dac_mode) det_set_template(&det, tpl_now);   /* в режиме ЦАП — по его окончании */
     }
 }
 
@@ -241,15 +247,25 @@ static void s_fill_gst(svc_gst_t *g)
     g->cpu_pct = (float)acq.cpu_x10 / 10.0f;
     g->lost = adc_sig_lost();
     g->overrun = adc_sig_overrun();
+    g->thr = det_thr(&det);
+    g->rej_shape = ds.rej_shape;
+    g->rej_width = ds.rej_width;
+    g->rej_pile = ds.rej_pileup;
+    g->rej_budget = ds.rej_budget;
     g->pwm = hv_duty;
     g->flash = proto_flash_status();
 }
+/* Монитор ВВ в -diag — тот же, что в -gst (mon_mv: ADC2 ×256, сглаживание), а не свой разовый замер:
+ * на узле монитора (110 кОм) наводка ≈ 159 кГц размахом ±64 кода (≈ ±40 мВ, замер 2026-11-06 при
+ * выключенном ВВ, одинаково на ADC1 и ADC2), 16 отсчётов -diag (0.4 мс) её не усредняют — показания
+ * гуляли 2433…2508 мВ при среднем 2464. ×256 по 25 мкс (6.4 мс) и τ сглаживания — ±1 мВ. */
 static bool s_diag(svc_diag_t *d)
 {
     float raw[SVC_DIAG_N];
     if (!aux_on || !adc_aux_diag(raw)) return false;
     float vref = svc_vref_mv(&aux);
     for (int i = 0; i < SVC_DIAG_N; i++) d->mv[i] = raw[i] * vref / 4095.0f;
+    if (aux.mon_seeded && isfinite(aux.mon_mv_f)) d->mv[SVC_N_MON] = aux.mon_mv_f;
     return true;
 }
 static const svc_ctx_t svc_ctx = { &hv, &live, &aux, p_millis, s_fill_gst, s_diag };
@@ -318,13 +334,45 @@ static void osc_poll(void)
     proto_send_text(line);
 }
 
-/* ---- тестовые импульсы ЦАП (core/dactest.c) ---- */
+/* ---- тестовые импульсы ЦАП (core/dactest.c) ----
+ * Импульс ЦАП по форме не похож на импульс ФЭУ (ток через (R_ЦАП + R307)·C318: фронт за 1–2 отсчёта,
+ * спад τ ≈ 2.3 мкс, выше порога до ≈ 50 отсчётов против 3–4; dactest.h): с эталоном ФЭУ невязка
+ * ≈ 33 % (χ² — отбраковка почти всех), по ширине DET_MAXW_DEF = 16 — тоже. Поэтому на время серии
+ * детектор — в режиме самотеста: эталон tpl_dac (с платы, tools/tpl_dac.py, невязка 0.1 %),
+ * max_w = DACT_MAXW, база и σ заморожены (спуск ЦАП — отрицательные импульсы, они утащили бы базу).
+ * Импульсы ФЭУ, если он подключён, в это время считаются с чужим эталоном — самотест делать без
+ * набора спектра источника. Выход из режима — через DAC_MODE_TAIL_MS после конца серии
+ * (дообработать порции в DMA). */
+
+static void dac_mode_set(bool on)
+{
+    det_set_template(&det, on ? tpl_dac : tpl_now);
+    det_set_width(&det, DET_MINW_DEF, on ? (uint8_t)DACT_MAXW : DET_MAXW_DEF);
+    det_set_base_hold(&det, on);
+    /* порог: после спуска выход стоит выше замороженной базы на ≈ 0.3 % амплитуды (медленный хвост
+       тракта, τ ≈ 330 мкс; +4.5 кода при ступеньке 2000) — шум пересекал порог 7, детектор не
+       взводился (нужно ниже thr/2) и пропускал 18 % импульсов. В режиме ЦАП — не ниже DACT_THR. */
+    if (on) { if (det_thr(&det) < DACT_THR) det_set_thr(&det, DACT_THR); }
+    else det_set_thr(&det, live.thr_codes);
+    dac_mode = on;
+    dac_end_ms = 0;
+}
 static bool d_start(uint16_t step, uint16_t n, uint16_t per)
 {
     /* добавка к периоду — тактов ЦП на отсчёт АЦП (156 МГц / 3.4667 Мвыб/с = 45) */
     uint32_t fs = sig_on ? adc_sig_fs() : DET_FS_HZ;
     uint32_t jit = (clock_hz() + fs / 2u) / fs;
-    return dac_test_pulses(step, n, per, (uint16_t)(jit ? jit : 1u));
+    if (!dac_test_pulses(step, n, per, (uint16_t)(jit ? jit : 1u))) return false;
+    dac_mode_set(true);
+    return true;
+}
+/* серия кончилась (сама или -dac off) — через DAC_MODE_TAIL_MS обратно в обычный режим */
+static void dac_mode_poll(uint32_t now)
+{
+    if (!dac_mode) return;
+    if (dac_test_busy()) { dac_end_ms = 0; return; }
+    if (!dac_end_ms) { dac_end_ms = now ? now : 1u; return; }
+    if (now - dac_end_ms >= DAC_MODE_TAIL_MS) dac_mode_set(false);
 }
 static const dact_ctx_t dact_ctx = { d_start, dac_test_stop, dac_test_busy, dac_test_done, dac_test_total };
 
@@ -475,6 +523,7 @@ int main(void)
             proto_send_text(m);
         }
         uint32_t now = millis();
+        dac_mode_poll(now);
         if (!aux_tried && now >= AUX_START_MS) {   /* опора REF35250 устоялась — калибровать АЦП */
             aux_tried = true;
             aux_on = adc_aux_init();

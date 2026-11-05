@@ -8,6 +8,7 @@
 #include <arm_acle.h>
 #define UQSUB16(a, b)      ((uint32_t)__uqsub16((a), (b)))
 #define SMLALD(a, b, acc)  ((int64_t)__smlald((int32_t)(a), (int32_t)(b), (acc)))
+#define SMLAD(a, b, acc)   ((uint32_t)__smlad((int32_t)(a), (int32_t)(b), (int32_t)(acc)))
 #else
 /* ПК: скалярная модель тех же инструкций — тесты гоняют тот же цикл, что и МК */
 static inline uint32_t UQSUB16(uint32_t a, uint32_t b)
@@ -21,6 +22,28 @@ static inline int64_t SMLALD(uint32_t a, uint32_t b, int64_t acc)
     return acc + (int64_t)(int16_t)(a & 0xFFFFu) * (int16_t)(b & 0xFFFFu)
                + (int64_t)(int16_t)(a >> 16) * (int16_t)(b >> 16);
 }
+static inline uint32_t SMLAD(uint32_t a, uint32_t b, uint32_t acc)
+{
+    return acc + (uint32_t)((int32_t)(int16_t)(a & 0xFFFFu) * (int16_t)(b & 0xFFFFu)
+                          + (int32_t)(int16_t)(a >> 16) * (int16_t)(b >> 16));
+}
+#endif
+
+/* Развернуть короткие циклы по окну эталона (7 отсчётов): с ветвлением на каждом отсчёте подгонка
+   стоила ≈ 2500 тактов (замер DWT на плате 2026-11-06). */
+#if defined(__GNUC__) && !defined(__clang__)
+#define DET_UNROLL _Pragma("GCC unroll 8")
+#define DET_INLINE static inline __attribute__((always_inline))   /* в slow, без вызова на отсчёт */
+#else
+#define DET_UNROLL
+#define DET_INLINE static inline
+#endif
+
+/* чтение порции словами: псевдоним uint16_t[] без нарушения strict aliasing */
+#if defined(__GNUC__)
+typedef uint32_t __attribute__((may_alias)) u32_alias;
+#else
+typedef uint32_t u32_alias;
 #endif
 
 /* DET_S_SKIP — бюджет порции исчерпан: остаток порции только считается (см. detector.h) */
@@ -111,6 +134,13 @@ void det_set_template(det_t *d, const int16_t (*tpl)[DET_NS])
 }
 
 void det_set_gain(det_t *d, float g) { d->gain = g; }
+
+void det_set_base_hold(det_t *d, int on)
+{
+    d->base_hold = on ? 1u : 0u;
+    d->qn = 0; d->qsum = 0; d->qsq = 0;
+    d->stk_n = 0; d->stk_s1 = 0; d->stk_s2 = 0;
+}
 float det_baseline(const det_t *d) { return d->base; }
 
 float det_sigma(const det_t *d)
@@ -173,6 +203,10 @@ static void update_base(det_t *d)
 {
     if (d->qn < DET_BASE_N)
         return;
+    if (d->base_hold) {                                /* заморожена: суммы — в корзину */
+        d->qn = 0; d->qsum = 0; d->qsq = 0;
+        return;
+    }
     const int64_t b = d->bint, n = (int64_t)d->qn;
     const int64_t s1 = (int64_t)d->qsum - n * b;
     const int64_t s2 = (int64_t)d->qsq - 2 * b * (int64_t)d->qsum + n * b * b;
@@ -280,6 +314,7 @@ CCM_FUNC static int fit(det_t *d, uint16_t *ch, float *amp, uint8_t *phase)
     const float frac = d->pbase - (float)d->pbint;      /* y_ист = y − frac */
     const int32_t thr = d->cfg.thr;
     int32_t sy = 0, syy = 0;
+    DET_UNROLL
     for (unsigned k = 0; k < DET_NS; k++) {
         sy  += y[k];
         syy += (int32_t)y[k] * y[k];
@@ -297,6 +332,7 @@ CCM_FUNC static int fit(det_t *d, uint16_t *ch, float *amp, uint8_t *phase)
     for (int p = 0; p < (int)DET_NPH; p += (int)DET_COARSE) {     /* грубо: 16 фаз */
         const int16_t *h = d->tpl[p];
         int32_t yh = 0;
+        DET_UNROLL
         for (unsigned k = 0; k < DET_NS; k++) yh += (int32_t)y[k] * h[k];
         float YH = (float)yh - frac * (float)d->tpl_sh[p];
         if (YH <= 0.0f) continue;
@@ -311,6 +347,7 @@ CCM_FUNC static int fit(det_t *d, uint16_t *ch, float *amp, uint8_t *phase)
         int p = (c + dp) & (int)(DET_NPH - 1u);
         const int16_t *h = d->tpl[p];
         int32_t yh = 0;
+        DET_UNROLL
         for (unsigned k = 0; k < DET_NS; k++) yh += (int32_t)y[k] * h[k];
         float YH = (float)yh - frac * (float)d->tpl_sh[p];
         if (YH <= 0.0f) continue;
@@ -394,7 +431,7 @@ CCM_FUNC static int start_pulse(det_t *d, const uint16_t *s, size_t i, size_t n)
 }
 
 /* Отсчёт внутри импульса (логика core/dsp.c). */
-CCM_FUNC static void pulse_sample(det_t *d, int32_t dev)
+DET_INLINE void pulse_sample(det_t *d, int32_t dev)
 {
     const int32_t thr = d->cfg.thr;
     d->st.dead_samples++;
@@ -456,7 +493,7 @@ CCM_FUNC static size_t slow(det_t *d, const uint16_t *s, size_t i, size_t n)
             return i;
         {                                            /* ступенька базы вверх: см. rebase_stuck */
             int32_t db = (int32_t)v - d->bint;
-            if (db < thr / 2) {                      /* то же условие, что взвод в GUARD */
+            if (db < thr / 2 || d->base_hold) {      /* то же условие, что взвод в GUARD */
                 stuck_reset(d);
             } else {
                 d->stk_n++;
@@ -527,6 +564,37 @@ CCM_FUNC static size_t fast_scan(det_t *d, const uint16_t *s, size_t i, size_t n
 
     if (j < n && ((uintptr_t)(s + j) & 2u) && s[j] <= L) {   /* выравнивание на слово */
         sum += s[j]; sq += (int64_t)s[j] * s[j]; j++;
+    }
+    /* по 8 отсчётов: одна проверка на четыре слова (ИЛИ результатов UQSUB16); суммы копятся сразу,
+       а при выходе (отсчёт выше порога) откатываются — так компилятор держит аккумуляторы в
+       регистрах (с суммами «после проверки» он хранил вторую копию Σs² в стеке: 5.3 такта/отсчёт);
+       Σs — SMLAD с 0x00010001 (оба полуслова за такт). Отсчёты ≤ 4095 — в int16 без
+       знака, Σ по порции ≤ 8192·4095 — в uint32. Было по 2 отсчёта: ≈ 8 тактов/отсчёт (18 % ЦП
+       в простое, замер на плате 2026-11-06). */
+    if (!((uintptr_t)(s + j) & 2u)) {                          /* не выровнено — s[j] выше порога */
+        const u32_alias *p = (const u32_alias *)(const void *)(s + j);
+        const u32_alias *pe = p + ((n - j) >> 3) * 4u;
+        while (p < pe) {
+            const uint32_t w0 = p[0], w1 = p[1], w2 = p[2], w3 = p[3];
+            /* суммы — сразу (без второй копии аккумуляторов под ветку), на выходе — откат */
+            sum = SMLAD(w0, 0x00010001u, sum);
+            sq = SMLALD(w0, w0, sq);
+            sum = SMLAD(w1, 0x00010001u, sum);
+            sq = SMLALD(w1, w1, sq);
+            sum = SMLAD(w2, 0x00010001u, sum);
+            sq = SMLALD(w2, w2, sq);
+            sum = SMLAD(w3, 0x00010001u, sum);
+            sq = SMLALD(w3, w3, sq);
+            p += 4;
+            if (UQSUB16(w0, LL) | UQSUB16(w1, LL) | UQSUB16(w2, LL) | UQSUB16(w3, LL)) {
+                p -= 4;                                        /* откат: точное место — ниже */
+                sum -= SMLAD(w0, 0x00010001u, 0u) + SMLAD(w1, 0x00010001u, 0u)
+                     + SMLAD(w2, 0x00010001u, 0u) + SMLAD(w3, 0x00010001u, 0u);
+                sq -= SMLALD(w0, w0, 0) + SMLALD(w1, w1, 0) + SMLALD(w2, w2, 0) + SMLALD(w3, w3, 0);
+                break;
+            }
+        }
+        j = (size_t)((const uint16_t *)(const void *)p - s);
     }
     while (j + 2u <= n) {
         uint32_t w;
