@@ -26,7 +26,11 @@ void becq_coef_to_words(int order, const double coef[5], uint32_t w[11]);
 
 /* Ответ на голый -cal: 40 строк "XXXXXXXX\r\n", последняя (индекс 39) —
  * серийник. При valid=false слова 0..10 нулевые. Возвращает длину без
- * завершающего нуля; 0, если не влезло в cap. */
+ * завершающего нуля; 0, если не влезло в cap.
+ * Слово 10 (CRC) при valid=true — "%X", без ведущих нулей: BecqMoni после записи
+ * (ack "-ok" она не узнаёт, ждёт "ok") читает -cal обратно и сравнивает СТРОКИ
+ * с crc.ToString("X"); с "%08X" при CRC < 0x10000000 выдавала ошибку записи.
+ * Числовой разбор (uint.Parse(hex), AtomSpectra) от этого не меняется. */
 size_t becq_format_registers(const uint32_t w[11], bool valid,
                              const char *serial, char *out, size_t cap);
 

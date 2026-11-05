@@ -11,6 +11,15 @@ static void put_hex8(char *p, uint32_t v)
     for (int i = 7; i >= 0; i--) { p[i] = HEXD[v & 15u]; v >>= 4; }
 }
 
+/* "%X": без ведущих нулей (0 → "0"); возвращает число цифр */
+static unsigned put_hex_min(char *p, uint32_t v)
+{
+    unsigned n = 1;
+    for (uint32_t t = v >> 4; t; t >>= 4) n++;
+    for (unsigned i = n; i-- > 0; v >>= 4) p[i] = HEXD[v & 15u];
+    return n;
+}
+
 uint32_t becq_checksum(const uint32_t w[10])
 {
     char s[80];
@@ -57,8 +66,12 @@ size_t becq_format_registers(const uint32_t w[11], bool valid,
     if (!out || cap < need) return 0;
     size_t n = 0;
     for (unsigned i = 0; i < 39u; i++) {
-        put_hex8(out + n, (valid && i < BECQ_WORDS) ? w[i] : 0u);
-        n += 8;
+        if (valid && i == BECQ_WORDS - 1u) {
+            n += put_hex_min(out + n, w[i]);        /* CRC — как BecqMoni: crc.ToString("X") */
+        } else {
+            put_hex8(out + n, (valid && i < BECQ_WORDS) ? w[i] : 0u);
+            n += 8;
+        }
         out[n++] = '\r'; out[n++] = '\n';
     }
     if (slen) memcpy(out + n, serial, slen);

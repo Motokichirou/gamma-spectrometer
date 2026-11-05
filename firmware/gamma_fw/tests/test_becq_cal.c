@@ -72,6 +72,25 @@ static void test_becq_registers(void)
 
     char tiny[16];
     CHECK(becq_format_registers(w, true, "GS474-0001", tiny, sizeof tiny) == 0);
+
+    /* Ревью Fable: CRC с ведущим нулём печатается без него, как crc.ToString("X") в BecqMoni.
+       c0 = 1.525, c1 = 0.4: CRC = 0x08A7BC45 (прибор печатал "08A7BC45", BecqMoni ждёт "8A7BC45") */
+    const double c2[5] = { 1.525, 0.4, 0, 0, 0 };
+    uint32_t w2[11]; becq_coef_to_words(1, c2, w2);
+    CHECK(w2[10] < 0x10000000u);
+    n = becq_format_registers(w2, true, "GS474-0001", buf, sizeof buf);
+    CHECK(n > 0 && n == strlen(buf));
+    cnt = split_lines(buf, ln, 64);
+    CHECK(cnt == 40);
+    char exp[16]; snprintf(exp, sizeof exp, "%lX", (unsigned long)w2[10]);
+    CHECK(strcmp(ln[10], exp) == 0 && ln[10][0] != '0');
+    CHECK(strtoul(ln[10], 0, 16) == w2[10]);
+    for (int i = 0; i < 10; i++) CHECK(strlen(ln[i]) == 8 && strtoul(ln[i], 0, 16) == w2[i]);
+    CHECK(strcmp(ln[39], "GS474-0001") == 0);
+    uint32_t w0[11] = { 0 };                       /* крайний случай: CRC = 0 → "0" */
+    n = becq_format_registers(w0, true, "S", buf, sizeof buf);
+    cnt = split_lines(buf, ln, 64);
+    CHECK(cnt == 40 && strcmp(ln[10], "0") == 0);
 }
 
 int main(void)
