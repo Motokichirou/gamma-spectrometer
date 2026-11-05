@@ -396,7 +396,7 @@ static void noise(uint32_t vref_mv, ADC_TypeDef *A, uint32_t ch, const char *nam
 
 static const struct { const char *nm; uint8_t adc2, ch; } npt[] = {
     { "PB1", 0, 12 }, { "PA1", 0, 2 }, { "PA3", 0, 4 }, { "PA2", 0, 3 },
-    { "PA7", 1, 4 }, { "PA5", 1, 13 }, { "PA6", 1, 3 }, { "PB0", 0, 15 }, { "PA0", 0, 1 },
+    { "PA7", 1, 4 }, { "PA5", 1, 13 }, { "PA6", 1, 3 }, { "PB0", 0, 15 }, { "PA0", 0, 1 }, { "VREFINT", 0, 18 }, { "VBAT", 0, 17 },
 };
 static int noise_pt(const char *a, uint32_t vref_mv)
 {
