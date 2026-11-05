@@ -19,7 +19,11 @@
  * ВВ не включается, при включённом — выкл; при выключенном — перекалибровка АЦП), +3.3V_D τ 60 с,
  * Pt1000 τ 10 с → термокомпенсация (det_set_gain) и T1 в -inf; скорости и загрузка ЦП (acq_tick_1s).
  *
- * Флеш и ЦАП — Task 11–12 (пока заглушки). Буферы, которые проверяет build.sh:
+ * Task 11: тестовые импульсы ЦАП (-dac, core/dactest + hw/dac_test: TIM6 в прерывании пишет DAC1 на
+ * PA4; по окончании серии — текст "-ok dac done <n>", PA4 снова Hi-Z). Добавка к периоду — один
+ * отсчёт АЦП в тактах ЦП (45 при 2.5 такта, 57 при 6.5), чтобы фаза ступеньки была равномерной.
+ *
+ * Флеш — Task 12 (пока заглушка). Буферы, которые проверяет build.sh:
  *  - adc_dma_buf — 2 порции по 8192 отсчёта = 32 КБ, DMA по кругу, в src/hw/adc_sig.c (только ОЗУ:
  *    CCM SRAM на G4 шине DMA недоступна);
  *  - uart_tx_ring — кольцо передачи 8 КБ (≥ PROTO_TX_FRAME_MAX, proto.h) — в src/hw/uart.c;
@@ -53,6 +57,8 @@
 #include "adc_aux.h"
 #include "adc_sig.h"
 #include "hvpwm.h"
+#include "dactest.h"
+#include "dac_test.h"
 
 #define OSC_MAX       64u                       /* окон -osc за раз (CCM: 64·32·2 = 4 КБ) */
 #define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
@@ -178,6 +184,7 @@ static void p_acq_clear(void)
    повторно уже загрузчику), переход. boot_enter_system сам выключает выводы ВВ и досылает UART. */
 static void p_boot(void)
 {
+    dac_test_stop();
     hv_off(&hv, "boot");
     hvpwm_set(0);
     hv_enable_pin(false);
@@ -297,11 +304,21 @@ static void osc_poll(void)
     proto_send_text(line);
 }
 
+/* ---- тестовые импульсы ЦАП (core/dactest.c) ---- */
+static bool d_start(uint16_t step, uint16_t n, uint16_t per)
+{
+    /* добавка к периоду — тактов ЦП на отсчёт АЦП (156 МГц / 3.4667 Мвыб/с = 45) */
+    uint32_t fs = sig_on ? adc_sig_fs() : DET_FS_HZ;
+    uint32_t jit = (clock_hz() + fs / 2u) / fs;
+    return dac_test_pulses(step, n, per, (uint16_t)(jit ? jit : 1u));
+}
+static const dact_ctx_t dact_ctx = { d_start, dac_test_stop, dac_test_busy, dac_test_done, dac_test_total };
+
 static void p_service(const char *cmd, char *reply, size_t cap)
 {
     if (svc_handle(cmd, reply, cap)) return;
     if (acq_handle(&acq_ctx, cmd, reply, cap)) return;
-    if (strncmp(cmd, "-dac", 4) == 0) snprintf(reply, cap, "-err notyet");    /* Task 11 */
+    if (dact_handle(&dact_ctx, cmd, reply, cap)) return;
     /* иначе ответ пуст — proto ответит -err unknown */
 }
 
@@ -431,6 +448,11 @@ int main(void)
         while ((n = uart_rx(rb, sizeof rb)) != 0)
             proto_rx(rb, n);                   /* "!boot" отсюда не возвращается */
         proto_poll();
+        if (dac_test_finished()) {
+            char m[32];
+            snprintf(m, sizeof m, "-ok dac done %u\r\n", (unsigned)dac_test_done());
+            proto_send_text(m);
+        }
         uint32_t now = millis();
         if (!aux_tried && now >= AUX_START_MS) {   /* опора REF35250 устоялась — калибровать АЦП */
             aux_tried = true;
