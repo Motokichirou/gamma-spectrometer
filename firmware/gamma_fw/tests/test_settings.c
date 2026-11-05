@@ -12,7 +12,7 @@ static void test_defaults_valid(void)
     CHECK_NEAR(s.hv_mon_zero_mv, 2460.0, 1e-6);
     CHECK_NEAR(s.hv_mon_k_mv_per_v, 1.640, 1e-6);
     CHECK_NEAR(s.hv_setpoint_v, 0.0, 1e-9);
-    CHECK(s.hv_on_at_boot == 0);
+    CHECK(s.reserved_boot == 0);
     CHECK_NEAR(s.pt_rpu_ohm, 10024.5, 1e-3);
     CHECK_NEAR(s.tc_t0_c, 25.0, 1e-6);
     CHECK_NEAR(s.tc_k1, 0.0, 1e-12);

@@ -68,6 +68,9 @@ static CCM_BSS det_t det;                       /* горячие данные �
 static uint16_t   osc_buf[OSC_MAX * (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)];
 static det_cap_t  osc_info[OSC_MAX];
 static const int16_t (*tpl_now)[DET_NS] = tpl_3467k;
+/* время набора: от -sta, накапливается между -sto/-sta, обнуляется -rst */
+static bool     acq_run;
+static uint32_t acq_since_ms, acq_acc_ms;
 
 /* ---- порт proto ---- */
 static void p_tx(const uint8_t *p, size_t n)
@@ -86,11 +89,28 @@ static size_t p_tx_free(void)
 }
 static uint32_t p_millis(void) { return ms_now; }
 static bool p_commit(const settings_t *s) { (void)s; return false; }    /* флеш — Task 12 */
-static void p_acq_start(void) { det_set_thr(&det, live.thr_codes); }   /* авто-порог: σ при старте набора */
-static void p_acq_stop(void) { }
-static void p_acq_clear(void) { spectrum_clear(); }
+static void p_acq_start(void)
+{
+    det_set_thr(&det, live.thr_codes);         /* авто-порог: σ при старте набора */
+    if (!acq_run) { acq_run = true; acq_since_ms = ms_now; }
+}
+static void p_acq_stop(void)
+{
+    if (acq_run) { acq_acc_ms += ms_now - acq_since_ms; acq_run = false; }
+}
+static void p_acq_clear(void)
+{
+    spectrum_clear();
+    acq_acc_ms = 0;
+    acq_since_ms = ms_now;
+}
 static void p_boot(void) { hv_off(&hv, "boot"); hv_pin = 0; hv_pwm_ccr = 0; }   /* переход — Task 8 */
-static void p_status(proto_status_t *st) { st->elapsed_s = ms_now / 1000u; st->cps = spectrum_total(); }
+static void p_status(proto_status_t *st)
+{
+    uint32_t ms = acq_acc_ms + (acq_run ? ms_now - acq_since_ms : 0u);
+    st->elapsed_s = ms / 1000u;
+    st->cps = spectrum_total();
+}
 static bool p_hv_on(void) { return hv_enabled(&hv); }
 
 static void p_apply(uint32_t what)
@@ -106,8 +126,17 @@ static void p_service(const char *cmd, char *reply, size_t cap)
 {
     if (strncmp(cmd, "-hv ", 4) == 0) {
         if (strcmp(cmd + 4, "off") == 0) { hv_off(&hv, "cmd"); snprintf(reply, cap, "-ok hv off"); return; }
-        int v = atoi(cmd + 4);
-        snprintf(reply, cap, hv_set(&hv, (float)v, ms_now) == 0 ? "-ok hv %d" : "-err hv", v);
+        /* строго: целое и ничего после ("-hv abc" через atoi давал 0 — выключение, "12abc" → 12) */
+        const char *a = cmd + 4;
+        while (*a == ' ' || *a == '\t') a++;
+        char *e;
+        long v = strtol(a, &e, 10);
+        while (*e == ' ' || *e == '\t') e++;
+        if (e == a || *e || v < 0 || v > (long)HV_MAX_SET_V || hv_set(&hv, (float)v, ms_now) != 0) {
+            snprintf(reply, cap, "-err hv");
+            return;
+        }
+        snprintf(reply, cap, "-ok hv %ld", v);
     } else if (strcmp(cmd, "-osc") == 0) {
         det_set_capture(&det, osc_buf, osc_info, DET_CAP_PRE_DEF, DET_CAP_POST_DEF, OSC_MAX);
         snprintf(reply, cap, "-ok osc");
