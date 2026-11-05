@@ -6,7 +6,18 @@
  *  - шаги рампы, фильтра монитора и интегратора считаются по фактическому dt (≤ 100 мс),
  *    а не «по тику», — пропуск тиков не ускоряет подъём;
  *  - защита по усреднённому монитору (шум цепочки 6.8 МОм ±40 В на 1200 В — SPEC §5);
- *  - у потолка АЦП монитор = «≈0, не точно»: подстройка не интегрирует.
+ *  - у потолка АЦП монитор = «≈0, не точно»: подстройка не интегрирует;
+ *  - подстройка ждёт, пока выход устоится после смены уставки (см. ниже «устоялся»).
+ *
+ * «Устоялся». После снижения уставки выход разряжается медленно (τ разряда 2…16 с) и монитор
+ * долго стоит выше уставки. Если интегрировать сразу по окончании рампы, добавка уходит вниз,
+ * стирает отмасштабированное значение и выход проседает на 30–40 В ниже уставки. Поэтому после
+ * рампы: выдержка HOLD_MS, затем подстройка включается (и дальше не выключается до следующей
+ * уставки), как только монитор либо вошёл в мёртвую зону, либо перестал идти к уставке:
+ * идёт от неё, стоит, или идёт так медленно, что за SETTLE_TAU_S (больше наибольшей τ разряда)
+ * не дошёл бы. Скорость оценивается разностью двух фильтров монитора: (mon_f − mon_slow)/SLOW_TAU_S.
+ * У экспоненты с любой τ ≤ 16 с скорость ≥ |e|/16 с — значит, пока выход сам идёт к уставке,
+ * подстройка ждёт; если добавка неверна, выход встаёт со смещением, скорость → 0 — подстройка пошла.
  */
 #include <stddef.h>
 #include "hv_ctl.h"
@@ -14,6 +25,11 @@
 #define DT_MAX_MS     100u
 #define MON_TAU_S     1.0f    /* усреднение монитора */
 #define TRIM_RATE     0.1f    /* (В trim)/(В ошибки · с): τ ≈ 10 с при выход ≈ 0.92·CW */
+#define SLOW_TAU_S    5.0f    /* медленный фильтр монитора для оценки скорости */
+#define HOLD_MS       6000u   /* выдержка после рампы: 3 с + 3·τ монитора */
+#define SETTLE_TAU_S  20.0f   /* > τ разряда выхода (до 16 с) */
+
+static float absf(float x) { return x < 0.0f ? -x : x; }
 
 void hv_init(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
 {
@@ -21,15 +37,25 @@ void hv_init(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
     h->k_mv_per_v = k_mv_per_v;
     h->vref_mv = HV_VREF_MV;
     h->target = h->ramp = h->trim = 0.0f;
-    h->mon_f = 0.0f;
+    h->mon_f = h->mon_slow = 0.0f;
     h->mon_seeded = h->near_ceil = h->en = false;
-    h->last_ms = h->changed_ms = 0;
+    h->at_target = h->settled = false;
+    h->last_ms = h->changed_ms = h->at_target_ms = 0;
     h->trip = h->off_why = NULL;
 }
 
 void hv_set_vref(hv_ctl_t *h, float vref_mv)
 {
     h->vref_mv = vref_mv;
+}
+
+int hv_set_cal(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
+{
+    if (h->en || !(k_mv_per_v > 0.0f) || !(zero_mv == zero_mv)) return -1;
+    h->zero_mv = zero_mv;
+    h->k_mv_per_v = k_mv_per_v;
+    h->mon_seeded = false;            /* фильтры монитора — заново, по новой калибровке */
+    return 0;
 }
 
 static void clamp_trim(hv_ctl_t *h)
@@ -42,6 +68,11 @@ static void clamp_trim(hv_ctl_t *h)
 int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
 {
     if (!(volts >= 0.0f && volts <= HV_MAX_SET_V)) return -1;   /* и NaN */
+    if (!h->en && volts == 0.0f) {            /* уже выключено: ENABLE не трогаем */
+        h->trip = NULL;
+        return 0;
+    }
+    if (h->en && volts == h->target) return 0; /* повтор: не откладывать "over", не трогать trim */
     if (!h->en) {
         h->ramp = 0.0f;
         h->trim = 0.0f;
@@ -54,6 +85,7 @@ int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
     }
     h->target = volts;
     h->changed_ms = now_ms;
+    h->at_target = h->settled = false;
     h->trip = NULL;
     h->off_why = NULL;
     clamp_trim(h);
@@ -64,6 +96,7 @@ void hv_off(hv_ctl_t *h, const char *why)
 {
     h->en = false;
     h->target = h->ramp = h->trim = 0.0f;
+    h->at_target = h->settled = false;
     h->off_why = why;
 }
 
@@ -100,8 +133,11 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
     /* монитор: всегда, и при выключенном ВВ (статус) */
     h->near_ceil = mon_mv >= HV_MON_CEIL_CODE * h->vref_mv / 4095.0f;
     float v = hv_mon_volts(h, mon_mv);
-    if (!h->mon_seeded) { h->mon_f = v; h->mon_seeded = true; }
-    else h->mon_f += (v - h->mon_f) * (dt / MON_TAU_S);
+    if (!h->mon_seeded) { h->mon_f = h->mon_slow = v; h->mon_seeded = true; }
+    else {
+        h->mon_f += (v - h->mon_f) * (dt / MON_TAU_S);
+        h->mon_slow += (h->mon_f - h->mon_slow) * (dt / SLOW_TAU_S);
+    }
 
     if (!h->en) return 0;
 
@@ -115,10 +151,16 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
         return 0;
     }
 
-    /* подстройка — только на стоящей уставке и по достоверному монитору */
-    if (h->ramp == h->target && !h->near_ceil) {
-        float e = h->target - h->mon_f;
-        if (e > HV_DEADBAND_V || e < -HV_DEADBAND_V)
+    /* подстройка — только на стоящей уставке, после того как выход устоялся, по достоверному монитору */
+    float e = h->target - h->mon_f;
+    if (h->ramp == h->target && !h->at_target) { h->at_target = true; h->at_target_ms = now_ms; }
+    if (h->at_target && !h->settled && !h->near_ceil && now_ms - h->at_target_ms >= HOLD_MS) {
+        float slope = (h->mon_f - h->mon_slow) / SLOW_TAU_S;   /* В/с */
+        bool approaching = e * slope > 0.0f && absf(slope) * SETTLE_TAU_S >= absf(e);
+        if (absf(e) <= HV_DEADBAND_V || !approaching) h->settled = true;
+    }
+    if (h->settled && !h->near_ceil) {
+        if (absf(e) > HV_DEADBAND_V)
             h->trim += TRIM_RATE * dt * e;
         clamp_trim(h);
     }

@@ -142,16 +142,22 @@ firmware/gamma_fw/
   ```c
   typedef struct { /* состояние; поля закрыты, менять только функциями */ } hv_ctl_t;
   void  hv_init(hv_ctl_t*, float zero_mv, float k_mv_per_v);
-  int   hv_set(hv_ctl_t*, float volts, uint32_t now_ms);  /* 0..1200; 0 ок, -1 вне диапазона; включает ENABLE */
+  int   hv_set(hv_ctl_t*, float volts, uint32_t now_ms);  /* 0..1200; 0 ок, -1 вне диапазона; включает ENABLE;
+                                                            повтор той же уставки — без изменений; 0 при выкл. — ENABLE не трогает */
+  void  hv_set_vref(hv_ctl_t*, float vref_mv);              /* опора АЦП монитора для порога потолка, по умолч. 2500 */
+  int   hv_set_cal(hv_ctl_t*, float zero_mv, float k_mv_per_v); /* только при выкл. ВВ (иначе -1), состояние не сбрасывает — для -hvzero/-hvk */
   void  hv_off(hv_ctl_t*, const char *why);
   /* шаг 10 мс: монитор (мВ), амплитуда ШИМ (мВ, уже усреднённая) → скважность 0..4095 */
   uint16_t hv_tick(hv_ctl_t*, float mon_mv, float vdd_mv, uint32_t now_ms);
-  float hv_mon_volts(const hv_ctl_t*, float mon_mv);      /* |V|; при mon ≥ 4090 кодов-эквивалент → 0 и флаг near_ceiling */
+  float hv_mon_volts(const hv_ctl_t*, float mon_mv);      /* |V|; при mon ≥ 4090 кодов-эквивалент → 0 */
+  bool  hv_near_ceiling(const hv_ctl_t*);                  /* флаг «≈0, не точно»; обновляет hv_tick (hv_mon_volts — const) */
   bool  hv_enabled(const hv_ctl_t*);                       /* → PB10 и D102 */
   const char *hv_trip_reason(const hv_ctl_t*);             /* NULL, "abs", "over" */
+  const char *hv_off_reason(const hv_ctl_t*);              /* последний why из hv_off/защиты */
   float hv_trim(const hv_ctl_t*); float hv_ramp(const hv_ctl_t*);
+  float hv_setpoint(const hv_ctl_t*); float hv_mon_avg(const hv_ctl_t*);  /* уставка; усреднённый монитор |V| */
   ```
-- [ ] **Step 1: Тесты** (значения из прошивки запуска, `bringup/main.c` и SPEC §5): `test_duty_math`: уставка 1000, trim 0, vdd 3296 → скважность 2733±1 (замер 2026-11-05: pwm 2733 при 3V3D 3298). `test_ramp_100vps`: 0→500 за 500 тиков по 10 мс, не быстрее. `test_trim_converges`: модель «выход = 0.916·CW» → после 60 с монитор в ±3 В от 1000, trim ≈ +92…+98. `test_deadband`: ошибка 2 В → trim не меняется. `test_trim_rescale`: при 1000 trim 98, `hv_set(500)` → trim 49. `test_cw_ceiling`: уставка 1200 при модели 0.916 → CW ≤ 1300, trim упирается. `test_trip_abs`: монитор 1301 В → выкл, причина "abs". `test_no_false_trip_after_lowering`: 1000→500, монитор спадает с τ = 2 с → нет срабатывания. `test_trip_over`: уставка стоит 31 с, монитор = уставка + 151 → выкл "over". `test_near_ceiling`: mon_mv соответствует 4092 кодам → `hv_mon_volts` = 0, флаг выставлен.
+- [ ] **Step 1: Тесты** (значения из прошивки запуска, `bringup/main.c` и SPEC §5): `test_duty_math`: уставка 1000, trim 0, vdd 3296 → скважность 2733±1 (замер 2026-11-05: pwm 2733 при 3V3D 3298). `test_ramp_100vps`: 0→500 за 500 тиков по 10 мс, не быстрее. `test_trim_converges`: модель «выход = 0.916·CW» → после 60 с монитор в ±3 В от 1000, trim ≈ +88…+92 (точное 91.7; подход снизу встаёт на краю мёртвой зоны ±3 В — уточнено при ревью; +98 со стенда — при другом коэффициенте цепочки, см. `test_trim_rescale`). `test_deadband`: ошибка 2 В → trim не меняется. `test_trim_rescale`: при 1000 trim 98, `hv_set(500)` → trim 49. `test_cw_ceiling`: уставка 1200 при модели 0.916 → CW ≤ 1300, trim упирается. `test_trip_abs`: монитор 1301 В → выкл, причина "abs". `test_no_false_trip_after_lowering`: 1000→500, монитор спадает с τ = 2 с и 16 с → нет срабатывания, добавка не стирается (≥ 0.9 отмасштабированной), выход не проседает ниже 495 В (подстройка ждёт, пока выход устоится). `test_trip_over`: уставка стоит 31 с, монитор = уставка + 151 → выкл "over". `test_near_ceiling`: mon_mv соответствует 4092 кодам → `hv_mon_volts` = 0, флаг выставлен.
 - [ ] **Step 2:** Run → FAIL.
 - [ ] **Step 3:** Реализовать по SPEC §5 (константы — Global Constraints).
 - [ ] **Step 4:** Run → PASS.

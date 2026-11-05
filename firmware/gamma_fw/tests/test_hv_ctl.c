@@ -169,23 +169,99 @@ static void test_trip_abs(void)
     CHECK(hv_trip_reason(&h) == NULL);
 }
 
-static void test_no_false_trip_after_lowering(void)
+/* 1000 → 500; выход отстаёт от CW с τ (разряд через делитель), коэффициент цепочки тот же 0.916.
+   Добавка после масштабирования верна (0.916·(500 + 44.4) ≈ 498.7 — в мёртвой зоне), поэтому
+   подстройка, пока монитор догоняет, не должна её стирать и ронять выход ниже уставки. */
+static void lowering_case(float tau_s, int n_ticks)
 {
     hv_ctl_t h; hv_init(&h, ZERO, K);
     hv_set(&h, 1000.0f, 0);
     uint32_t now = 0; float out = 0;
     run_model(&h, 0.916f, &now, 6000, &out);
     CHECK(hv_set(&h, 500.0f, now) == 0);
-    /* выход отстаёт от CW с τ = 2 с (разряд через делитель) */
-    for (int i = 0; i < 9000; i++) {
+    float t_scaled = hv_trim(&h);
+    CHECK(t_scaled > 40.0f);
+    float trim_min = t_scaled, out_min = out;
+    for (int i = 0; i < n_ticks; i++) {
         now += 10;
         uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
-        float target = 0.94f * cw_of(d, VDD);
-        out += (target - out) * (0.01f / 2.0f);
+        float target = 0.916f * cw_of(d, VDD);
+        out += (target - out) * (0.01f / tau_s);
+        if (hv_trim(&h) < trim_min) trim_min = hv_trim(&h);
+        if (out < out_min) out_min = out;
     }
     CHECK(hv_enabled(&h));
     CHECK(hv_trip_reason(&h) == NULL);
+    CHECK(trim_min >= 0.9f * t_scaled);
+    CHECK(out_min >= 500.0f - 5.0f);
     CHECK_NEAR(out, 500.0, 3.5);
+}
+
+static void test_no_false_trip_after_lowering(void)
+{
+    lowering_case(2.0f, 9000);    /* 90 с */
+    lowering_case(16.0f, 15000);  /* 150 с */
+}
+
+/* Добавка неверна после снижения (цепочка сменила коэффициент) — подстройка всё же доходит. */
+static void test_trim_after_lowering_wrong_ratio(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 0.916f, &now, 6000, &out);
+    hv_set(&h, 500.0f, now);
+    for (int i = 0; i < 15000; i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
+        float target = 0.94f * cw_of(d, VDD);     /* нужна добавка ≈ 31.9, а не 44.4 */
+        out += (target - out) * (0.01f / 16.0f);
+    }
+    CHECK(hv_trip_reason(&h) == NULL);
+    CHECK_NEAR(out, 500.0, 3.5);
+    CHECK(hv_trim(&h) < 36.0f);
+}
+
+/* Пульт повторяет ту же уставку раз в 10 с — защита "over" всё равно срабатывает. */
+static void test_repeat_set_keeps_over_trip(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 0.916f, &now, 1500, &out);
+    float t = hv_trim(&h);
+    for (int i = 0; i < 6000 && hv_enabled(&h); i++) {
+        now += 10;
+        if (i % 1000 == 0) { CHECK(hv_set(&h, 1000.0f, now) == 0); }
+        hv_tick(&h, mon_mv_of(1200.0f), VDD, now);
+        if (i == 0) CHECK_NEAR(hv_trim(&h), t, 1.0);   /* повтор не масштабирует и не сбрасывает trim */
+    }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+}
+
+/* hv_set(0) при выключенном ВВ не включает ENABLE даже на один тик. */
+static void test_set_zero_when_off(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    CHECK(hv_set(&h, 0.0f, 0) == 0);
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_tick(&h, mon_mv_of(0), VDD, 10) == 0);
+    CHECK(!hv_enabled(&h));
+}
+
+/* Калибровка монитора: только при выключенном ВВ, остальное состояние не сбрасывает. */
+static void test_set_cal(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    CHECK(hv_set_cal(&h, 2470.0f, 1.650f) == 0);
+    CHECK_NEAR(hv_mon_volts(&h, 2470.0f - 1.650f * 800.0f), 800.0, 1e-3);
+    CHECK(hv_set_cal(&h, 2470.0f, 0.0f) == -1);
+    hv_set(&h, 500.0f, 0);
+    CHECK(hv_set_cal(&h, ZERO, K) == -1);
+    CHECK(hv_enabled(&h));
+    CHECK_NEAR(hv_setpoint(&h), 500.0, 1e-6);
+    CHECK_NEAR(hv_mon_volts(&h, 2470.0f - 1.650f * 800.0f), 800.0, 1e-3);
 }
 
 static void test_trip_over(void)
@@ -243,6 +319,10 @@ int main(void)
     test_cw_ceiling();
     test_trip_abs();
     test_no_false_trip_after_lowering();
+    test_trim_after_lowering_wrong_ratio();
+    test_repeat_set_keeps_over_trip();
+    test_set_zero_when_off();
+    test_set_cal();
     test_trip_over();
     test_no_over_trip_before_30s();
     test_near_ceiling();
