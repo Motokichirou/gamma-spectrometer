@@ -487,6 +487,139 @@ static void test_near_ceiling(void)
     CHECK_NEAR(hv_trim(&h), 0.0, 1e-6);
 }
 
+/* Ревью Fable: заниженный замер амплитуды ШИМ (сбой VBAT/ADC5) не поднимает CW выше потолка.
+   Настоящая амплитуда — VDD; в hv_tick приходит ложное значение. */
+static float max_cw_with_vdd_meas(float vdd_meas, int n, const char **trip_out)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1200.0f, 0);
+    uint32_t now = 0; float out = 0, cw_max = 0;
+    for (int i = 0; i < n && hv_enabled(&h); i++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out), vdd_meas, now);
+        float cw = cw_of(d, VDD);                 /* фактический CW — по настоящей амплитуде */
+        if (cw > cw_max) cw_max = cw;
+        out = 0.916f * cw;
+    }
+    *trip_out = hv_trip_reason(&h);
+    return cw_max;
+}
+
+static void test_low_vdd_no_cw_over(void)
+{
+    const char *tr;
+    volatile float zero = 0.0f;
+    /* грубо заниженный замер — вне правдоподобного диапазона: выключение, CW не выше 1300 */
+    float m = max_cw_with_vdd_meas(2000.0f, 12000, &tr);
+    CHECK(m <= HV_MAX_CW_V + 0.4f);
+    CHECK(tr && strcmp(tr, "vdd") == 0);
+    m = max_cw_with_vdd_meas(1.0f, 12000, &tr);
+    CHECK(m <= HV_MAX_CW_V + 0.4f);
+    CHECK(tr && strcmp(tr, "vdd") == 0);
+    m = max_cw_with_vdd_meas(4000.0f, 12000, &tr);          /* завышенный — тоже негодный */
+    CHECK(tr && strcmp(tr, "vdd") == 0);
+    m = max_cw_with_vdd_meas(zero / zero, 12000, &tr);      /* NaN */
+    CHECK(m <= HV_MAX_CW_V + 0.4f);
+    CHECK(tr && strcmp(tr, "vdd") == 0);
+    /* нижний край диапазона при настоящих 3296: потолок скважности держит CW ≤ 1300·3296/3200 */
+    m = max_cw_with_vdd_meas(HV_VDD_MIN_MV, 12000, &tr);
+    CHECK(m <= HV_MAX_CW_V * VDD / HV_VDD_MIN_MV + 0.4f);
+    CHECK(tr == NULL || strcmp(tr, "vdd") != 0);
+    /* штатный замер: потолок скважности не мешает выйти на 1300 */
+    m = max_cw_with_vdd_meas(VDD, 12000, &tr);
+    CHECK(m >= HV_MAX_CW_V - 0.5f && m <= HV_MAX_CW_V + 0.4f);
+    CHECK(tr == NULL);
+    /* при выключенном ВВ негодный замер ничего не делает */
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    CHECK(hv_tick(&h, mon_mv_of(0), 2000.0f, 10) == 0);
+    CHECK(hv_trip_reason(&h) == NULL);
+}
+
+/* Ревью Fable: нечисловой монитор не отравляет фильтры — защита работает; подряд — выключение. */
+static void test_mon_nan(void)
+{
+    volatile float zero = 0.0f;
+    float nan = zero / zero, inf = 1.0f / zero;
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 0.916f, &now, 1500, &out);
+    now += 10; hv_tick(&h, nan, VDD, now);             /* одиночный сбой */
+    CHECK(hv_enabled(&h));
+    CHECK(hv_mon_avg(&h) == hv_mon_avg(&h));           /* фильтр не NaN */
+    for (int i = 0; i < 1000 && hv_enabled(&h); i++) { now += 10; hv_tick(&h, mon_mv_of(1400.0f), VDD, now); }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "abs") == 0);
+    /* сбой подряд — выключение по "mon" */
+    hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    now = 0; out = 0;
+    run_model(&h, 0.916f, &now, 1500, &out);
+    for (int i = 0; i < 100 && hv_enabled(&h); i++) { now += 10; hv_tick(&h, (i & 1) ? inf : nan, VDD, now); }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "mon") == 0);
+}
+
+/* Ревью Fable: калибровка монитора из флеш проверяется в hv_init: негодная — умолчания и ВВ не включается. */
+static void test_init_bad_cal(void)
+{
+    volatile float zero = 0.0f;
+    float nan = zero / zero, inf = 1.0f / zero;
+    const float bad[][2] = { { ZERO, -1.640f }, { ZERO, 0.0f }, { ZERO, nan }, { ZERO, inf }, { nan, K }, { inf, K } };
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        hv_ctl_t h; hv_init(&h, bad[i][0], bad[i][1]);
+        CHECK(!hv_cal_ok(&h));
+        CHECK(hv_set(&h, 1000.0f, 0) == -1);
+        CHECK(!hv_enabled(&h));
+        CHECK(hv_set(&h, 0.0f, 0) == 0);              /* квитирование — можно */
+        CHECK_NEAR(hv_mon_volts(&h, 2460.0f - 1.640f * 800.0f), 800.0, 1e-3);   /* умолчания */
+        CHECK(hv_set_cal(&h, ZERO, K) == 0);          /* верная калибровка снимает запрет */
+        CHECK(hv_cal_ok(&h));
+        CHECK(hv_set(&h, 1000.0f, 0) == 0);
+    }
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    CHECK(hv_cal_ok(&h));
+    CHECK(hv_set_cal(&h, ZERO, inf) == -1);           /* k = inf — не калибровка */
+    CHECK(hv_set_cal(&h, inf, K) == -1);
+}
+
+/* Ревью Fable: хост чередует 1000 ↔ 1100 раз в 20 с при мониторе 1290 — "over" всё равно срабатывает:
+   повышение уставки не перезапускает выдержку 30 с. */
+static void test_raise_keeps_over_hold(void)
+{
+    hv_ctl_t h; hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    uint32_t now = 0; float out = 0;
+    run_model(&h, 0.916f, &now, 1500, &out);
+    int i;
+    for (i = 0; i < 20000 && hv_enabled(&h); i++) {    /* 200 с */
+        now += 10;
+        if (i % 2000 == 0) hv_set(&h, (i / 2000) % 2 ? 1100.0f : 1000.0f, now);
+        hv_tick(&h, mon_mv_of(1290.0f), VDD, now);
+    }
+    CHECK(!hv_enabled(&h));
+    CHECK(hv_trip_reason(&h) && strcmp(hv_trip_reason(&h), "over") == 0);
+    CHECK(i <= 4000);                                  /* ≤ 30 с от понижения + подтверждение */
+    /* подъём с верной добавкой: на рампе подстройка не накручивает trim, выход не перелетает */
+    hv_init(&h, ZERO, K);
+    hv_set(&h, 1000.0f, 0);
+    now = 0; out = 0;
+    run_model(&h, 0.916f, &now, 7000, &out);
+    float t0 = hv_trim(&h);
+    hv_set(&h, 1100.0f, now);
+    float out_max = 0;
+    for (int k = 0; k < 6000; k++) {
+        now += 10;
+        uint16_t d = hv_tick(&h, mon_mv_of(out), VDD, now);
+        out += (0.916f * cw_of(d, VDD) - out) * (0.01f / 2.0f);   /* τ 2 с — с делителем */
+        if (out > out_max) out_max = out;
+    }
+    CHECK(hv_enabled(&h) && hv_trip_reason(&h) == NULL);
+    CHECK(out_max <= 1100.0f + 5.0f);
+    CHECK_NEAR(out, 1100.0, 3.5);
+    CHECK_NEAR(hv_trim(&h), t0 * 1.1f, 3.0);
+}
+
 int main(void)
 {
     test_duty_math();
@@ -512,5 +645,9 @@ int main(void)
     test_over_after_lowering();
     test_no_over_trip_before_30s();
     test_near_ceiling();
+    test_low_vdd_no_cw_over();
+    test_mon_nan();
+    test_init_bad_cal();
+    test_raise_keeps_over_hold();
     return T_DONE();
 }

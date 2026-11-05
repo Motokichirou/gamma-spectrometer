@@ -37,6 +37,7 @@
  * коэффициента цепочки 0.916 → 0.98: выход доходит до ≈ 470 В). С делителем (τ ≈ 2 с) не проявляется.
  */
 #include <stddef.h>
+#include <math.h>
 #include "hv_ctl.h"
 
 #define DT_MAX_MS     100u
@@ -47,13 +48,27 @@
 #define SETTLE_TAU_S  20.0f   /* > τ разряда выхода (до 16 с) */
 #define SETTLE_CONFIRM_MS 2000u /* условие «устоялся» держится подряд — шум монитора не обманет */
 #define AGE_SAT_MS    0x7FFFFFFFu /* потолок счётчика выдержки */
+#define MON_BAD_MAX   3u      /* нечисловой монитор столько тиков подряд при включённом ВВ → "mon" */
+/* Потолок скважности: CW ≤ HV_MAX_CW_V при амплитуде на нижнем краю правдоподобного диапазона.
+   Замер амплитуды внутри диапазона, но заниженный, даёт CW не выше 1300·vdd_факт/3200 (+3 % при
+   3296 мВ), а не 4095 отсчётов (≈ 1500 В). */
+#define DUTY_MAX      (HV_MAX_CW_V / HV_K_SET * 1000.0f / HV_VDD_MIN_MV * HV_PWM_PERIOD)
 
 static float absf(float x) { return x < 0.0f ? -x : x; }
 
+static bool cal_valid(float zero_mv, float k_mv_per_v)
+{
+    return isfinite(zero_mv) && isfinite(k_mv_per_v) && k_mv_per_v > 0.0f;
+}
+
 void hv_init(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
 {
-    h->zero_mv = zero_mv;
-    h->k_mv_per_v = k_mv_per_v;
+    /* калибровка приходит из флеш (CRC верна, но значения не проверены): негодная — умолчания
+       для показаний монитора, включение ВВ запрещено до hv_set_cal с верными значениями */
+    h->cal_ok = cal_valid(zero_mv, k_mv_per_v);
+    h->zero_mv = h->cal_ok ? zero_mv : HV_ZERO_DEF_MV;
+    h->k_mv_per_v = h->cal_ok ? k_mv_per_v : HV_K_DEF_MV_PER_V;
+    h->mon_bad = 0;
     h->vref_mv = HV_VREF_MV;
     h->target = h->ramp = h->trim = 0.0f;
     h->mon_f = h->mon_slow = 0.0f;
@@ -73,9 +88,10 @@ int hv_set_vref(hv_ctl_t *h, float vref_mv)
 
 int hv_set_cal(hv_ctl_t *h, float zero_mv, float k_mv_per_v)
 {
-    if (h->en || !(k_mv_per_v > 0.0f) || !(zero_mv == zero_mv)) return -1;
+    if (h->en || !cal_valid(zero_mv, k_mv_per_v)) return -1;
     h->zero_mv = zero_mv;
     h->k_mv_per_v = k_mv_per_v;
+    h->cal_ok = true;
     h->mon_seeded = false;            /* фильтры монитора — заново, по новой калибровке */
     return 0;
 }
@@ -96,6 +112,11 @@ int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
         return 0;
     }
     if (h->en && volts == h->target) return 0; /* повтор: не откладывать "over", не трогать trim */
+    if (!h->cal_ok) return -1;                 /* монитор не откалиброван — защита слепа */
+    /* Повышение уставки: выход и до него был обязан быть ≤ старой уставки + 150 В, разряжаться
+       нечему — выдержка "over" (at_ms) не перезапускается, иначе хост, переставляющий уставку чаще
+       раза в 30 с, отключил бы защиту. Заново — только «устоялся» (рампа и выход идут вверх). */
+    bool keep_hold = h->en && h->target > 0.0f && volts > h->target && h->at_target;
     if (!h->en) {
         h->ramp = 0.0f;
         h->trim = 0.0f;
@@ -107,8 +128,9 @@ int hv_set(hv_ctl_t *h, float volts, uint32_t now_ms)
         h->trim = 0.0f;
     }
     h->target = volts;
-    h->at_target = h->settled = false;
-    h->settle_ms = h->at_ms = 0;
+    h->settled = false;
+    h->settle_ms = 0;
+    if (!keep_hold) { h->at_target = false; h->at_ms = 0; }
     h->trip = NULL;
     h->off_why = NULL;
     clamp_trim(h);
@@ -136,13 +158,16 @@ float hv_mon_volts(const hv_ctl_t *h, float mon_mv)
     return (h->zero_mv - mon_mv) / h->k_mv_per_v;
 }
 
+static bool vdd_valid(float vdd_mv) { return vdd_mv >= HV_VDD_MIN_MV && vdd_mv <= HV_VDD_MAX_MV; }  /* и NaN */
+
 static uint16_t duty_of(const hv_ctl_t *h, float vdd_mv)
 {
-    if (!h->en || !(vdd_mv > 0.0f)) return 0;
+    if (!h->en || !vdd_valid(vdd_mv)) return 0;
     float cw = h->ramp + h->trim;
     if (cw > HV_MAX_CW_V) cw = HV_MAX_CW_V;
     float d = cw / HV_K_SET * 1000.0f / vdd_mv * HV_PWM_PERIOD;
     if (!(d > 0.0f)) return 0;
+    if (d > DUTY_MAX) d = DUTY_MAX;
     if (d > HV_PWM_PERIOD - 1.0f) d = HV_PWM_PERIOD - 1.0f;
     return (uint16_t)(d + 0.5f);
 }
@@ -154,16 +179,32 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
     h->last_ms = now_ms;
     float dt = (float)dms / 1000.0f;
 
-    /* монитор: всегда, и при выключенном ВВ (статус) */
-    h->near_ceil = mon_mv >= HV_MON_CEIL_CODE * h->vref_mv / 4095.0f;
-    float v = hv_mon_volts(h, mon_mv);
-    if (!h->mon_seeded) { h->mon_f = h->mon_slow = v; h->mon_seeded = true; }
-    else {
-        h->mon_f += (v - h->mon_f) * (dt / MON_TAU_S);
-        h->mon_slow += (h->mon_f - h->mon_slow) * (dt / SLOW_TAU_S);
+    /* монитор: всегда, и при выключенном ВВ (статус). Нечисловой замер в фильтры не пускаем —
+       один NaN сделал бы все сравнения защиты ложными навсегда. */
+    if (isfinite(mon_mv)) {
+        h->mon_bad = 0;
+        h->near_ceil = mon_mv >= HV_MON_CEIL_CODE * h->vref_mv / 4095.0f;
+        float v = hv_mon_volts(h, mon_mv);
+        if (!h->mon_seeded) { h->mon_f = h->mon_slow = v; h->mon_seeded = true; }
+        else {
+            h->mon_f += (v - h->mon_f) * (dt / MON_TAU_S);
+            h->mon_slow += (h->mon_f - h->mon_slow) * (dt / SLOW_TAU_S);
+        }
+    } else if (h->mon_bad < 255u) {
+        h->mon_bad++;
     }
 
     if (!h->en) return 0;
+
+    if (h->mon_bad >= MON_BAD_MAX) {
+        trip(h, "mon", "TRIP monitor reading not a number");
+        return 0;
+    }
+    /* амплитуда ШИМ вне правдоподобного: по заниженной скважность ушла бы в 4095 (CW ≈ 1500 В) */
+    if (!vdd_valid(vdd_mv)) {
+        trip(h, "vdd", "TRIP PWM amplitude (VDD) out of range");
+        return 0;
+    }
 
     /* рампа 100 В/с */
     float step = HV_RAMP_VPS * (float)dms / 1000.0f;
@@ -181,7 +222,8 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
     float slope = (h->mon_f - h->mon_slow) / SLOW_TAU_S;       /* В/с */
     if (h->ramp == h->target && !h->at_target) { h->at_target = true; h->at_ms = 0; }
     else if (h->at_target && h->at_ms < AGE_SAT_MS) h->at_ms += dms;   /* dms ≤ 100: не переполнится */
-    if (h->at_target && !h->settled && !h->near_ceil && h->at_ms >= HOLD_MS) {
+    const bool standing = h->ramp == h->target;   /* после повышения at_target остаётся и на рампе */
+    if (h->at_target && standing && !h->settled && !h->near_ceil && h->at_ms >= HOLD_MS) {
         bool approaching = e * slope > 0.0f && absf(slope) * SETTLE_TAU_S >= absf(e);
         if (absf(e) <= HV_DEADBAND_V || !approaching) {
             h->settle_ms += dms;
@@ -190,7 +232,7 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
             h->settle_ms = 0;
         }
     }
-    if (h->settled && !h->near_ceil) {
+    if (h->settled && standing && !h->near_ceil && h->mon_bad == 0) {
         if (absf(e) > HV_DEADBAND_V)
             h->trim += TRIM_RATE * dt * e;
         clamp_trim(h);
@@ -211,6 +253,7 @@ uint16_t hv_tick(hv_ctl_t *h, float mon_mv, float vdd_mv, uint32_t now_ms)
 }
 
 bool hv_near_ceiling(const hv_ctl_t *h) { return h->near_ceil; }
+bool hv_cal_ok(const hv_ctl_t *h) { return h->cal_ok; }
 bool hv_enabled(const hv_ctl_t *h) { return h->en; }
 const char *hv_trip_reason(const hv_ctl_t *h) { return h->trip; }
 const char *hv_off_reason(const hv_ctl_t *h) { return h->off_why; }
