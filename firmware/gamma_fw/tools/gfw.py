@@ -4,6 +4,10 @@
         текстовая команда кадром 0x03, печать текстовых ответов (до первого ответа + 0.3 с тишины)
   python -I gfw.py listen <секунд> [--port COM4] [--baud 600000]
         печать текстовых кадров 0x03 и статусов 0x04, счёт кадров спектра 0x01
+  python -I gfw.py gst [--watch <с>] [--period 1] [--settle <В> [--tol 5]] [--port COM4]
+        состояние -gst: без --watch — ключ=значение построчно; с --watch — строка раз в period
+        (hv, уставка, рампа, выход, добавка, ШИМ, авария, +3.3V_D, VREF+, T); --settle — выйти,
+        как только выход ВВ 3 опроса подряд в ±tol от заданного (код 0), иначе по таймауту — 1
   python -I gfw.py flash <bin> [--port COM4] [--baud 600000] [--no-boot]
         '!boot' на рабочей скорости (до 3 раз, пока прошивка не ответит '-ok boot'), закрыть порт,
         0.5 с, STM32_Programmer_CLI по UART 115200 8E1 (запись, сверка, старт), затем listen 5 с.
@@ -117,6 +121,40 @@ def text_of(pl):
     return pl.decode("ascii", "replace").rstrip("\r\n")
 
 
+GST_WATCH = ("hv", "hv_set", "hv_ramp", "hv_out", "hv_trim", "hv_pwm", "hv_trip", "vdd", "vref", "t")
+
+
+def parse_kv(text):
+    """Ответ '-ok gst k=v k=v … [hv_off=свободный текст]' → dict; не '-ok' → None.
+    hv_off — всегда последний и может содержать пробелы (причина выключения)."""
+    s = text.strip()
+    if not s.startswith("-ok"):
+        return None
+    d = {}
+    i = s.find(" hv_off=")
+    if i >= 0:
+        d["hv_off"], s = s[i + len(" hv_off="):], s[:i]
+    for tok in s.split():
+        if "=" in tok:
+            k, v = tok.split("=", 1)
+            d[k] = v
+    return d
+
+
+def gst_row(d, keys=GST_WATCH):
+    return " ".join(f"{k}={d.get(k, '?')}" for k in keys)
+
+
+def hv_settled(outs, target, tol, n=3):
+    """Последние n значений hv_out в ±tol от target."""
+    if len(outs) < n:
+        return False
+    try:
+        return all(abs(float(v) - target) <= tol for v in outs[-n:])
+    except ValueError:
+        return False
+
+
 def flash_cmdline(port, binpath, cli=CLI):
     return [cli, "-c", f"port={port}", f"br={BOOT_BAUD}", "P=EVEN", "db=8", "sb=1",
             "-w", binpath, "0x08000000", "-v", "-g", "0x08000000"]
@@ -184,6 +222,50 @@ def listen(port, baud, secs):
     return st
 
 
+def query(s, p, text, timeout=1.5, prefix=None):
+    """Команда кадром 0x03, ждать текстовый ответ (с prefix или '-err'); None — не дождались."""
+    s.write(build_frame(CMD_TEXT, text.encode("ascii")))
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        for c, pl in p.feed(s.read(4096)):
+            if c == CMD_TEXT:
+                t = text_of(pl)
+                if prefix is None or t.startswith(prefix) or t.startswith("-err"):
+                    return t
+    return None
+
+
+def do_gst(a):
+    p = Parser()
+    outs = []
+    with open_port(a.port, a.baud) as s:
+        s.reset_input_buffer()
+        t0 = time.time()
+        while True:
+            r = query(s, p, "-gst", prefix="-ok gst")
+            d = parse_kv(r) if r else None
+            if not a.watch:
+                if d is None:
+                    print(r or "нет ответа на -gst", file=sys.stderr)
+                    return 1
+                for k, v in d.items():
+                    print(f"{k} = {v}")
+                return 0
+            el = time.time() - t0
+            print(f"{el:6.1f} с  " + (gst_row(d) if d else (r or "нет ответа")), flush=True)
+            if d and a.settle is not None:
+                outs.append(d.get("hv_out", "nan"))
+                if hv_settled(outs, a.settle, a.tol):
+                    print(f"выход {a.settle:g} ± {a.tol:g} В за {el:.1f} с")
+                    return 0
+            if el >= a.watch:
+                if a.settle is not None:
+                    print(f"не устоялся за {a.watch:g} с", file=sys.stderr)
+                    return 1
+                return 0
+            time.sleep(max(0.0, a.period - (time.time() - t0 - el)))
+
+
 def do_listen(a):
     listen(a.port, a.baud, a.secs)
     return 0
@@ -236,20 +318,25 @@ def main(argv=None):
         pass
     ap = argparse.ArgumentParser(description="хост gamma_fw: shproto и перепрошивка")
     sub = ap.add_subparsers(dest="op", required=True)
-    for name in ("cmd", "listen", "flash"):
+    for name in ("cmd", "listen", "flash", "gst"):
         sp = sub.add_parser(name)
         if name == "cmd":
             sp.add_argument("text")
             sp.add_argument("--wait", type=float, default=1.5)
         elif name == "listen":
             sp.add_argument("secs", type=float)
+        elif name == "gst":
+            sp.add_argument("--watch", type=float, default=0.0)
+            sp.add_argument("--period", type=float, default=1.0)
+            sp.add_argument("--settle", type=float, default=None)
+            sp.add_argument("--tol", type=float, default=5.0)
         else:
             sp.add_argument("bin")
             sp.add_argument("--no-boot", action="store_true")
         sp.add_argument("--port", default=DEF_PORT)
         sp.add_argument("--baud", type=int, default=DEF_BAUD)
     a = ap.parse_args(argv)
-    return {"cmd": do_cmd, "listen": do_listen, "flash": do_flash}[a.op](a)
+    return {"cmd": do_cmd, "listen": do_listen, "flash": do_flash, "gst": do_gst}[a.op](a)
 
 
 if __name__ == "__main__":

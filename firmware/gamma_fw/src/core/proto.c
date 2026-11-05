@@ -8,6 +8,7 @@
 #include "shproto.h"
 #include "becq_cal.h"
 #include "spectrum.h"
+#include "fmt.h"
 
 #define PL_MAX   (2u + 4u * PROTO_CHUNK_CH)             /* самый длинный кадр — кусок спектра */
 #define SPEC_FRAMES (SPECTRUM_CHANNELS / PROTO_CHUNK_CH) /* 16 кадров 0x01 */
@@ -57,36 +58,8 @@ static void put32(uint8_t *p, uint32_t v)
     p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
 }
 
-/* Число с фиксированной точкой без %f (в newlib-nano его нет). dec ≤ 6. */
-static void fmt_fix(char *out, size_t cap, float v, int dec)
-{
-    static const uint32_t P10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000 };
-    if (!isfinite(v)) { snprintf(out, cap, "nan"); return; }
-    const char *sg = (v < 0.0f) ? "-" : "";
-    double a = fabs((double)v) * P10[dec] + 0.5;
-    if (a > 4.0e9) a = 4.0e9;
-    uint32_t q = (uint32_t)a;
-    uint32_t ip = q / P10[dec], fp = q % P10[dec];
-    if (q == 0) sg = "";                                   /* без "-0.0" */
-    if (dec == 0) snprintf(out, cap, "%s%lu", sg, (unsigned long)ip);
-    else snprintf(out, cap, "%s%lu.%0*lu", sg, (unsigned long)ip, dec, (unsigned long)fp);
-}
-
-/* Число в экспоненциальной форме "-1.234567e-5" без %e (в newlib-nano его нет): 7 значащих
-   цифр — столько держит float, так что k1/k2 любого порядка читаются назад без потерь. */
-static void fmt_exp(char *out, size_t cap, float v)
-{
-    if (!isfinite(v)) { snprintf(out, cap, "nan"); return; }
-    if (v == 0.0f) { snprintf(out, cap, "0"); return; }
-    double a = fabs((double)v);
-    int e = (int)floor(log10(a));
-    double m = a / pow(10.0, e);
-    uint32_t q = (uint32_t)(m * 1000000.0 + 0.5);          /* мантисса × 10^6 */
-    if (q >= 10000000u) { q = (q + 5u) / 10u; e++; }       /* 9.9999996 → 10.000000 */
-    else if (q < 1000000u) { q *= 10u; e--; }              /* погрешность log10 вниз */
-    snprintf(out, cap, "%s%lu.%06lue%d", v < 0.0f ? "-" : "",
-             (unsigned long)(q / 1000000u), (unsigned long)(q % 1000000u), e);
-}
+/* fmt_fix / fmt_exp — числа без %f/%e (newlib-nano), fmt.c: k1/k2 в fmt_exp — 7 значащих
+   цифр, читаются назад без потерь. */
 
 /* ---- флеш: только при остановленном наборе (SPEC §7.9) ---- */
 static bool commit_now(void)

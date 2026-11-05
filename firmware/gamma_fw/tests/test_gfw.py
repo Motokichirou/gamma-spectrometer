@@ -73,5 +73,15 @@ check(cl[1:] == ["-c", "port=COM4", "br=115200", "P=EVEN", "db=8", "sb=1",
 check(cl[0].endswith("STM32_Programmer_CLI.exe"), "путь CLI")
 check(gfw.DEF_BAUD == 600000 and gfw.CLI_TIMEOUT_S == 90, "скорость и таймаут")
 
+# -gst: ключ=значение, hv_off — последним со свободным текстом
+d = gfw.parse_kv("-ok gst hv=on hv_set=500 hv_out=499.2 hv_trip=- t=24.81 flash=none hv_off=TRIP VREF+ out of range")
+check(d is not None and d["hv"] == "on" and d["hv_set"] == "500" and d["hv_out"] == "499.2", "parse_kv значения")
+check(d["hv_off"] == "TRIP VREF+ out of range" and d["flash"] == "none", "parse_kv hv_off с пробелами")
+check(gfw.parse_kv("-err notready") is None, "parse_kv -err")
+check(gfw.gst_row({"hv": "off", "hv_out": "0.0"}, ("hv", "hv_out", "t")) == "hv=off hv_out=0.0 t=?", "строка watch")
+check(not gfw.hv_settled(["495", "497"], 500, 5), "settle: мало замеров")
+check(gfw.hv_settled(["300", "496", "501.2", "504.9"], 500, 5), "settle: 3 подряд в допуске")
+check(not gfw.hv_settled(["496", "506", "501"], 500, 5), "settle: выброс")
+check(not gfw.hv_settled(["nan", "x", "500"], 500, 5), "settle: нечисло")
 print("%d passed, %d failed" % (passed, failed))
 sys.exit(1 if failed or not passed else 0)

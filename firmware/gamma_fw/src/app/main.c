@@ -4,15 +4,22 @@
  * Готово (Task 8): такт 156 МГц (src/hw/clock), выводы ВВ в безопасном состоянии первой строкой
  * (gpio), SysTick 1 мс + DWT (timebase), USART1 600 000 8N1 с приёмом по прерыванию и передачей
  * по DMA (uart), переход в системный загрузчик по "!boot" (boot), аварийный сброс по сбою.
- * Остальное железо — Task 9–12; пока на его месте заглушки, но весь core уже вызывается отсюда:
+ * Task 9: ОУ тракта и Pt1000 (opamp), служебные АЦП ADC2/4/5 (adc_aux — после 1.5 с),
+ * ШИМ HV_CONTROL TIM1 38.1 кГц и HV_ENABLE/D102 (hvpwm); пересчёт и сглаживание замеров,
+ * проверка VREF+ и сервисные команды -hv/-hvzero/-hvk/-ptcal/-gst/-diag — core/svc.c.
+ *
+ * Задача 10 мс: adc_aux_poll → svc_aux_10ms (монитор, мВ; NaN — замер устарел) → hv_tick →
+ * hvpwm_set, hv_enable_pin(hv_enabled). Задача 1 с: svc_aux_1s (VREF+ 2500 ± 15 мВ — иначе
+ * ВВ не включается, при включённом — выкл; при выключенном — перекалибровка АЦП), +3.3V_D τ 60 с,
+ * Pt1000 τ 10 с → термокомпенсация и T1 в -inf.
+ *
+ * Остальное железо — Task 10–12; пока на его месте заглушки, но весь core уже вызывается отсюда:
  * штатная сборка проверяет линковку core, размещение горячего кода в CCM и бюджет ОЗУ (build.sh)
  * вместе с буферами, которые займут драйверы:
  *  - adc_dma_buf — 2 порции по 8192 отсчёта = 32 КБ, DMA по кругу. Только в ОЗУ: CCM SRAM на G4
  *    шине DMA недоступна (Task 10; флаг adc_ready пока всегда 0);
  *  - uart_tx_ring — кольцо передачи 8 КБ (≥ PROTO_TX_FRAME_MAX, proto.h) — в src/hw/uart.c;
  *  - стек 4 КБ — _Min_Stack_Size в gamma_fw.ld, куча 2 КБ — _Min_Heap_Size (strtod newlib).
- * Заглушки служебных АЦП/ШИМ ВВ (mon_mv, hv_pwm_ccr, hv_pin) выводы не трогают: PB10/PA8/PB6
- * остаются выходами 0 из gpio_safe_init до Task 9. Поэтому -hv пока отвечает -err notyet.
  */
 #include "stm32g474xx.h"
 #include "ccm.h"
@@ -21,6 +28,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "settings.h"
 #include "proto.h"
 #include "hv_ctl.h"
@@ -29,14 +37,19 @@
 #include "spectrum.h"
 #include "tpl_3467k.h"
 #include "hwcalc.h"
+#include "svc.h"
 #include "clock.h"
 #include "gpio.h"
 #include "timebase.h"
 #include "uart.h"
 #include "boot.h"
+#include "opamp.h"
+#include "adc_aux.h"
+#include "hvpwm.h"
 
 #define ADC_DMA_LEN   (2u * DET_BLK_DEF)
 #define OSC_MAX       16u
+#define AUX_START_MS  1500u                     /* калибровка АЦП — не раньше 1.5 с (SPEC §3.3) */
 
 
 /* Вызывается из Reset_Handler первым делом. Таблица векторов — наша:
@@ -56,15 +69,19 @@ void SystemInit(void)
     __ISB();
 }
 
-/* ---- буферы и сигналы драйверов, которых ещё нет (заглушки Task 9–10) ---- */
+/* ---- буферы и сигналы драйверов, которых ещё нет (заглушки Task 10) ---- */
 static uint16_t adc_dma_buf[ADC_DMA_LEN];       /* DMA АЦП — в ОЗУ */
 static volatile uint8_t  adc_ready;             /* 1 — первая половина, 2 — вторая (прерывание DMA) */
-static volatile float    mon_mv, vdd_mv = 3296.0f, pt_raw;   /* служебные АЦП */
-static volatile uint16_t hv_pwm_ccr;            /* TIM1->CCR1 */
-static volatile uint8_t  hv_pin;                /* PB10 и D102 */
 /* адрес для DMA (CMAR) — заглушка настройки канала; заодно не даёт выбросить буфер при сборке */
 static uint16_t *volatile adc_dma_dst;
-#define HV_HW_READY 0                           /* Task 9: драйвер ШИМ/ENABLE/монитора готов */
+
+/* ---- служебные замеры ---- */
+static svc_aux_t aux;
+static bool      aux_on, aux_tried;
+static uint16_t  hv_duty;
+/* что пришло от служебных АЦП за текущую секунду (опрос — каждые 10 мс) */
+static float     sec_vrefint, sec_vbat, sec_pt;
+static bool      sec_vrefint_new, sec_vbat_new, sec_pt_new;
 
 /* ---- состояние приложения ---- */
 static settings_t live;
@@ -102,7 +119,8 @@ static void p_acq_clear(void)
 static void p_boot(void)
 {
     hv_off(&hv, "boot");
-    hv_pin = 0; hv_pwm_ccr = 0;
+    hvpwm_set(0);
+    hv_enable_pin(false);
     proto_send_text("-ok boot\r\n");
     boot_enter_system();
 }
@@ -116,6 +134,8 @@ static bool p_hv_on(void) { return hv_enabled(&hv); }
 
 static void p_apply(uint32_t what)
 {
+    /* -defaults (proto пускает только при выключенном ВВ): калибровка монитора — и в hv_ctl */
+    if (what == PROTO_APPLY_ALL) hv_set_cal(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     if (what & PROTO_APPLY_THR) det_set_thr(&det, live.thr_codes);
     if (what & PROTO_APPLY_TPL) {
         tpl_now = live.tpl_valid ? (const int16_t (*)[DET_NS])live.tpl : tpl_3467k;
@@ -123,28 +143,40 @@ static void p_apply(uint32_t what)
     }
 }
 
+/* ---- сервис (core/svc.c) ---- */
+static void s_fill_gst(svc_gst_t *g)
+{
+    det_stats_t ds;
+    det_get_stats(&det, &ds);
+    uint32_t ms = acq_acc_ms + (acq_run ? millis() - acq_since_ms : 0u);
+    g->base = det_baseline(&det);
+    g->sigma = det_sigma(&det);
+    g->rej = ds.rej_pileup + ds.rej_shape + ds.rej_width + ds.rej_budget;
+    g->real_s = (float)ms / 1000.0f;
+    g->live_s = g->real_s;                     /* мёртвое время, cps, cpu, lost — Task 10 */
+    g->pwm = hv_duty;
+    g->flash = proto_flash_status();
+}
+static bool s_diag(svc_diag_t *d)
+{
+    float raw[SVC_DIAG_N];
+    if (!aux_on || !adc_aux_diag(raw)) return false;
+    float vref = svc_vref_mv(&aux);
+    for (int i = 0; i < SVC_DIAG_N; i++) d->mv[i] = raw[i] * vref / 4095.0f;
+    return true;
+}
+static const svc_ctx_t svc_ctx = { &hv, &live, &aux, p_millis, s_fill_gst, s_diag };
+
 static void p_service(const char *cmd, char *reply, size_t cap)
 {
-    if (strncmp(cmd, "-hv ", 4) == 0) {
-        if (!HV_HW_READY) { snprintf(reply, cap, "-err notyet"); return; }
-        if (strcmp(cmd + 4, "off") == 0) { hv_off(&hv, "cmd"); snprintf(reply, cap, "-ok hv off"); return; }
-        /* строго: целое и ничего после ("-hv abc" через atoi давал 0 — выключение, "12abc" → 12) */
-        const char *a = cmd + 4;
-        while (*a == ' ' || *a == '\t') a++;
-        char *e;
-        long v = strtol(a, &e, 10);
-        while (*e == ' ' || *e == '\t') e++;
-        if (e == a || *e || v < 0 || v > (long)HV_MAX_SET_V || hv_set(&hv, (float)v, millis()) != 0) {
-            snprintf(reply, cap, "-err hv");
-            return;
-        }
-        snprintf(reply, cap, "-ok hv %ld", v);
-    } else if (strcmp(cmd, "-osc") == 0) {
+    if (svc_handle(cmd, reply, cap)) return;
+    if (strcmp(cmd, "-osc") == 0) {
         det_set_capture(&det, osc_buf, osc_info, DET_CAP_PRE_DEF, DET_CAP_POST_DEF, OSC_MAX);
         snprintf(reply, cap, "-ok osc");
-    } else {
-        snprintf(reply, cap, "-err notyet");
+    } else if (strncmp(cmd, "-dac", 4) == 0 || strncmp(cmd, "-noise", 6) == 0 || strncmp(cmd, "-smp", 4) == 0) {
+        snprintf(reply, cap, "-err notyet");    /* Task 10–11 */
     }
+    /* иначе ответ пуст — proto ответит -err unknown */
 }
 
 static const proto_port_t port = {
@@ -166,6 +198,38 @@ static const char *reset_cause(void)
     return c;
 }
 
+/* шаг 10 мс: служебные АЦП → монитор → логика ВВ → ШИМ и ENABLE/D102 */
+static void task_10ms(uint32_t now)
+{
+    adc_aux_t ar = { 0 };
+    if (aux_on) adc_aux_poll(&ar);
+    if (ar.vrefint_new) { sec_vrefint = ar.vrefint_raw; sec_vrefint_new = true; }
+    if (ar.vbat_new)    { sec_vbat = ar.vbat_raw;       sec_vbat_new = true; }
+    if (ar.pt_new)      { sec_pt = ar.pt_raw;           sec_pt_new = true; }
+    float mon = svc_aux_10ms(&aux, ar.mon_raw, ar.mon_new, hv_enabled(&hv), now);
+    hv_duty = hv_tick(&hv, mon, aux.vdd_mv, now);
+    hvpwm_set(hv_duty);
+    hv_enable_pin(hv_enabled(&hv));
+}
+
+/* шаг 1 с: VREF+, +3.3V_D, Pt1000, термокомпенсация, выдача спектра */
+static void task_1s(void)
+{
+    if (aux_on) {
+        bool recal = svc_aux_1s(&aux, &hv, sec_vrefint_new ? sec_vrefint : NAN,
+                                sec_vbat_new ? sec_vbat : NAN, sec_pt_new ? sec_pt : NAN);
+        sec_vrefint_new = sec_vbat_new = sec_pt_new = false;
+        hv_set_vref(&hv, svc_vref_mv(&aux));
+        if (!hv_enabled(&hv)) { hv_duty = 0; hvpwm_set(0); hv_enable_pin(false); }  /* выкл по VREF+ — сразу */
+        if (recal) adc_aux_recalibrate();      /* опора не устоялась к калибровке (SPEC §3.3) */
+    }
+    pt_state_t pst;
+    float raw = aux.pt_raw;                    /* сглаженный τ 10 с; NaN — ещё нет → без поправки */
+    det_set_gain(&det, tc_corr_raw(raw, live.pt_rpu_ohm, live.tc_t0_c, live.tc_k1, live.tc_k2, &pst));
+    if (pst == PT_OK) proto_set_temperature(pt_temp_c(pt_resistance(raw, live.pt_rpu_ohm)));
+    proto_tick_1s();
+}
+
 int main(void)
 {
     gpio_safe_init();                          /* ПЕРВЫМ: PB10 = PA8 = PB6 = 0 — ВВ и D102 выкл (SPEC §3) */
@@ -181,6 +245,9 @@ int main(void)
     timebase_init(clock_hz());
     uart_init(HW_UART_BAUD);
     __enable_irq();
+    opamp_init();                              /* тракт и Pt1000 — сразу: устоятся к запуску АЦП */
+    hv_enable_pin(false);
+    hvpwm_init();                              /* CCR1 = 0: PA8 из «выход 0» в AF без выброса */
 
     adc_dma_dst = adc_dma_buf;                 /* «DMA АЦП по кругу» — Task 10 */
     settings_defaults(&live);                  /* флеш — Task 12 */
@@ -188,6 +255,8 @@ int main(void)
     proto_init(&port, &live);
     proto_flash_defaults();
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
+    svc_aux_init(&aux, adc_aux_vrefint_cal());
+    svc_init(&svc_ctx);
     det_cfg_t cfg = { live.thr_codes, DET_MINW_DEF, DET_MAXW_DEF, 0.0f, 0 };
     det_init(&det, &cfg, tpl_now, emit);
     spectrum_clear();
@@ -213,19 +282,19 @@ int main(void)
             proto_rx(rb, n);                   /* "!boot" отсюда не возвращается */
         proto_poll();
         uint32_t now = millis();
+        if (!aux_tried && now >= AUX_START_MS) {   /* опора REF35250 устоялась — калибровать АЦП */
+            aux_tried = true;
+            aux_on = adc_aux_init();
+            if (!aux_on) proto_send_text("gamma_fw: aux ADC init FAIL, HV locked\r\n");
+        }
         if (now - t10 >= 10u) {
             /* отстали (долгая операция) — не догонять пачкой: шаг ВВ рассчитан на 10 мс */
             t10 = (now - t10 >= 50u) ? now : t10 + 10u;
-            hv_pwm_ccr = hv_tick(&hv, mon_mv, vdd_mv, now);
-            hv_pin = hv_enabled(&hv);
+            task_10ms(now);
         }
         if (now - t1s >= 1000u) {
             t1s = (now - t1s >= 2000u) ? now : t1s + 1000u;
-            pt_state_t pst;
-            float raw = pt_raw;
-            det_set_gain(&det, tc_corr_raw(raw, live.pt_rpu_ohm, live.tc_t0_c, live.tc_k1, live.tc_k2, &pst));
-            if (pst == PT_OK) proto_set_temperature(pt_temp_c(pt_resistance(raw, live.pt_rpu_ohm)));
-            proto_tick_1s();
+            task_1s();
         }
     }
 }
