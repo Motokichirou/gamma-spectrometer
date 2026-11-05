@@ -93,6 +93,11 @@ def main():
     for k in range(6):
         xx = CX - 25 + 10 * k; body += gr_line(xx, y0 - 1.5, xx, y0 + 1.5, 'Dwgs.User', 0.2)
     body += gr_text('50 мм — проверить линейкой (печать 100 %)', CX, y0 + 4, 'Dwgs.User', 1.5)
+    x0 = CX + 38                                            # вертикальный отрезок 50 мм
+    body += gr_line(x0, CY - 25, x0, CY + 25, 'Dwgs.User', 0.2)
+    for k in range(6):
+        yy = CY - 25 + 10 * k; body += gr_line(x0 - 1.5, yy, x0 + 1.5, yy, 'Dwgs.User', 0.2)
+    body += gr_text('50 мм', x0 + 5, CY, 'Dwgs.User', 1.5, 90)
     body += gr_text('Экран ВВ/МК, вид как в KiCad (F.Cu). Резать по сплошному контуру.', CX, CY - 32, 'Dwgs.User', 1.5)
     body += gr_text('Кружки — цанги/ПВВ/контур платы (ориентиры). Не совпали пины — перевернуть лист.', CX, CY - 29, 'Dwgs.User', 1.2)
     out = os.path.join(here, 'shield_template.kicad_pcb')
