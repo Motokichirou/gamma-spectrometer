@@ -97,6 +97,7 @@ int   svc_diag_check(const svc_diag_t *d, char *bad, size_t cap);
 typedef struct {
     float base, sigma;          /* коды */
     uint32_t cps_in, cps_acc, rej, lost;
+    uint32_t overrun;           /* порций, перезаписанных DMA во время обработки */
     float live_s, real_s, cpu_pct;
     uint16_t pwm;               /* текущая скважность ШИМ ВВ */
     const char *flash;          /* proto_flash_status() */

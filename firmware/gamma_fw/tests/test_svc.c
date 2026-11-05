@@ -310,13 +310,14 @@ static void test_cmd_gst(void)
     reset();
     run_aux(5, 2507.0f, 3296.0f, 1300.0f);           /* монитор успел пересчитаться по опоре 2507 */
     gst_stub.base = 645.25f; gst_stub.sigma = 1.18f; gst_stub.cps_in = 120; gst_stub.cps_acc = 110;
-    gst_stub.rej = 3; gst_stub.lost = 0; gst_stub.live_s = 9.5f; gst_stub.real_s = 10.0f;
+    gst_stub.rej = 3; gst_stub.lost = 0; gst_stub.overrun = 0; gst_stub.live_s = 9.5f; gst_stub.real_s = 10.0f;
     gst_stub.cpu_pct = 7.2f; gst_stub.pwm = 0; gst_stub.flash = "defaults";
     const char *g = svc("-gst");
     CHECK(starts(g, "-ok gst "));
     CHECK(strlen(g) < 500);
     static const char *keys[] = { "hv", "hv_set", "hv_out", "hv_trim", "hv_trip", "t", "vref", "base",
                                   "sigma", "cps_in", "cps_acc", "rej", "live_s", "real_s", "cpu", "lost",
+                                  "overrun",
                                   "flash", "vdd", "mon_mv", "hv_zero", "hv_k", "pt_rpu", "hv_pwm" };
     char b[32];
     for (unsigned i = 0; i < sizeof keys / sizeof keys[0]; i++) {

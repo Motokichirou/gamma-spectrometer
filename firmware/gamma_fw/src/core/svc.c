@@ -212,6 +212,7 @@ static void cmd_gst(char *reply, size_t cap)
     putf(&o, "real_s", g.real_s, 1);
     putf(&o, "cpu", g.cpu_pct, 1);
     putu(&o, "lost", g.lost);
+    putu(&o, "overrun", g.overrun);
     put(&o, "flash", g.flash ? g.flash : "-");
     /* причина последнего выключения — последней: свободный текст с пробелами */
     if (hv_off_reason(h) && o.w + 10u < cap) {

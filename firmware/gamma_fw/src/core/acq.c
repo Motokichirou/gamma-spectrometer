@@ -88,33 +88,66 @@ uint32_t acq_invalid(const acq_t *a, const det_stats_t *st)
     return a->invalid + (a->run ? acq_rejected(st) - acq_rejected(&a->a_prev) : 0u);
 }
 
+/* Σ и Σ² «тихих» отсчётов: без отсчётов выше lim и их окрестности −PRE…+POST (импульс идёт вверх
+   и спадает за десятки отсчётов). lim < 0 — брать все. Окрестность — за один проход: j — индекс
+   опережения (i + PRE), last — последний выброс среди s[0..j]. */
+static uint32_t quiet_sums(const uint16_t *s, size_t n, double lim, uint64_t *s1, uint64_t *s2)
+{
+    uint32_t q = 0;
+    long last = -(long)ACQ_NOISE_POST - 1;
+    *s1 = *s2 = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (lim >= 0.0) {
+            size_t j = i + ACQ_NOISE_PRE;
+            if (i == 0) {                      /* затравка окна опережения */
+                for (size_t k = 0; k < j && k < n; k++)
+                    if ((double)s[k] > lim) last = (long)k;
+            }
+            if (j < n && (double)s[j] > lim) last = (long)j;
+            if (last >= (long)i - (long)ACQ_NOISE_POST) continue;
+        }
+        uint16_t v = s[i];
+        *s1 += v;
+        *s2 += (uint64_t)v * v;
+        q++;
+    }
+    return q;
+}
+
 void acq_noise(const uint16_t *s, size_t n, acq_noise_t *o)
 {
     memset(o, 0, sizeof *o);
     o->mean = o->sigma = NAN;
     if (!s || !n) return;
-    uint64_t s1 = 0, s2 = 0;
     uint16_t mn = 0xFFFFu, mx = 0;
     for (size_t i = 0; i < n; i++) {
-        uint16_t v = s[i];
-        s1 += v;
-        s2 += (uint64_t)v * v;
-        if (v < mn) mn = v;
-        if (v > mx) mx = v;
+        if (s[i] < mn) mn = s[i];
+        if (s[i] > mx) mx = s[i];
     }
-    double m = (double)s1 / (double)n;
-    double var = (double)s2 / (double)n - m * m;
-    if (var < 0.0) var = 0.0;
-    o->n = (uint32_t)n;
-    o->mean = (float)m;
-    o->sigma = (float)sqrt(var);
     o->min = mn;
     o->max = mx;
-    double lim = floor(m + ACQ_NOISE_OVER_K * sqrt(var));   /* целый s > lim ⇔ s > floor(lim) */
+    /* итерации: среднее и σ по тихим → новый порог mean + 5σ → снова тихие (импульсы завышают
+       σ первого прохода, поэтому порог сходится сверху вниз за 2–3 шага) */
+    double lim = -1.0, m = 0.0, var = 0.0;
+    uint32_t q = 0, q_prev = 0xFFFFFFFFu;
+    for (int it = 0; it < ACQ_NOISE_ITER; it++) {
+        uint64_t s1, s2;
+        uint32_t qq = quiet_sums(s, n, lim, &s1, &s2);
+        if (qq < 2u) break;                    /* всё — выбросы: оставить прошлый шаг */
+        q = qq;
+        m = (double)s1 / (double)q;
+        var = (double)s2 / (double)q - m * m;
+        if (var < 0.0) var = 0.0;
+        lim = floor(m + ACQ_NOISE_OVER_K * sqrt(var));    /* целый s > lim ⇔ s > floor(lim) */
+        if (q == q_prev) break;
+        q_prev = q;
+    }
+    o->n = q;
+    o->mean = (float)m;
+    o->sigma = (float)sqrt(var);
     if (lim >= 65535.0) return;
-    uint16_t thr = (uint16_t)lim;
     for (size_t i = 0; i < n; i++)
-        if (s[i] > thr) o->over++;
+        if ((double)s[i] > lim) o->over++;
 }
 
 void acq_osc_line(char *out, size_t cap, unsigned i, const det_cap_t *c)

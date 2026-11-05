@@ -23,7 +23,9 @@ uint16_t adc_dma_buf[BUF_LEN];
 static volatile uint32_t seq;            /* номер последней готовой половины (из прерывания) */
 static volatile uint8_t  rdy_half;       /* 0 — первая, 1 — вторая */
 static volatile uint32_t dma_err;
-static uint32_t taken, lost;
+static uint32_t taken, lost, overrun;
+static uint8_t  tk_half;                 /* половина, отданная последним take */
+static bool     tk_open;                 /* take был, done ещё нет */
 static uint8_t  smp = ADC_SIG_SMP_2C5;
 static bool     running;
 
@@ -32,9 +34,12 @@ void DMA1_Channel1_IRQHandler(void)
     uint32_t isr = DMA1->ISR;
     DMA1->IFCR = isr & (DMA_IFCR_CHTIF1 | DMA_IFCR_CTCIF1 | DMA_IFCR_CTEIF1 | DMA_IFCR_CGIF1);
     if (isr & DMA_ISR_TEIF1) { dma_err++; return; }      /* канал выключен аппаратно */
-    /* HT и TC сразу — обработчик опоздал на полпорции: обе половины готовы, свежая — вторая */
-    if (isr & DMA_ISR_HTIF1) { rdy_half = 0; seq++; }
-    if (isr & DMA_ISR_TCIF1) { rdy_half = 1; seq++; }
+    uint32_t k = ((isr & DMA_ISR_HTIF1) ? 1u : 0u) + ((isr & DMA_ISR_TCIF1) ? 1u : 0u);
+    if (!k) return;
+    /* свежая половина — та, куда DMA сейчас НЕ пишет: по CNDTR, а не по флагам (при опоздании
+       обработчика больше чем на порцию порядок HT/TC по флагам не восстановить) */
+    rdy_half = (DCH->CNDTR > DET_BLK_DEF) ? 1u : 0u;   /* DMA в первой половине → готова вторая */
+    seq += k;
 }
 
 static void cr_set(uint32_t bit) { ADC3->CR = (ADC3->CR & ~CR_RS) | bit; }
@@ -57,6 +62,7 @@ static bool stop(void)
     DCH->CCR &= ~DMA_CCR_EN;
     DMA1->IFCR = DMA_IFCR_CGIF1;
     running = false;
+    tk_open = false;                             /* буфер замер: отданную порцию не затрут */
     return ok;
 }
 
@@ -128,11 +134,34 @@ const uint16_t *adc_sig_take(size_t *n)
     __enable_irq();
     if (s - taken > 1u) lost += s - taken - 1u;
     taken = s;
+    tk_half = h;
+    tk_open = running;
     if (n) *n = DET_BLK_DEF;
     return adc_dma_buf + (size_t)h * DET_BLK_DEF;
 }
 
 uint32_t adc_sig_lost(void) { return lost; }
+uint32_t adc_sig_overrun(void) { return overrun; }
+
+uint32_t adc_sig_done(void)
+{
+    if (!tk_open) return 0;
+    tk_open = false;
+    __disable_irq();                             /* seq и позиция DMA — согласованно */
+    uint32_t d = seq - taken;
+    uint32_t w = BUF_LEN - DCH->CNDTR;           /* индекс, куда DMA пишет сейчас */
+    __enable_irq();
+    if (w >= BUF_LEN) w = 0;                     /* CNDTR = 0 на миг перезагрузки */
+    uint8_t ph = (w >= DET_BLK_DEF) ? 1u : 0u;
+    uint32_t off = w - (uint32_t)ph * DET_BLK_DEF;
+    uint32_t ov;
+    if (d >= 2u) ov = DET_BLK_DEF;               /* DMA прошёл нашу половину целиком */
+    else if (ph == tk_half) ov = off;            /* DMA внутри нашей: затёрто начало (d = 1, или 0 —
+                                                    прерывание ещё не обслужено) */
+    else ov = d ? DET_BLK_DEF : 0u;              /* d = 1, а DMA снова в другой: наша пройдена */
+    if (ov) overrun++;
+    return ov;
+}
 
 bool adc_sig_set_smp(uint8_t smp_code)
 {

@@ -115,6 +115,24 @@ static void test_noise(void)
     acq_noise(s, 8192, &o);
     CHECK(o.over == 2u);
     CHECK(o.max == 700u);
+    CHECK(o.n == 8192u - (2u + ACQ_NOISE_PRE + ACQ_NOISE_POST));  /* выброс с окрестностью — вне тихих */
+    CHECK_NEAR(o.sigma, 1.0, 1e-3);
+    /* импульсы (σ всей порции ≫ 1): mean и σ — по базе, не по импульсам */
+    for (int i = 0; i < 8192; i++) s[i] = (uint16_t)(645 + ((i & 1) ? 1 : -1));
+    for (int p = 0; p < 20; p++)
+        for (int k = 0; k < 30; k++) s[200 + p * 400 + k] = (uint16_t)(645 + 600 - 20 * k);
+    acq_noise(s, 8192, &o);
+    CHECK_NEAR(o.mean, 645.0, 0.01);
+    CHECK_NEAR(o.sigma, 1.0, 0.01);
+    CHECK(o.n < 8192u && o.n > 6000u);
+    CHECK(o.over > 20u);
+    CHECK(o.max == 1245u);
+    /* выброс у самого начала и конца порции */
+    for (int i = 0; i < 8192; i++) s[i] = (uint16_t)(645 + ((i & 1) ? 1 : -1));
+    s[0] = 800; s[8191] = 800;
+    acq_noise(s, 8192, &o);
+    CHECK(o.n == 8192u - (1u + ACQ_NOISE_POST) - (1u + ACQ_NOISE_PRE));
+    CHECK(o.over == 2u);
     for (int i = 0; i < 8192; i++) s[i] = 4095;    /* потолок, σ = 0 */
     acq_noise(s, 8192, &o);
     CHECK_NEAR(o.sigma, 0.0, 1e-6);

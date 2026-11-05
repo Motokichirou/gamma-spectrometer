@@ -10,6 +10,7 @@
  * Task 10: сигнальный ADC3_IN1 непрерывно по DMA (adc_sig; запуск сразу после служебных АЦП —
  * тоже не раньше 1.5 с). Главный цикл: adc_sig_take → потерянные порции в мёртвое время
  * (det_add_lost) → det_process_block, такты DWT до/после → загрузка ЦП (статус 0x04, -gst cpu).
+ * После обработки adc_sig_done: порция, которую DMA успел затереть, — в мёртвое время (-gst overrun).
  * Импульсы идут в спектр только во время набора (детектор работает всегда: база, σ, осциллограф).
  * Учёт времени набора, живого времени и скоростей — core/acq.c; там же команды -smp, -noise, -osc.
  *
@@ -78,6 +79,7 @@ void SystemInit(void)
 
 /* ---- сигнальный АЦП ---- */
 static bool      sig_on;
+static bool      sig_recal_pending;             /* ADC3 перекалибровать при первой секунде вне набора */
 static uint32_t  lost_seen;                     /* потерянные порции, уже отданные в det_add_lost */
 static uint32_t  busy_cyc, tick_cyc;            /* такты обработки за секунду; DWT на прошлом тике */
 
@@ -109,7 +111,9 @@ static det_stats_t stats(void)
     return ds;
 }
 
-/* порция сигнала: потерянные до неё — в мёртвое время, обработка с замером тактов */
+/* порция сигнала: потерянные до неё — в мёртвое время, обработка с замером тактов.
+   После обработки — не затёр ли DMA порцию, пока её читали: затёртое — в мёртвое время
+   (импульсы из порции уже в спектре — их не вынуть; счётчик overrun в -gst это показывает). */
 static void process_block(const uint16_t *b, size_t n)
 {
     uint32_t l = adc_sig_lost();
@@ -117,6 +121,15 @@ static void process_block(const uint16_t *b, size_t n)
     uint32_t c0 = cycles();
     det_process_block(&det, b, n);
     busy_cyc += cycles() - c0;
+    uint32_t ov = adc_sig_done();
+    if (ov) det_add_lost(&det, ov);
+}
+
+/* поток АЦП прерван (остановка, смена выборки, калибровка): DMA начнёт с начала буфера —
+   у детектора разорвать непрерывность (окно осциллографа, импульс на стыке), сдвинуть позицию */
+static void sig_gap(void)
+{
+    det_add_lost(&det, DET_BLK_DEF);
 }
 
 /* следующая порция (не дольше BLK_WAIT_MS); NULL — АЦП не идёт */
@@ -206,6 +219,7 @@ static void s_fill_gst(svc_gst_t *g)
     g->live_s = acq_live_s(&acq, now, &ds);
     g->cpu_pct = (float)acq.cpu_x10 / 10.0f;
     g->lost = adc_sig_lost();
+    g->overrun = adc_sig_overrun();
     g->pwm = hv_duty;
     g->flash = proto_flash_status();
 }
@@ -227,6 +241,7 @@ static uint32_t a_fs(void) { return adc_sig_fs(); }
 static bool a_smp_set(uint8_t smp)
 {
     bool ok = adc_sig_set_smp(smp == 6u ? ADC_SIG_SMP_6C5 : ADC_SIG_SMP_2C5);
+    sig_gap();
     acq_set_fs(&acq, adc_sig_fs());
     return ok;
 }
@@ -248,6 +263,7 @@ static bool a_osc_raw(uint32_t *n_out)
     adc_sig_hold();
     proto_send_pulse(b, n);
     bool ok = adc_sig_resume();
+    sig_gap();                                 /* порция не обработана, дальше — с начала буфера */
     *n_out = (uint32_t)n;
     return ok;
 }
@@ -333,8 +349,15 @@ static void task_1s(void)
         if (!hv_enabled(&hv)) { hv_duty = 0; hvpwm_set(0); hv_enable_pin(false); }  /* выкл по VREF+ — сразу */
         if (recal) {                           /* опора не устоялась к калибровке (SPEC §3.3) */
             adc_aux_recalibrate();
-            if (sig_on && !acq.run) adc_sig_recalibrate();     /* в наборе — без дыры в потоке */
+            sig_recal_pending = true;          /* ADC3 — ниже; в наборе — отложить до -sto */
         }
+    }
+    /* в наборе ADC3 не трогаем (без дыры в потоке); svc_aux_1s повторно не попросит — опора
+       уже в норме, поэтому просьба копится до первой секунды вне набора */
+    if (sig_recal_pending && sig_on && !acq.run) {
+        sig_recal_pending = false;
+        adc_sig_recalibrate();
+        sig_gap();
     }
     pt_state_t pst;
     float raw = aux.pt_raw;                    /* сглаженный τ 10 с; NaN — ещё нет → без поправки */
