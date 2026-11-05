@@ -24,9 +24,13 @@ static inline int64_t SMLALD(uint32_t a, uint32_t b, int64_t acc)
 
 enum { DET_S_IDLE = 0, DET_S_PULSE, DET_S_POST, DET_S_GUARD };
 
-#define DET_BASE_N 4096u   /* спокойных отсчётов на одно обновление базы */
-
 static int32_t iround(float x) { return (int32_t)(x >= 0.0f ? x + 0.5f : x - 0.5f); }
+
+/* int64 → float без библиотечного __aeabi_l2f (точно хватает при |x| < 2^47) */
+static inline float i64f(int64_t x)
+{
+    return (float)(int32_t)(x >> 16) * 65536.0f + (float)(uint32_t)(x & 0xFFFF);
+}
 
 static int16_t clip16(int32_t v)
 {
@@ -42,9 +46,13 @@ void det_init(det_t *d, const det_cfg_t *cfg, const int16_t (*tpl)[DET_NS], det_
     if (d->cfg.max_w < d->cfg.min_w) d->cfg.max_w = d->cfg.min_w;
     d->chi2_max = (cfg->chi2_max > 0.0f) ? cfg->chi2_max : 4.0f * (float)DET_NS;
     d->gain = 1.0f;
-    d->tpl  = tpl;
     d->emit = emit;
     d->armed = 1;
+    det_set_template(d, tpl);
+}
+
+void det_set_template(det_t *d, const int16_t (*tpl)[DET_NS])
+{
     for (unsigned p = 0; p < DET_NPH; p++) {
         int32_t sh = 0, hh = 0;
         for (unsigned k = 0; k < DET_NS; k++) {
@@ -54,6 +62,7 @@ void det_init(det_t *d, const det_cfg_t *cfg, const int16_t (*tpl)[DET_NS], det_
         d->tpl_sh[p]  = sh;
         d->tpl_ihh[p] = (hh > 0) ? 1.0f / (float)hh : 0.0f;
     }
+    d->tpl = tpl;
 }
 
 void det_set_gain(det_t *d, float g) { d->gain = g; }
@@ -100,19 +109,56 @@ static void init_base(det_t *d, const uint16_t *s, size_t n)
     d->init = 1;
 }
 
-/* Обновление базы и σ² по накопленным спокойным отсчётам (EMA, α = 1/2 на 4096 отсчётов). */
+/*
+ * Обновление базы и σ² по накопленным спокойным отсчётам (EMA, α = 1/2 на ≥4096 отсчётов).
+ * Суммы приводятся к сдвигу bint в целых (без double и библиотечных вызовов): Σ(s−b), Σ(s−b)².
+ * Среднее ушло больше чем на порог (ступенька базы вниз) — база ставится сразу, без EMA.
+ */
 static void update_base(det_t *d)
 {
     if (d->qn < DET_BASE_N)
         return;
-    double n = (double)d->qn;
-    double m = (double)d->qsum / n;
-    double v = (double)d->qsq / n - m * m;
-    if (v < 0.0) v = 0.0;
-    d->base += 0.5f * ((float)m - d->base);
-    d->var  += 0.5f * ((float)v - d->var);
+    const int64_t b = d->bint, n = (int64_t)d->qn;
+    const int64_t s1 = (int64_t)d->qsum - n * b;
+    const int64_t s2 = (int64_t)d->qsq - 2 * b * (int64_t)d->qsum + n * b * b;
+    const float fn = (float)d->qn;
+    const float m = i64f(s1) / fn;
+    float v = i64f(s2) / fn - m * m;
+    if (v < 0.0f) v = 0.0f;
+    const float mb = (float)d->bint + m;
+    const float dm = mb - d->base;
+    if (dm > (float)d->cfg.thr || dm < -(float)d->cfg.thr) {
+        d->base = mb;
+        d->var  = v;
+        d->st.base_jumps++;
+    } else {
+        d->base += 0.5f * dm;
+        d->var  += 0.5f * (v - d->var);
+    }
     d->bint  = iround(d->base);
     d->qn = 0; d->qsum = 0; d->qsq = 0;
+}
+
+static inline void stuck_reset(det_t *d) { d->stk_n = 0; d->stk_s1 = 0; d->stk_s2 = 0; }
+
+/*
+ * Ступенька базы вверх больше порога: DET_BASE_N отсчётов медленного пути подряд не ниже
+ * thr/2 — база по ним, начатый импульс бросается, детектор в IDLE со взводом.
+ */
+static void rebase_stuck(det_t *d)
+{
+    const float fn = (float)d->stk_n;
+    const float m = (float)d->stk_s1 / fn;
+    float v = i64f(d->stk_s2) / fn - m * m;
+    d->base = (float)d->bint + m;
+    d->var  = (v > 0.0f) ? v : 0.0f;
+    d->bint = iround(d->base);
+    d->qn = 0; d->qsum = 0; d->qsq = 0;
+    d->state = DET_S_IDLE;
+    d->armed = 1;
+    d->guard_left = 0;
+    d->st.base_jumps++;
+    stuck_reset(d);
 }
 
 /* Подгонка эталона по окну buf[imax−IPK … +NS). Возвращает 1 и канал, 0 — отбраковка. */
@@ -120,11 +166,18 @@ CCM_FUNC static int fit(det_t *d, uint16_t *ch)
 {
     const int16_t *y = d->buf + (d->imax - DET_IPK);
     const float frac = d->pbase - (float)d->pbint;      /* y_ист = y − frac */
+    const int32_t thr = d->cfg.thr;
     int32_t sy = 0, syy = 0;
     for (unsigned k = 0; k < DET_NS; k++) {
         sy  += y[k];
         syy += (int32_t)y[k] * y[k];
     }
+    /* выброс 1–2 отсчёта: подряд выше thr/2 вокруг пика меньше DET_MIN_HALF отсчётов */
+    unsigned run = 1;
+    for (unsigned k = DET_IPK + 1u; k < DET_NS && 2 * (int32_t)y[k] > thr; k++) run++;
+    for (int k = (int)DET_IPK - 1; k >= 0 && 2 * (int32_t)y[k] > thr; k--) run++;
+    if (run < DET_MIN_HALF)
+        return 0;
     const float Syy = (float)syy - 2.0f * frac * (float)sy + (float)DET_NS * frac * frac;
 
     float best = 0.0f, best_yh = 0.0f;
@@ -262,6 +315,22 @@ CCM_FUNC static size_t slow(det_t *d, const uint16_t *s, size_t i, size_t n)
     const int32_t thr = d->cfg.thr;
     for (; i < n; i++) {
         uint16_t v = s[i];
+        if (d->state == DET_S_IDLE)
+            return i;
+        {                                            /* ступенька базы вверх: см. rebase_stuck */
+            int32_t db = (int32_t)v - d->bint;
+            if (db < thr / 2) {                      /* то же условие, что взвод в GUARD */
+                stuck_reset(d);
+            } else {
+                d->stk_n++;
+                d->stk_s1 += db;
+                d->stk_s2 += (int64_t)db * db;
+                if (d->stk_n >= DET_BASE_N) {
+                    rebase_stuck(d);
+                    return i + 1;
+                }
+            }
+        }
         switch (d->state) {
         case DET_S_PULSE:
             pulse_sample(d, (int32_t)v - d->pbint);
@@ -358,8 +427,8 @@ CCM_FUNC void det_process_block(det_t *d, const uint16_t *s, size_t n)
         if (j >= n)
             break;
         start_pulse(d, j ? s[j - 1] : d->last);
-        pulse_sample(d, (int32_t)s[j] - d->pbint);
-        i = j + 1;
+        stuck_reset(d);
+        i = j;                       /* триггерный отсчёт — через slow (учёт ступеньки базы) */
     }
     d->last = s[n - 1];
     update_base(d);

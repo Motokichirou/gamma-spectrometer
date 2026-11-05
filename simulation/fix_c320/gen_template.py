@@ -22,6 +22,7 @@ C314/C317 = 1 мкФ). Импульс боевой платы короткий: 
 """
 import argparse
 import os
+import sys
 
 import numpy as np
 
@@ -66,6 +67,9 @@ def rows(g, s):
 
 def main():
     global FS, T, NPH
+    # консоль cp1251 не печатает «×», «Σ» — без этого скрипт падал до записи файла
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     ap = argparse.ArgumentParser(description='эталон формы импульса (Q14) из отклика LTspice')
     ap.add_argument('variant', nargs='?', default='V2', help='вариант схемы: out/<вариант>_tran.npz')
     ap.add_argument('--fs', type=float, default=FS, help='частота выборки, выб/с (4e6)')

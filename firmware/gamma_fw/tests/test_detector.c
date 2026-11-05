@@ -92,30 +92,96 @@ static void test_low_energy(void)
 }
 
 /*
- * Выбросы помехи 257 кГц: +12 LSB, ширина 1 и 2 отсчёта по очереди, каждые 7.7 мкс.
- * Шум 0.5 LSB: при σ 1.8 LSB выброс 2×12 по χ² от импульса ≈ 30 кэВ не отличить
- * (χ² медиана 14 у выброса против 99-го перцентиля 15 у настоящих импульсов).
+ * Выбросы помехи 257 кГц: ширина 1 и 2 отсчёта по очереди, каждые 7.7 мкс.
+ * Одного χ² при σ 1.8 LSB мало (выброс 2×12 даёт χ² ≈ 14, 99-й перцентиль у импульсов ≈ 15),
+ * выбросы отсеиваются по числу отсчётов окна выше thr/2 (DET_MIN_HALF): у выброса нет спада.
+ * Регресс виден по проценту пропуска; допуск — 1 % выбросов шириной 2.
  */
-static void test_spike_rejected(void)
+static void spike_run(float amp, float sigma, uint32_t seed)
 {
-    pg_init(&pg, tpl_3467k, 64, 4242u);
+    pg_init(&pg, tpl_3467k, 64, seed);
     size_t n = 10 * BLK;
     memset(fbuf, 0, n * sizeof fbuf[0]);
     const double period = 7.7e-6 * 3466666.67;  /* 26.7 отсчёта */
     int k = 0;
     for (double t = 2.0 * BLK; t < n - 4; t += period, k++)
-        pg_add_spike(fbuf, n, (size_t)t, 1 + (k & 1), 12.0f);
-    pg_add_noise(&pg, fbuf, n, 0.5f);
+        pg_add_spike(fbuf, n, (size_t)t, 1 + (k & 1), amp);
+    pg_add_noise(&pg, fbuf, n, sigma);
     pg_quantize(fbuf, sbuf, n, BASE);
     reset(9);
     feed(n, BLK);
     det_stats_t st;
     det_get_stats(&det, &st);
-    printf("  выбросы %d: принято %u, форма %u, ширина %u\n", k, st.accepted, st.rej_shape,
-           st.rej_width);
-    CHECK(st.accepted == 0);
+    printf("  выбросы %d × %.0f LSB, шум %.1f: принято %u (%.2f %% от ширины 2), форма %u, ширина %u\n",
+           k, amp, sigma, st.accepted, 100.0 * st.accepted / (k / 2), st.rej_shape, st.rej_width);
+    CHECK(st.accepted <= (uint32_t)(k / 2) / 100u);
     CHECK(st.rej_shape > (uint32_t)k / 3);
-    CHECK(st.rej_width > (uint32_t)k / 3);
+    CHECK_NEAR(det_baseline(&det), BASE, 0.5);
+}
+
+static void test_spike_rejected(void)
+{
+    spike_run(12.0f, 0.5f, 4242u);
+    spike_run(12.0f, 1.8f, 4243u);                 /* шум базы по SPEC §7.3 */
+    spike_run(20.0f, 1.8f, 4244u);
+    spike_run(40.0f, 1.8f, 4245u);
+}
+
+/*
+ * Потери у порога (thr = 9, σ 1.8). Отсечка выбросов (DET_MIN_HALF) их чуть увеличивает,
+ * замер 2026-11-05 без неё → с ней: A 15 (≈17 кэВ) 74 → 59 %, A 20 (≈23 кэВ) 98.7 → 95 %,
+ * A 28 (32 кэВ) без изменений. Пороги ниже — на регресс.
+ */
+static void test_threshold_losses(void)
+{
+    const float amps[] = { 12.0f, 15.0f, 20.0f, 28.0f };
+    const int   min_ok[] = { 0, 1100, 1880, 1990 };   /* из 2000 */
+    for (unsigned a = 0; a < sizeof amps / sizeof amps[0]; a++) {
+        pg_init(&pg, tpl_3467k, 64, 600u + a);
+        size_t n = make_train(2000, amps[a], 1.8f, 48);
+        reset(DET_THR_DEF);
+        feed(n, BLK);
+        double m, sd;
+        stats(&m, &sd);
+        printf("  A = %.0f LSB: принято %d из 2000, канал %.1f\n", amps[a], nch, m);
+        CHECK(nch >= min_ok[a] && nch <= 2005);
+    }
+}
+
+/* Ступенька базы +15 кодов (> порога) и обратно: база восстанавливается, импульсы снова идут. */
+static void test_baseline_step(void)
+{
+    const float steps[] = { 15.0f, 50.0f, -15.0f };
+    for (unsigned q = 0; q < sizeof steps / sizeof steps[0]; q++) {
+        pg_init(&pg, tpl_3467k, 64, 1500u + q);
+        const size_t n = 12 * BLK;
+        memset(fbuf, 0, n * sizeof fbuf[0]);
+        for (size_t k = 2 * BLK; k < n; k++)
+            fbuf[k] = steps[q];
+        /* импульсы только через 2 порции после ступеньки */
+        for (int k = 0; k < 500; k++)
+            pg_add_pulse(&pg, fbuf, n, 4.0 * BLK + 200.0 + k * 48.0 + pg_uniform(&pg), 580.0f);
+        pg_add_noise(&pg, fbuf, n, 1.8f);
+        pg_quantize(fbuf, sbuf, n, BASE);
+        reset(DET_THR_DEF);
+        feed(4 * BLK, BLK);
+        float b2 = det_baseline(&det);
+        for (size_t i = 4 * BLK; i < n; i += BLK)
+            det_process_block(&det, sbuf + i, BLK);
+        double m, sd;
+        stats(&m, &sd);
+        det_stats_t st;
+        det_get_stats(&det, &st);
+        printf("  ступенька %+.0f: база через 2 порции %.2f, в конце %.2f, скачков %u, принято %d, "
+               "канал %.2f, мёртвых %llu\n", steps[q], b2, det_baseline(&det), st.base_jumps, nch, m,
+               (unsigned long long)st.dead_samples);
+        CHECK_NEAR(b2, BASE + steps[q], 0.5);
+        CHECK_NEAR(det_baseline(&det), BASE + steps[q], 0.5);
+        CHECK(st.base_jumps == 1u);
+        CHECK(nch >= 495 && nch <= 500);
+        CHECK_NEAR(m, 1160.0, 1.5);
+        CHECK(st.dead_samples < 500u * 48u);
+    }
 }
 
 static void test_pileup(void)
@@ -191,25 +257,68 @@ static void test_baseline_tracking(void)
     CHECK_NEAR(det_sigma(&det), 1.82, 0.25);
 }
 
+/*
+ * Перегрузка: 3 порции на +50 и обратно. По сигналу это не отличить от ступеньки базы:
+ * после DET_BASE_N залипших отсчётов база переезжает наверх, после спада — сразу обратно
+ * (2 скачка). Мёртвое время — только до пересчёта; первая порция после спада ещё со старой
+ * базой, поэтому импульсы — со следующей.
+ */
+/* Замена эталона на лету: эталон вдвое ниже ⇒ канал вдвое выше; база и счёт не сбрасываются. */
+static int16_t tpl_half[DET_NPH][DET_NS];
+
+static void test_template_swap(void)
+{
+    pg_init(&pg, tpl_3467k, 64, 77u);
+    size_t n = make_train(1000, 580.0f, 1.8f, 48);
+    size_t half = 2 * BLK + 500 * 48;                      /* граница — между импульсами */
+    half -= half % BLK;
+    reset(DET_THR_DEF);
+    feed(half, BLK);
+    int n1 = nch;
+    double m1 = 0;
+    for (int i = 0; i < n1; i++) m1 += chans[i];
+    m1 /= n1 ? n1 : 1;
+    float b1 = det_baseline(&det);
+    for (unsigned p = 0; p < DET_NPH; p++)
+        for (unsigned k = 0; k < DET_NS; k++)
+            tpl_half[p][k] = (int16_t)(tpl_3467k[p][k] / 2);
+    det_set_template(&det, tpl_half);
+    CHECK_NEAR(det_baseline(&det), b1, 1e-6);
+    for (size_t i = half; i < n; i += BLK)
+        det_process_block(&det, sbuf + i, (n - i < BLK) ? n - i : BLK);
+    double m2 = 0;
+    for (int i = n1; i < nch; i++) m2 += chans[i];
+    m2 /= (nch - n1) ? (nch - n1) : 1;
+    det_stats_t st;
+    det_get_stats(&det, &st);
+    printf("  смена эталона: до %d имп., канал %.1f; после %d имп., канал %.1f\n", n1, m1,
+           nch - n1, m2);
+    CHECK(st.accepted == (uint32_t)nch && nch >= 990);
+    CHECK_NEAR(m1, 1160.0, 1.5);
+    CHECK_NEAR(m2, 2320.0, 3.0);
+}
+
 static void test_overload(void)
 {
     pg_init(&pg, tpl_3467k, 64, 8u);
-    size_t n = 7 * BLK;
+    size_t n = 8 * BLK;
     memset(fbuf, 0, n * sizeof fbuf[0]);
     for (size_t k = 2 * BLK; k < 5 * BLK; k++)            /* 3 порции выше порога */
         fbuf[k] = 50.0f;
     for (int k = 0; k < 20; k++)
-        pg_add_pulse(&pg, fbuf, n, 5.0 * BLK + 200.0 + k * 300.0, 580.0f);
+        pg_add_pulse(&pg, fbuf, n, 6.0 * BLK + 200.0 + k * 300.0, 580.0f);
     pg_add_noise(&pg, fbuf, n, 1.8f);
     pg_quantize(fbuf, sbuf, n, BASE);
     reset(DET_THR_DEF);
     feed(n, BLK);
     det_stats_t st;
     det_get_stats(&det, &st);
-    printf("  перегрузка: мёртвых %llu, ширина %u, принято %u, база %.2f\n",
-           (unsigned long long)st.dead_samples, st.rej_width, st.accepted, det_baseline(&det));
-    CHECK(st.dead_samples >= 3u * BLK - 64u);
+    printf("  перегрузка: мёртвых %llu, ширина %u, скачков базы %u, принято %u, база %.2f\n",
+           (unsigned long long)st.dead_samples, st.rej_width, st.base_jumps, st.accepted,
+           det_baseline(&det));
+    CHECK(st.dead_samples >= DET_BASE_N && st.dead_samples < DET_BASE_N + 20u * 64u);
     CHECK(st.rej_width >= 1u);
+    CHECK(st.base_jumps == 2u);
     CHECK(st.accepted >= 19u && st.accepted <= 20u);       /* после перегрузки снова считает */
     CHECK_NEAR(det_baseline(&det), BASE, 0.5);
     det_add_lost(&det, 8192u);
@@ -256,9 +365,12 @@ int main(void)
     test_amplitude_accuracy();
     test_low_energy();
     test_spike_rejected();
+    test_threshold_losses();
     test_pileup();
     test_block_boundary();
     test_baseline_tracking();
+    test_baseline_step();
+    test_template_swap();
     test_overload();
     test_gain();
     test_spectrum();
