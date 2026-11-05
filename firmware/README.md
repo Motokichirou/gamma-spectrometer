@@ -12,6 +12,18 @@
 (`-thr`) и энергокалибровка во flash (`-cal`/`-rcal`/`-wcal`, совместимая с BecqMoni —
 см. [docs/ru/protocol.md](../docs/ru/protocol.md)).
 
+## gamma_fw — боевая прошивка (2026-11-06)
+
+Чистая прошивка платы МК по ТЗ `board_g474cb/SPEC.md`, план — `docs/superpowers/plans/2026-11-06-clean-firmware.md`.
+Голые регистры CMSIS, без HAL; переносимая логика в `gamma_fw/src/core/` с тестами на ПК, драйверы в `src/hw/`.
+
+- Сборка: `sh firmware/gamma_fw/build.sh` (проверяет бюджет ОЗУ). Тесты на ПК: `cmd //c firmware\gamma_fw	estsun_tests.cmd`.
+- Прошивка: `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin` (через `!boot`;
+  с прошивки запуска — `board_g474cb/bringup/tools/reflash.py`).
+- Сервис: `gfw.py cmd -- "-gst"` (статус), `-diag`, `-hv <В>`/`-hv off`, `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`,
+  `-noise`, `-smp 2|6`, `-dac <код> <n> [период]`, `-osc`, `-save`, `-defaults`; `gfw.py lin …` — линейность по ЦАП.
+- BecqMoni: AtomSpectra VCP, 600000 бод, 8192 канала.
+
 ## Структура
 
 ```
