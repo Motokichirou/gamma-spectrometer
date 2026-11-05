@@ -1,0 +1,8 @@
+# Артефакты сборки
+*.elf
+*.bin
+*.map
+*.o
+*.obj
+*.exe
+tests/out/
