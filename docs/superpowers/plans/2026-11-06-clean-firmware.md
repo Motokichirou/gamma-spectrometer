@@ -218,10 +218,14 @@ firmware/gamma_fw/
       void (*enter_bootloader)(void);
       void (*service)(const char *cmd, char *reply, size_t cap); /* сервисные команды, см. ниже */
       void (*fill_status)(proto_status_t *st);       /* время, cpu (0.1 %), cps, invalid */
+      void (*apply)(uint32_t what);                  /* live-настройки изменены (PROTO_APPLY_*) */
+      size_t (*tx_free)(void);                       /* свободно в кольце UART; NULL — без ограничения */
   } proto_port_t;
   void proto_init(const proto_port_t*, settings_t *live);
   void proto_rx(const uint8_t *p, size_t n);      /* сюда же ищется "!boot" */
-  void proto_tick_1s(void);                       /* при наборе: спектр 0x01 кусками по 512 + статус 0x04 */
+  void proto_tick_1s(void);                       /* при наборе: взвести выдачу спектра 0x01 ×16 + статус 0x04 */
+  void proto_poll(void);                          /* каждый проход цикла: ≤ 1 кадр, если tx_free ≥ PROTO_TX_FRAME_MAX */
+  void proto_acq_stopped(void);                   /* набор остановлен не по -sto: отложенная запись */
   void proto_send_pulse(const uint16_t *s, size_t n); /* 0x02 — осциллограф для gammapult */
   ```
   Команды BecqMoni (точно как ждёт upstream): `-sta`, `-sto`, `-rst` → `-ok\r\n`; `-stt` → `-ok collecting\r\n`/`-ok\r\n`; `-mode …` → `-ok\r\n`; `-sho` → `-ok collecting\r\n`; `-inf` → **`GammaSpec v1 RISE <r> FALL <f> T1 <t> F <fs> VERSION 100`** (позиции 3, 5, 9 = r, f, fs — старый BecqMoni; ключи `RISE/FALL/F` — новый); `-cal`, `-cal i`, `-cal i hex` — по `docs/ru/protocol.md`.
@@ -236,9 +240,9 @@ firmware/gamma_fw/
 - Create: `src/hw/clock.c/.h`, `gpio.c/.h`, `timebase.c/.h`, `uart.c/.h`, `boot.c/.h`; Modify: `src/app/main.c`; Create: `tools/gfw.py`
 
 **Interfaces:**
-- Produces: `bool clock_init(void)` (true = HSE, false = HSI); `void gpio_safe_init(void)` (первым: PB10 = 0, PA8 = 0, PB6 = 0 выходы; остальные — аналог); `uint32_t millis(void)`, `uint32_t cycles(void)` (DWT); `void uart_init(uint32_t baud)`, `void uart_tx(const uint8_t*, size_t)` (кольцо + DMA, неблокирующее, при переполнении — ждать), `size_t uart_rx(uint8_t *dst, size_t cap)` (кольцо из прерывания RXFNE/IDLE); `void boot_enter_system(void)` (как `bringup/main.c::jump_to_bootloader` + PLL/HSE выкл, TIM1/ADC/DMA сброс).
+- Produces: `bool clock_init(void)` (true = HSE, false = HSI); `void gpio_safe_init(void)` (первым: PB10 = 0, PA8 = 0, PB6 = 0 выходы; остальные — аналог); `uint32_t millis(void)`, `uint32_t cycles(void)` (DWT); `void uart_init(uint32_t baud)`, `void uart_tx(const uint8_t*, size_t)` (кольцо + DMA, неблокирующее, при переполнении — ждать; кольцо ≥ `PROTO_TX_FRAME_MAX` ≈ 4.1 КБ, рекомендуется 8 КБ), `size_t uart_tx_free(void)` (→ `port.tx_free`), `size_t uart_rx(uint8_t *dst, size_t cap)` (кольцо из прерывания RXFNE/IDLE); `void boot_enter_system(void)` (как `bringup/main.c::jump_to_bootloader` + PLL/HSE выкл, TIM1/ADC/DMA сброс).
 - [ ] **Step 1:** `tools/gfw.py`: `gfw.py cmd "<текст>" [--port COM4] [--baud 600000]` — кадр 0x03, печать текстовых ответов; `gfw.py listen <с>` — печать 0x03 и счёт 0x01/0x04; `gfw.py flash <bin>` — `!boot` на 600000, затем `STM32_Programmer_CLI -c port=COM4 br=115200 P=EVEN db=8 sb=1 -w <bin> 0x08000000 -v -g 0x08000000`.
-- [ ] **Step 2:** Реализовать драйверы; `main.c`: `gpio_safe_init`, `clock_init`, timebase, uart 600000, `proto_init` с портом (`service` пока отвечает `-err notyet`), цикл `proto_rx(uart_rx…)`, `proto_tick_1s`.
+- [ ] **Step 2:** Реализовать драйверы; `main.c`: `gpio_safe_init`, `clock_init`, timebase, uart 600000, `proto_init` с портом (`service` пока отвечает `-err notyet`), цикл `proto_rx(uart_rx…)`, `proto_poll()` на каждом проходе, `proto_tick_1s` раз в секунду (выдача спектра пошаговая — правки по ревью Task 7). При любой остановке набора не по `-sto` (сервис, авария ВВ) приложение зовёт `proto_acq_stopped()`.
 - [ ] **Step 3: Проверка на плате** (ВВ выключено). Первая заливка — через прошивку запуска: `python -I firmware/board_g474cb/bringup/tools/reflash.py firmware/gamma_fw/gamma_fw.bin`. Run: `python -I firmware/gamma_fw/tools/gfw.py cmd "-inf"` → строка `GammaSpec v1 RISE … FALL … T1 … F 3466667 VERSION 100`; `gfw.py cmd "-sta"` → `-ok`; `gfw.py listen 3` → ≥ 2 кадров 0x04 в секунду-период; `gfw.py flash gamma_fw.bin` → перепрошивка через `!boot` работает.
 - [ ] **Step 4:** Commit `fw: такт 156 МГц, UART 600000 с DMA, shproto на плате, !boot`.
 

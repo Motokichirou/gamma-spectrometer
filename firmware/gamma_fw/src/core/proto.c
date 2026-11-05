@@ -3,12 +3,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <ctype.h>
 #include "proto.h"
 #include "shproto.h"
 #include "becq_cal.h"
 #include "spectrum.h"
 
 #define PL_MAX   (2u + 4u * PROTO_CHUNK_CH)             /* самый длинный кадр — кусок спектра */
+#define SPEC_FRAMES (SPECTRUM_CHANNELS / PROTO_CHUNK_CH) /* 16 кадров 0x01 */
+#define OUT_IDLE    0xFFu                               /* выдача спектра не идёт */
+/* проверки при сборке (MSVC без /std:c11 не знает _Static_assert) */
+typedef char chk_frame_max[(PROTO_TX_FRAME_MAX == 2u * (PL_MAX + 3u) + 3u) ? 1 : -1];
+typedef char chk_chunks[(SPECTRUM_CHANNELS % PROTO_CHUNK_CH == 0) ? 1 : -1];
 #define TPL_ROWS 64u
 #define TPL_COLS 7u
 
@@ -26,8 +32,9 @@ static uint32_t cal_stage[BECQ_WORDS];
 static uint16_t cal_mask;         /* бит i — слово i получено */
 static int16_t  tpl_stage[TPL_ROWS][TPL_COLS];
 static uint64_t tpl_mask;         /* бит i — строка i получена */
+static uint8_t  out_step;         /* 0…15 — кадр 0x01, 16 — статус 0x04, OUT_IDLE — нет выдачи */
 
-static uint8_t txbuf[2u * (PL_MAX + 3u) + 3u];
+static uint8_t txbuf[PROTO_TX_FRAME_MAX];
 static uint8_t pl[PL_MAX];
 
 /* ---- передача ---- */
@@ -61,6 +68,22 @@ static void fmt_fix(char *out, size_t cap, float v, int dec)
     if (q == 0) sg = "";                                   /* без "-0.0" */
     if (dec == 0) snprintf(out, cap, "%s%lu", sg, (unsigned long)ip);
     else snprintf(out, cap, "%s%lu.%0*lu", sg, (unsigned long)ip, dec, (unsigned long)fp);
+}
+
+/* Число в экспоненциальной форме "-1.234567e-5" без %e (в newlib-nano его нет): 7 значащих
+   цифр — столько держит float, так что k1/k2 любого порядка читаются назад без потерь. */
+static void fmt_exp(char *out, size_t cap, float v)
+{
+    if (!isfinite(v)) { snprintf(out, cap, "nan"); return; }
+    if (v == 0.0f) { snprintf(out, cap, "0"); return; }
+    double a = fabs((double)v);
+    int e = (int)floor(log10(a));
+    double m = a / pow(10.0, e);
+    uint32_t q = (uint32_t)(m * 1000000.0 + 0.5);          /* мантисса × 10^6 */
+    if (q >= 10000000u) { q = (q + 5u) / 10u; e++; }       /* 9.9999996 → 10.000000 */
+    else if (q < 1000000u) { q *= 10u; e--; }              /* погрешность log10 вниз */
+    snprintf(out, cap, "%s%lu.%06lue%d", v < 0.0f ? "-" : "",
+             (unsigned long)(q / 1000000u), (unsigned long)(q % 1000000u), e);
 }
 
 /* ---- флеш: только при остановленном наборе (SPEC §7.9) ---- */
@@ -144,19 +167,29 @@ static void cmd_cal(const char *args)
     }
     char *e;
     long idx = strtol(args, &e, 10);
-    if (e == args || idx < 0 || idx >= (long)BECQ_WORDS) { proto_send_text("-err cal\r\n"); return; }
-    while (*e == ' ') e++;
+    if (e == args || idx < 0 || idx >= (long)BECQ_WORDS || (*e && *e != ' ' && *e != '\t')) {
+        proto_send_text("-err cal\r\n");                   /* "-cal 1abc" — не слово 1 */
+        return;
+    }
+    while (*e == ' ' || *e == '\t') e++;
     if (!*e) {                                             /* чтение одного слова */
         char r[16];
         snprintf(r, sizeof r, "%08lX", (unsigned long)(L->becq_valid ? L->becq_words[idx] : 0u));
         proto_send_text(r);
         return;
     }
-    char *e2;
-    unsigned long w = strtoul(e, &e2, 16);
-    while (*e2 == ' ') e2++;
-    if (e2 == e || *e2) { proto_send_text("-err cal\r\n"); return; }
-    cal_stage[idx] = (uint32_t)w;
+    /* слово — ровно 1…8 hex-цифр без знака и "0x": strtoul молча даёт ULONG_MAX при
+       переполнении и принимает "-1" */
+    uint32_t w = 0;
+    unsigned nd = 0;
+    for (; isxdigit((unsigned char)*e); e++, nd++) {
+        unsigned c = (unsigned char)*e;
+        unsigned d = (c <= '9') ? c - '0' : (c | 0x20u) - 'a' + 10u;
+        w = (w << 4) | d;
+    }
+    while (*e == ' ' || *e == '\t') e++;
+    if (nd == 0 || nd > 8 || *e) { proto_send_text("-err cal\r\n"); return; }
+    cal_stage[idx] = w;
     cal_mask |= (uint16_t)(1u << idx);
     if (cal_mask != (1u << BECQ_WORDS) - 1u) { proto_send_text("-ok\r\n"); return; }
 
@@ -188,8 +221,8 @@ static void cmd_tc(const char *args)
     if (n != 0 && n != 3) { proto_send_text("-err tc\r\n"); return; }
     if (n == 3) { L->tc_t0_c = v[0]; L->tc_k1 = v[1]; L->tc_k2 = v[2]; changed(PROTO_APPLY_TC); }
     fmt_fix(a[0], sizeof a[0], L->tc_t0_c, 3);
-    fmt_fix(a[1], sizeof a[1], L->tc_k1, 6);
-    fmt_fix(a[2], sizeof a[2], L->tc_k2, 6);
+    fmt_exp(a[1], sizeof a[1], L->tc_k1);                 /* k2 ~1e-6: fmt_fix(…, 6) его теряет */
+    fmt_exp(a[2], sizeof a[2], L->tc_k2);
     snprintf(r, sizeof r, "-ok tc %s %s %s\r\n", a[0], a[1], a[2]);
     proto_send_text(r);
 }
@@ -257,9 +290,8 @@ static void handle_text(const uint8_t *p, size_t n)
         if (!acquiring) { acquiring = true; if (P->acq_start) P->acq_start(); }
         proto_send_text("-ok\r\n");
     } else if (tok_is(s, tl, "-sto")) {
-        acquiring = false;
         if (P->acq_stop) P->acq_stop();
-        if (pending) commit_now();                         /* отложенная запись — ровно один раз */
+        proto_acq_stopped();                               /* отложенная запись — ровно один раз */
         proto_send_text("-ok\r\n");
     } else if (tok_is(s, tl, "-rst")) {
         if (P->acq_clear) P->acq_clear();
@@ -319,6 +351,13 @@ void proto_init(const proto_port_t *port, settings_t *live)
     temp_c = 0.0f;
     cal_mask = 0;
     tpl_mask = 0;
+    out_step = OUT_IDLE;
+}
+
+void proto_acq_stopped(void)
+{
+    acquiring = false;
+    if (pending) commit_now();
 }
 
 void proto_rx(const uint8_t *p, size_t n)
@@ -342,13 +381,25 @@ void proto_rx(const uint8_t *p, size_t n)
 
 void proto_tick_1s(void)
 {
-    if (!acquiring) return;
-    const uint32_t *spec = spectrum_data();
-    for (uint32_t off = 0; off < SPECTRUM_CHANNELS; off += PROTO_CHUNK_CH) {
+    /* только взводит выдачу; прошлая не закончилась (линия занята) — тик пропускаем, не копим */
+    if (acquiring && out_step == OUT_IDLE) out_step = 0;
+}
+
+void proto_poll(void)
+{
+    if (out_step == OUT_IDLE) return;
+    if (P->tx_free && P->tx_free() < PROTO_TX_FRAME_MAX) return;   /* ждём место в кольце */
+    if (out_step < SPEC_FRAMES) {
+        /* по кадру за проход: куски снимаются в разные моменты (за ≤ 0.6 с) — BecqMoni
+           всё равно перерисовывает спектр только по статусу */
+        uint32_t off = (uint32_t)out_step * PROTO_CHUNK_CH;
+        const uint32_t *spec = spectrum_data();
         put16(pl, (uint16_t)off);
         for (uint32_t i = 0; i < PROTO_CHUNK_CH; i++)
             put32(pl + 2 + 4 * i, spec[off + i] & SPECTRUM_MASK);
         send_frame(SHPROTO_CMD_HISTOGRAM, pl, 2u + 4u * PROTO_CHUNK_CH);
+        out_step++;
+        return;
     }
     /* статус — последним: по нему BecqMoni перерисовывает спектр */
     proto_status_t st;
@@ -359,6 +410,7 @@ void proto_tick_1s(void)
     put32(pl + 6, st.cps);
     put32(pl + 10, st.invalid);
     send_frame(SHPROTO_CMD_STAT, pl, 14);
+    out_step = OUT_IDLE;
 }
 
 void proto_send_pulse(const uint16_t *s, size_t n)

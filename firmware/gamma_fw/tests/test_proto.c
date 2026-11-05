@@ -45,9 +45,11 @@ static void p_service(const char *cmd, char *reply, size_t cap)
 }
 static void p_status(proto_status_t *st) { *st = stat_stub; }
 static void p_apply(uint32_t what) { applied |= what; }
+static size_t tx_room;
+static size_t p_txfree(void) { return tx_room; }
 
 static const proto_port_t port = {
-    p_tx, p_millis, p_commit, p_start, p_stop, p_clear, p_boot, p_service, p_status, p_apply
+    p_tx, p_millis, p_commit, p_start, p_stop, p_clear, p_boot, p_service, p_status, p_apply, p_txfree
 };
 
 static void reset(void)
@@ -55,6 +57,7 @@ static void reset(void)
     txn = 0; now_ms = 0;
     n_commit = n_start = n_stop = n_clear = n_boot = n_service = 0;
     applied = 0; commit_ok = true; last_service[0] = 0;
+    tx_room = 100000;
     memset(&committed, 0, sizeof committed);
     memset(&stat_stub, 0, sizeof stat_stub);
     settings_defaults(&live);
@@ -151,7 +154,7 @@ static void test_inf_both_parsers(void)
     /* новый: пары по ключам */
     CHECK(strcmp(tok[2], "RISE") == 0 && strcmp(tok[4], "FALL") == 0 && strcmp(tok[8], "F") == 0);
     CHECK(strcmp(tok[6], "T1") == 0 && strcmp(tok[7], "23.5") == 0);
-    CHECK(strcmp(tok[10], "VERSION") == 0 && atoi(tok[11]) >= 11);
+    CHECK(strcmp(tok[10], "VERSION") == 0 && atoi(tok[11]) == 100);
     proto_set_temperature(-0.26f);
     r = cmd("-inf");
     CHECK(r && strstr(r, "T1 -0.3 ") != NULL);
@@ -192,6 +195,109 @@ static void test_cal_read_40_regs(void)
     char exp[16]; snprintf(exp, sizeof exp, "%08lX", (unsigned long)live.becq_words[2]);
     CHECK(eq(cmd("-cal 2"), exp));
     CHECK(eq(cmd("-cal 11 0"), "-err cal\r\n"));
+}
+
+static void test_cal_parse_strict(void)
+{
+    reset();
+    CHECK(eq(cmd("-cal 1abc"), "-err cal\r\n"));         /* не слово 1 со значением ABC */
+    CHECK(eq(cmd("-cal 1x"), "-err cal\r\n"));
+    CHECK(eq(cmd("-cal 1 1FFFFFFFF"), "-err cal\r\n"));   /* 9 цифр — переполнение */
+    CHECK(eq(cmd("-cal 1 -1"), "-err cal\r\n"));
+    CHECK(eq(cmd("-cal 1 0x12"), "-err cal\r\n"));
+    CHECK(eq(cmd("-cal 1 12 34"), "-err cal\r\n"));
+    CHECK(eq(cmd("-cal 1 12g"), "-err cal\r\n"));
+    /* ни одно из них не засчитано: после 11 верных слов — ровно одна запись */
+    const double c[5] = { 0.25, 0.5, 0, 0, 0 };
+    uint32_t w[11]; becq_coef_to_words(1, c, w);
+    char s[40];
+    for (int i = 0; i < 11; i++) {
+        snprintf(s, sizeof s, "-cal\t%d\tffffffff", i);   /* табуляции, нижний регистр, 8 цифр */
+        CHECK(eq(cmd(s), "-ok\r\n") || i == 10);
+    }
+    CHECK(live.becq_valid == 0);                         /* сумма не сошлась */
+    for (int i = 0; i < 11; i++) {
+        snprintf(s, sizeof s, "-cal %d %lx", i, (unsigned long)w[i]);
+        CHECK(eq(cmd(s), "-ok\r\n"));
+    }
+    CHECK(live.becq_valid == 1 && memcmp(live.becq_words, w, sizeof w) == 0 && n_commit == 1);
+}
+
+static void test_poll_stepwise(void)
+{
+    reset();
+    spectrum_add(3); spectrum_add(1500);
+    cmd("-sta");
+    stat_stub.elapsed_s = 7;
+    txn = 0;
+    proto_poll();                                /* без тика — тишина */
+    CHECK(txn == 0);
+    proto_tick_1s();
+    CHECK(txn == 0);                             /* тик сам ничего не шлёт */
+
+    tx_room = PROTO_TX_FRAME_MAX - 1;            /* места мало — ждём */
+    proto_poll();
+    CHECK(txn == 0);
+
+    tx_room = 5000;
+    proto_poll();
+    decode();
+    CHECK(nfr == 1 && fr[0].cmd == SHPROTO_CMD_HISTOGRAM && rd16(fr[0].pl) == 0);
+    CHECK(txn <= PROTO_TX_FRAME_MAX);
+
+    proto_tick_1s();                             /* выдача идёт — повторный тик не перезапускает */
+    for (int k = 1; k < 17; k++) proto_poll();
+    decode();
+    CHECK(nfr == 17);
+    for (int k = 0; k < 16 && k < nfr; k++)
+        CHECK(fr[k].cmd == SHPROTO_CMD_HISTOGRAM && rd16(fr[k].pl) == k * PROTO_CHUNK_CH);
+    CHECK(nfr == 17 && fr[16].cmd == SHPROTO_CMD_STAT && rd32(fr[16].pl) == 7);
+    CHECK(rd32(fr[0].pl + 2 + 4 * 3) == 1 && rd32(fr[2].pl + 2 + 4 * (1500 - 1024)) == 1);
+
+    size_t was = txn;                            /* выдача закончена: дальше тишина */
+    for (int k = 0; k < 5; k++) proto_poll();
+    CHECK(txn == was);
+
+    /* почти худший кадр (3 из 4 байт каналов — со стаффингом; старший байт ≤ 0x07 по маске)
+       влезает в PROTO_TX_FRAME_MAX: 2 + 3 + 2050 + 1536 = 3591 байт */
+    for (uint32_t i = 0; i < SPECTRUM_CHANNELS; i++)
+        ((uint32_t *)spectrum_data())[i] = 0x05FEFEFEu;  /* все байты кроме старшего — FE */
+    txn = 0;
+    proto_tick_1s();
+    proto_poll();
+    CHECK(txn >= 3591 && txn <= PROTO_TX_FRAME_MAX);
+
+    /* без tx_free (NULL) — тоже по кадру за вызов */
+    static proto_port_t port2;
+    port2 = port; port2.tx_free = NULL;
+    settings_defaults(&live); spectrum_clear();
+    proto_init(&port2, &live);
+    cmd("-sta");
+    txn = 0;
+    proto_tick_1s();
+    proto_poll(); proto_poll();
+    decode();
+    CHECK(nfr == 2);
+}
+
+static void test_acq_stopped_commits(void)
+{
+    reset();
+    CHECK(eq(cmd("-sta"), "-ok\r\n"));
+    CHECK(eq(cmd("-thr 33"), "-ok thr 33\r\n"));
+    CHECK(eq(cmd("-save"), "-ok deferred\r\n"));
+    CHECK(n_commit == 0);
+    proto_acq_stopped();                         /* набор остановлен не по -sto (сервис, авария) */
+    CHECK(!proto_acquiring());
+    CHECK(n_commit == 1 && committed.thr_codes == 33);
+    CHECK(strcmp(proto_flash_status(), "ok") == 0);
+    proto_acq_stopped();                         /* повтор безопасен */
+    CHECK(n_commit == 1);
+    CHECK(eq(cmd("-save"), "-ok saved\r\n"));    /* не "deferred" */
+    CHECK(n_commit == 2);
+    proto_tick_1s();                             /* не набираем — выдачи нет */
+    txn = 0; proto_poll();
+    CHECK(txn == 0);
 }
 
 static void send_cal_words(const uint32_t w[11])
@@ -303,11 +409,13 @@ static void test_status_payload(void)
 {
     reset();
     proto_tick_1s();                             /* не набираем — тишина */
+    for (int k = 0; k < 20; k++) proto_poll();
     CHECK(txn == 0);
     cmd("-sta");
     stat_stub.elapsed_s = 125; stat_stub.cpu_x10 = 371; stat_stub.cps = 29876; stat_stub.invalid = 44;
     txn = 0;
     proto_tick_1s();
+    for (int k = 0; k < 17; k++) proto_poll();
     decode();
     CHECK(nfr == 17);
     if (nfr < 1) return;
@@ -328,6 +436,7 @@ static void test_spectrum_chunks(void)
     cmd("-sta");
     txn = 0;
     proto_tick_1s();
+    for (int k = 0; k < 17; k++) proto_poll();
     decode();
     CHECK(nfr == 17);
     int nh = 0;
@@ -377,12 +486,19 @@ static void test_thr_tc(void)
     CHECK(eq(cmd("-thr abc"), "-err thr\r\n"));
     CHECK(live.thr_codes == 9);
     applied = 0;
-    CHECK(eq(cmd("-tc 25 -0.002 0.00001"), "-ok tc 25.000 -0.002000 0.000010\r\n"));
+    CHECK(eq(cmd("-tc 25 -0.002 0.00001"), "-ok tc 25.000 -2.000000e-3 1.000000e-5\r\n"));
     CHECK_NEAR(live.tc_k1, -0.002, 1e-9);
     CHECK_NEAR(live.tc_k2, 0.00001, 1e-10);
     CHECK(applied & PROTO_APPLY_TC);
-    CHECK(eq(cmd("-tc"), "-ok tc 25.000 -0.002000 0.000010\r\n"));
+    CHECK(eq(cmd("-tc"), "-ok tc 25.000 -2.000000e-3 1.000000e-5\r\n"));
     CHECK(eq(cmd("-tc 25 1"), "-err tc\r\n"));
+    /* малые k2 читаются назад без потерь (раньше 6 знаков после точки давали 0) */
+    CHECK(eq(cmd("-tc -5 0 3.21e-7"), "-ok tc -5.000 0 3.210000e-7\r\n"));
+    CHECK(eq(cmd("-tc 0 123.4567 -9.9999999e-12"), "-ok tc 0.000 1.234567e2 -1.000000e-11\r\n"));
+    const char *r = cmd("-tc 20 1.234567e-6 -7.654321e-9");
+    float back[3] = { 0, 0, 0 };
+    CHECK(r && sscanf(r, "-ok tc %f %f %f", &back[0], &back[1], &back[2]) == 3);
+    CHECK(back[1] == live.tc_k1 && back[2] == live.tc_k2);  /* 7 значащих цифр — float точно */
     CHECK(n_commit == 0);                        /* без -save во флеш не пишется */
 }
 
@@ -446,6 +562,9 @@ int main(void)
     test_sta_sto_rst();
     test_inf_both_parsers();
     test_cal_read_40_regs();
+    test_cal_parse_strict();
+    test_poll_stepwise();
+    test_acq_stopped_commits();
     test_cal_write_sequence();
     test_cal_write_during_acq_deferred();
     test_save_during_acq();
