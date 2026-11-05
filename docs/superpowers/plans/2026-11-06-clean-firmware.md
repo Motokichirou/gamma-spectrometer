@@ -107,7 +107,7 @@ firmware/gamma_fw/
   typedef struct {
       uint32_t magic, version, size;          /* size = sizeof(settings_t) */
       float hv_mon_zero_mv, hv_mon_k_mv_per_v; /* 2460, 1.640 */
-      float hv_setpoint_v; uint8_t hv_on_at_boot; /* 0, 0 — ВВ при старте не включать */
+      float hv_setpoint_v; uint8_t reserved_boot; /* ВВ при старте не включается никогда (SPEC §3) */
       float pt_rpu_ohm;                       /* 10024.5 */
       float tc_t0_c, tc_k1, tc_k2;            /* термокомпенсация: усиление ×(1+k1·dT+k2·dT²); 25, 0, 0 */
       uint16_t thr_codes;                     /* 0 = авто 5σ */
