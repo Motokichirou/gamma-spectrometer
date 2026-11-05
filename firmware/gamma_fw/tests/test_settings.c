@@ -58,6 +58,8 @@ static void test_blank_flash(void)
 static void test_size_fits_page(void)
 {
     CHECK(sizeof(settings_t) <= 4096);
+    CHECK(sizeof(settings_t) % 8 == 0);              /* флеш G4 пишется двойными словами */
+    CHECK(offsetof(settings_t, crc32) + 4 == sizeof(settings_t));   /* crc — последним, без хвоста */
 }
 
 static void test_crc32_zip(void)

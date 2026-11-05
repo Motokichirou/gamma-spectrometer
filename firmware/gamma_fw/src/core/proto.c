@@ -18,7 +18,7 @@ typedef char chk_chunks[(SPECTRUM_CHANNELS % PROTO_CHUNK_CH == 0) ? 1 : -1];
 #define TPL_ROWS 64u
 #define TPL_COLS 7u
 
-enum { FL_NONE, FL_OK, FL_PENDING, FL_ERR };
+enum { FL_NONE, FL_DEFAULTS, FL_OK, FL_PENDING, FL_ERR };
 
 static const proto_port_t *P;
 static settings_t *L;
@@ -309,6 +309,7 @@ static void handle_text(const uint8_t *p, size_t n)
     } else if (tok_is(s, tl, "-save")) {
         cmd_save();
     } else if (tok_is(s, tl, "-defaults")) {
+        if (P->hv_on && P->hv_on()) { proto_send_text("-err hv_on\r\n"); return; }
         settings_defaults(L);
         cal_mask = 0; tpl_mask = 0;
         changed(PROTO_APPLY_ALL);
@@ -425,12 +426,14 @@ void proto_send_pulse(const uint16_t *s, size_t n)
     }
 }
 
+void proto_flash_defaults(void) { flash_st = FL_DEFAULTS; }
 void proto_set_temperature(float t_c) { temp_c = t_c; }
 bool proto_acquiring(void) { return acquiring; }
 
 const char *proto_flash_status(void)
 {
     switch (flash_st) {
+    case FL_DEFAULTS: return "defaults";
     case FL_OK:      return "ok";
     case FL_PENDING: return "pending";
     case FL_ERR:     return "err";

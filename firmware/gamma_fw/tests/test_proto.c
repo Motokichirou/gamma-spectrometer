@@ -47,9 +47,12 @@ static void p_status(proto_status_t *st) { *st = stat_stub; }
 static void p_apply(uint32_t what) { applied |= what; }
 static size_t tx_room;
 static size_t p_txfree(void) { return tx_room; }
+static bool hv_is_on;
+static bool p_hv_on(void) { return hv_is_on; }
 
 static const proto_port_t port = {
-    p_tx, p_millis, p_commit, p_start, p_stop, p_clear, p_boot, p_service, p_status, p_apply, p_txfree
+    p_tx, p_millis, p_commit, p_start, p_stop, p_clear, p_boot, p_service, p_status, p_apply, p_txfree,
+    p_hv_on
 };
 
 static void reset(void)
@@ -58,6 +61,7 @@ static void reset(void)
     n_commit = n_start = n_stop = n_clear = n_boot = n_service = 0;
     applied = 0; commit_ok = true; last_service[0] = 0;
     tx_room = 100000;
+    hv_is_on = false;
     memset(&committed, 0, sizeof committed);
     memset(&stat_stub, 0, sizeof stat_stub);
     settings_defaults(&live);
@@ -539,6 +543,45 @@ static void test_defaults(void)
     CHECK(n_commit == 0);
 }
 
+/* -defaults при включённом ВВ: отказ, калибровка монитора и прочее не меняются (как hv_set_cal) */
+static void test_defaults_hv_on(void)
+{
+    reset();
+    live.hv_mon_zero_mv = 2470.0f;
+    live.hv_mon_k_mv_per_v = 1.700f;
+    cmd("-thr 20");
+    hv_is_on = true;
+    applied = 0;
+    CHECK(eq(cmd("-defaults"), "-err hv_on\r\n"));
+    CHECK(live.hv_mon_zero_mv == 2470.0f && live.hv_mon_k_mv_per_v == 1.700f && live.thr_codes == 20);
+    CHECK(applied == 0);
+    hv_is_on = false;
+    CHECK(eq(cmd("-defaults"), "-ok defaults\r\n"));
+    CHECK(live.hv_mon_zero_mv == 2460.0f && live.thr_codes == 0);
+}
+
+/* Состояние флеш "defaults": во флеш битые/пустые настройки — до первой удачной записи */
+static void test_flash_defaults_status(void)
+{
+    reset();
+    CHECK(strcmp(proto_flash_status(), "none") == 0);
+    proto_flash_defaults();
+    CHECK(strcmp(proto_flash_status(), "defaults") == 0);
+    cmd("-defaults");                                    /* в ОЗУ — флеш по-прежнему битая */
+    CHECK(strcmp(proto_flash_status(), "defaults") == 0);
+    cmd("-sta");
+    CHECK(eq(cmd("-save"), "-ok deferred\r\n"));
+    CHECK(strcmp(proto_flash_status(), "pending") == 0);
+    cmd("-sto");
+    CHECK(strcmp(proto_flash_status(), "ok") == 0);
+    proto_flash_defaults();
+    commit_ok = false;
+    CHECK(eq(cmd("-save"), "-err flash\r\n"));
+    CHECK(strcmp(proto_flash_status(), "err") == 0);
+    proto_init(&port, &live);                            /* перезапуск — снова "none" */
+    CHECK(strcmp(proto_flash_status(), "none") == 0);
+}
+
 static void test_pulse_frames(void)
 {
     reset();
@@ -575,6 +618,8 @@ int main(void)
     test_thr_tc();
     test_template_staging();
     test_defaults();
+    test_defaults_hv_on();
+    test_flash_defaults_status();
     test_pulse_frames();
     return T_DONE();
 }

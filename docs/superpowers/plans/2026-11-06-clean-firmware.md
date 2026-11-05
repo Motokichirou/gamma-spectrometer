@@ -169,7 +169,7 @@ firmware/gamma_fw/
 - Create: `src/core/temp.c/.h`, `tests/test_temp.c`
 
 **Interfaces:**
-- Produces: `float pt_resistance(float raw, float rpu)` (raw — среднее кодов ADC4, усиление 8), `float pt_temp_c(float r_ohm)` (CVD, T ≥ 0), `float pt_calibrate_rpu(float raw, float t_ref_c)` (возвращает новое R_pu), `float tc_gain(float t_c, float t0, float k1, float k2)` (= 1 + k1·dT + k2·dT²).
+- Produces: `float pt_resistance(float raw, float rpu)` (raw — среднее кодов ADC4, усиление 8), `float pt_temp_c(float r_ohm)` (CVD, T ≥ 0), `float pt_calibrate_rpu(float raw, float t_ref_c)` (возвращает новое R_pu), `float tc_gain(float t_c, float t0, float k1, float k2)` (= 1 + k1·dT + k2·dT²). ⚠ Правки по ревью: заменено на `tc_pmt_gain` (усиление ФЭУ G = 1 + k1·dT + k2·dT²) и `tc_corr` = 1/G — поправка канала для `det_set_gain`; `tc_corr_raw` при обрыве/замыкании Pt1000 (`pt_state`) даёт 1.0.
 - [ ] **Step 1: Тесты:** `pt_temp_c(1000)` = 0.00±0.01; `pt_temp_c(1097.35)` = 25.0±0.02; при rpu 10000 R 1096.6 Ом даёт `pt_calibrate_rpu` для 25.5 °C ≈ 10024.5±1 (замер 2026-11-06); `tc_gain(30, 25, -0.002, 0)` = 0.99; `pt_resistance(4090, …)` → признак обрыва (возврат < 0).
 - [ ] **Step 2:** FAIL. **Step 3:** реализовать по SPEC §8. **Step 4:** PASS.
 - [ ] **Step 5:** Commit `fw: Pt1000 и термокомпенсация`.
@@ -264,7 +264,7 @@ firmware/gamma_fw/
 
 **Interfaces:**
 - Produces: `void adc_sig_init(uint8_t smp_code)` (ADC3_IN1, 52 МГц, SMPR = 2.5 или 6.5 такта, непрерывно, DMA по кругу 16384, прерывания HT/TC); `const uint16_t *adc_sig_take(size_t *n)` (готовая порция 8192 или NULL); `uint32_t adc_sig_lost(void)` (порции, не забранные вовремя). Сервис: `-smp 2|6` (смена выборки), `-noise` (σ и среднее по 8192 «тихим» отсчётам), `-osc <n>`.
-- [ ] **Step 1:** Реализовать; главный цикл: `adc_sig_take` → `det_process_block` (DWT до/после → cpu в статус 0x04, единицы 0.1 %), эмиттер → `spectrum_add`, `det_set_gain(tc_gain(T))`.
+- [ ] **Step 1:** Реализовать; главный цикл: `adc_sig_take` → `det_process_block` (DWT до/после → cpu в статус 0x04, единицы 0.1 %), эмиттер → `spectrum_add`, `det_set_gain(tc_corr_raw(…))` (флаг `pt_state_name` в `-gst`).
 - [ ] **Step 2: Проверка на плате — первые замеры по SPEC §7.1** (записать в SPEC §7.1 таблицей): `-noise` при `-smp 2` и `-smp 6`, ВВ выкл и −1000 В → среднее и σ базы; при 2.5 такта ожидаем σ ≈ 1.2 LSB без ВВ, ≈ 1.8 на −1000 с экраном. cpu при пустом потоке ≤ 10 %; `lost` = 0 за 60 с.
 - [ ] **Step 3:** Commit `fw: сигнальный ADC3 по DMA, детектор на плате, замеры шума`.
 

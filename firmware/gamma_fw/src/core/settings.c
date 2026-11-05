@@ -2,6 +2,11 @@
 #include <string.h>
 #include "settings.h"
 
+/* проверки при сборке (MSVC без /std:c11 не знает _Static_assert): запись во флеш G4 —
+   двойными словами (8 байт), одна страница 4 КБ */
+typedef char chk_settings_x8[(sizeof(settings_t) % 8u == 0u) ? 1 : -1];
+typedef char chk_settings_page[(sizeof(settings_t) <= 4096u) ? 1 : -1];
+
 uint32_t crc32_zip(const uint8_t *p, size_t n)
 {
     uint32_t crc = 0xFFFFFFFFu;

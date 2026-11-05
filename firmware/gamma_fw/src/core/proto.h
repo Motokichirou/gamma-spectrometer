@@ -16,7 +16,10 @@
  *                                 в live-настройки и запись во флеш (при наборе — отложенная)
  *  - Сервисные, обрабатываемые здесь (только настройки):
  *      -save                   → "-ok saved" / "-ok deferred" (идёт набор) / "-err flash"
- *      -defaults               → настройки по умолчанию в ОЗУ (не записываются до -save)
+ *      -defaults               → настройки по умолчанию в ОЗУ (не записываются до -save);
+ *                                 при включённом ВВ (port->hv_on) — "-err hv_on", ничего не
+ *                                 меняется: калибровку монитора (zero, k) при включённом ВВ
+ *                                 не меняет и hv_set_cal
  *      -thr [кодов|0]          → "-ok thr N" (0 — авто 5σ); без аргумента — запрос
  *      -tc [t0 k1 k2]          → "-ok tc t0 k1 k2"; без аргументов — запрос
  *      -tplw <фаза> <7 чисел>  → строка эталона в ОТДЕЛЬНЫЙ буфер (набор её не видит)
@@ -99,6 +102,7 @@ typedef struct {                       /* железо/приложение, н�
     void (*fill_status)(proto_status_t *st);       /* время, cpu (0.1 %), cps, invalid */
     void (*apply)(uint32_t what);  /* live-настройки изменены (PROTO_APPLY_*); может быть NULL */
     size_t (*tx_free)(void);       /* свободно байт в кольце UART; NULL — без ограничения */
+    bool (*hv_on)(void);           /* ВВ включено (hv_enabled); NULL — считать выключенным */
 } proto_port_t;
 
 void proto_init(const proto_port_t *port, settings_t *live);
@@ -114,7 +118,14 @@ void proto_send_text(const char *s);            /* произвольный те
 /* Температура для -inf (T1), °C; приложение обновляет раз в секунду. */
 void proto_set_temperature(float t_c);
 bool proto_acquiring(void);
-/* Состояние записи настроек для -gst: "none", "ok", "pending", "err". */
+/* Состояние настроек во флеш для -gst:
+ *   "none"     — с запуска не записывали, во флеш верные настройки (или приложение не сообщало);
+ *   "defaults" — во флеш пусто или битые настройки, работаем на умолчаниях (proto_flash_defaults);
+ *   "ok" / "pending" / "err" — последняя запись прошла / отложена до остановки набора / сбой.
+ * -defaults состояние не меняет (в ОЗУ; флеш не тронута до -save). */
 const char *proto_flash_status(void);
+/* Приложение при старте: настройки во флеш не прошли settings_valid, взяты умолчания.
+   Звать после proto_init; сбрасывается первой удачной записью. */
+void proto_flash_defaults(void);
 
 #endif

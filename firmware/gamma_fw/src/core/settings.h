@@ -19,14 +19,17 @@ typedef struct {
     float hv_setpoint_v;                     /* 0 */
     uint8_t hv_on_at_boot;                   /* 0 — ВВ при старте не включать */
     float pt_rpu_ohm;                        /* 10024.5 */
-    float tc_t0_c, tc_k1, tc_k2;             /* усиление x(1+k1*dT+k2*dT^2); 25, 0, 0 */
+    float tc_t0_c, tc_k1, tc_k2;             /* усиление ФЭУ относительно t0 = 1 + k1·dT + k2·dT²;
+                                                канал × 1/это (temp.h, tc_corr); 25, 0, 0 */
     uint16_t thr_codes;                      /* 0 = авто 5 сигма */
     uint32_t becq_words[11];                 /* слова -cal как прислал BecqMoni */
     uint8_t becq_valid;
     int16_t tpl[64][7];                      /* эталон с реального тракта (Q14) */
     uint8_t tpl_valid;
+    uint8_t reserved[5];                     /* до кратности 8: флеш пишется двойными словами */
     uint32_t crc32;                          /* по всем байтам до crc32; последнее поле */
 } settings_t;
+/* sizeof(settings_t) кратен 8 и ≤ страницы 4 КБ — проверяется при сборке в settings.c */
 
 /* Значения по умолчанию (структура обнуляется целиком) + seal. */
 void settings_defaults(settings_t *s);
