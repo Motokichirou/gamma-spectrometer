@@ -6,3 +6,7 @@
 *.obj
 *.exe
 tests/out/
+
+# эмулятор тактов: локальное окружение и сборки
+tools/cyc/.venv/
+tools/cyc/out/
