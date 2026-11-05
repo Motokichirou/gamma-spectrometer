@@ -513,18 +513,21 @@ static void test_template_staging(void)
     CHECK(eq(cmd("-tplok"), "-err tpl 0/64\r\n"));
     for (int ph = 0; ph < 64; ph++) {
         snprintf(s, sizeof s, "-tplw %d %d %d %d %d %d %d %d", ph,
-                 ph, 16384, -ph, 3, -4, 5, -32768);
+                 ph, 16384, -ph, 3, -4, 5, -16384);
         CHECK(eq(cmd(s), "-ok\r\n"));
         CHECK(live.tpl_valid == 0 && live.tpl[ph][1] == 0);   /* живая таблица не тронута */
     }
     CHECK(eq(cmd("-tplw 64 1 2 3 4 5 6 7"), "-err tplw\r\n"));
     CHECK(eq(cmd("-tplw 1 1 2 3"), "-err tplw\r\n"));
     CHECK(eq(cmd("-tplw 1 1 2 3 4 5 6 40000"), "-err tplw\r\n"));
+    CHECK(eq(cmd("-tplw 1 1 2 3 4 5 6 16385"), "-err tplw\r\n"));   /* больше пика Q14 */
+    CHECK(eq(cmd("-tplw 1 20000 20000 20000 20000 20000 20000 20000"), "-err tplw\r\n"));
+    CHECK(eq(cmd("-tplw 1 1 2 3 4 5 6 -16385"), "-err tplw\r\n"));
     CHECK(applied == 0);
     CHECK(eq(cmd("-tplok"), "-ok tpl\r\n"));
     CHECK(live.tpl_valid == 1 && (applied & PROTO_APPLY_TPL));
     CHECK(live.tpl[10][0] == 10 && live.tpl[10][1] == 16384 && live.tpl[10][2] == -10);
-    CHECK(live.tpl[63][6] == -32768);
+    CHECK(live.tpl[63][6] == -16384);
     CHECK(eq(cmd("-tplok"), "-err tpl 0/64\r\n"));            /* буфер принят и очищен */
     applied = 0;
     CHECK(eq(cmd("-tplclr"), "-ok tpl builtin\r\n"));

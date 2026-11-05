@@ -17,6 +17,7 @@ typedef char chk_frame_max[(PROTO_TX_FRAME_MAX == 2u * (PL_MAX + 3u) + 3u) ? 1 :
 typedef char chk_chunks[(SPECTRUM_CHANNELS % PROTO_CHUNK_CH == 0) ? 1 : -1];
 #define TPL_ROWS 64u
 #define TPL_COLS 7u
+#define TPL_QMAX 16384L                                 /* |отсчёт эталона| ≤ 1.0 в Q14 */
 
 enum { FL_NONE, FL_DEFAULTS, FL_OK, FL_PENDING, FL_ERR };
 
@@ -234,8 +235,9 @@ static void cmd_tplw(const char *args)
         proto_send_text("-err tplw\r\n");
         return;
     }
+    /* Q14: 16384 = пик импульса, отсчёт строки по модулю не больше пика */
     for (unsigned i = 1; i <= TPL_COLS; i++)
-        if (v[i] < -32768 || v[i] > 32767) { proto_send_text("-err tplw\r\n"); return; }
+        if (v[i] < -TPL_QMAX || v[i] > TPL_QMAX) { proto_send_text("-err tplw\r\n"); return; }
     for (unsigned i = 0; i < TPL_COLS; i++) tpl_stage[v[0]][i] = (int16_t)v[1 + i];
     tpl_mask |= 1ull << v[0];
     proto_send_text("-ok\r\n");

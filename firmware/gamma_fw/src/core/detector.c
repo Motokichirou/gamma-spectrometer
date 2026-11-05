@@ -98,7 +98,8 @@ uint16_t det_capture_count(const det_t *d) { return d->cap_n; }
 void det_set_template(det_t *d, const int16_t (*tpl)[DET_NS])
 {
     for (unsigned p = 0; p < DET_NPH; p++) {
-        int32_t sh = 0, hh = 0;
+        int32_t sh = 0;
+        int64_t hh = 0;                   /* 7·32767² > 2³¹: в int32 переполнялось при |h| > 17 500 */
         for (unsigned k = 0; k < DET_NS; k++) {
             sh += tpl[p][k];
             hh += (int32_t)tpl[p][k] * tpl[p][k];

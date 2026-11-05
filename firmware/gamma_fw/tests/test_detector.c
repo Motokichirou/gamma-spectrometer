@@ -300,6 +300,35 @@ static void test_template_swap(void)
     CHECK_NEAR(m2, 2320.0, 3.0);
 }
 
+/* Ревью Fable: эталон с большими значениями (|h| > 17 500): Σh² не переполняется, детектор не слепнет. */
+static int16_t tpl_big[DET_NPH][DET_NS];
+static void test_template_large_values(void)
+{
+    for (unsigned p = 0; p < DET_NPH; p++)
+        for (unsigned k = 0; k < DET_NS; k++) tpl_big[p][k] = 20000;
+    reset(DET_THR_DEF);
+    det_set_template(&det, tpl_big);
+    CHECK_NEAR(det.tpl_ihh[0], 1.0 / (7.0 * 20000.0 * 20000.0), 1e-14);
+    for (unsigned k = 0; k < DET_NS; k++) tpl_big[0][k] = 32767;
+    det_set_template(&det, tpl_big);
+    CHECK_NEAR(det.tpl_ihh[0] * 7.0 * 32767.0 * 32767.0, 1.0, 1e-6);
+    /* эталон ×2 (пик 32767 вместо 16384): импульсы принимаются, канал — вдвое меньше */
+    for (unsigned p = 0; p < DET_NPH; p++)
+        for (unsigned k = 0; k < DET_NS; k++) {
+            int v = 2 * tpl_3467k[p][k];
+            tpl_big[p][k] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+        }
+    pg_init(&pg, tpl_3467k, 64, 4242u);
+    size_t n = make_train(500, 580.0f, 1.8f, 48);
+    reset(DET_THR_DEF);
+    det_set_template(&det, tpl_big);
+    feed(n, BLK);
+    double m, sd;
+    stats(&m, &sd);
+    printf("  эталон x2: принято %d, канал %.1f\n", nch, m);
+    CHECK(nch >= 490);
+    CHECK_NEAR(m, 580.0, 2.0);
+}
 
 /* ---- порог и ширина на лету, авто-порог ---- */
 
@@ -704,6 +733,7 @@ int main(void)
     test_baseline_tracking();
     test_baseline_step();
     test_template_swap();
+    test_template_large_values();
     test_overload();
     test_gain();
     test_set_thr_width();
