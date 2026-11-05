@@ -8,9 +8,11 @@ set OUT=%HERE%out
 if not exist "%OUT%" mkdir "%OUT%"
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1 || exit /b 1
 
-set TESTS=smoke shproto
+set TESTS=smoke shproto settings becq_cal
 set SRC_smoke=
 set SRC_shproto=shproto.c
+set SRC_settings=settings.c
+set SRC_becq_cal=becq_cal.c settings.c
 
 set FAILED=
 for %%T in (%TESTS%) do (
