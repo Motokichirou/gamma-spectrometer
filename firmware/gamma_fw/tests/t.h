@@ -18,6 +18,9 @@ static int t_pass_, t_fail_;
                              __FILE__, __LINE__, #a, #b, t_a_, t_b_, t_e_); } \
 } while (0)
 
-#define T_DONE() (printf("%d passed, %d failed\n", t_pass_, t_fail_), t_fail_ ? 1 : 0)
+/* сбой — и упавшие проверки, и ни одной проверки (тест, который ничего не проверил, — не зелёный) */
+#define T_DONE() (printf("%d passed, %d failed%s\n", t_pass_, t_fail_, \
+                         t_pass_ + t_fail_ ? "" : " — НИ ОДНОЙ ПРОВЕРКИ"), \
+                  (t_fail_ || !t_pass_) ? 1 : 0)
 
 #endif

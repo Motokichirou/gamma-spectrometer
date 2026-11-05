@@ -38,8 +38,8 @@ ENTRY(Reset_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 
-_Min_Heap_Size = 0x0;   /* required amount of heap */
-_Min_Stack_Size = 0x1000; /* required amount of stack */
+_Min_Heap_Size = 0x800;  /* куча 2 КБ: strtod newlib (Balloc); _sbrk в syscalls.c её не превышает */
+_Min_Stack_Size = 0x1000; /* стек 4 КБ */
 
 /* Memories definition */
 MEMORY
@@ -170,6 +170,23 @@ SECTIONS
     _eccm = .;
   } >CCMRAM AT> FLASH
 
+  /* Reset_Handler копирует _sccm…_eccm одним куском от _siccm: образ .ccmdata во флеше обязан
+     лежать сразу за образом .ccmfunc */
+  ASSERT(LOADADDR(.ccmdata) == LOADADDR(.ccmfunc) + SIZEOF(.ccmfunc),
+         "LMA .ccmdata не смежен с .ccmfunc: копирование CCM в Reset_Handler сломается")
+  ASSERT(ADDR(.ccmdata) == ADDR(.ccmfunc) + SIZEOF(.ccmfunc), "VMA .ccmdata не смежен с .ccmfunc")
+
+  /* Обнуляемые данные в CCM (CCM_BSS); обнуляет Reset_Handler */
+  .ccmbss (NOLOAD) :
+  {
+    . = ALIGN(4);
+    _sccmbss = .;
+    *(.ccmbss)
+    *(.ccmbss*)
+    . = ALIGN(4);
+    _eccmbss = .;
+  } >CCMRAM
+
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);
   .bss :
@@ -193,9 +210,14 @@ SECTIONS
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
     . = . + _Min_Heap_Size;
+    _heap_limit = .;
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM
+
+  /* Бюджет ОЗУ: статика + куча + стек ≤ 96 КБ (переполнение региона ld ловит и сам; build.sh
+     дополнительно печатает разбивку и сверяет резервы DMA/UART) */
+  ASSERT(_heap_limit + _Min_Stack_Size <= ORIGIN(RAM) + LENGTH(RAM), "ОЗУ: не хватает места под стек")
 
   /* Remove information from the compiler libraries */
   /DISCARD/ :

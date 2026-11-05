@@ -97,6 +97,18 @@ LoopCopyCcm:
   cmp r4, r1
   bcc CopyCcm
 
+/* Zero fill the CCM bss (.ccmbss). */
+  ldr r2, =_sccmbss
+  ldr r4, =_eccmbss
+  movs r3, #0
+  b LoopFillZeroCcm
+FillZeroCcm:
+  str  r3, [r2]
+  adds r2, r2, #4
+LoopFillZeroCcm:
+  cmp r2, r4
+  bcc FillZeroCcm
+
 /* Zero fill the bss segment. */
   ldr r2, =_sbss
   ldr r4, =_ebss
