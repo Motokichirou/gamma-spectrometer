@@ -8,7 +8,7 @@ set OUT=%HERE%out
 if not exist "%OUT%" mkdir "%OUT%"
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1 || exit /b 1
 
-set TESTS=smoke shproto settings becq_cal hv_ctl temp detector proto
+set TESTS=smoke shproto settings becq_cal hv_ctl temp detector proto ring hwcalc
 set SRC_smoke=
 set SRC_shproto=shproto.c
 set SRC_settings=settings.c
@@ -17,6 +17,8 @@ set SRC_hv_ctl=hv_ctl.c
 set SRC_temp=temp.c
 set SRC_detector=detector.c spectrum.c
 set SRC_proto=proto.c shproto.c settings.c becq_cal.c spectrum.c
+set SRC_ring=ring.c
+set SRC_hwcalc=hwcalc.c
 rem TSRC_* — вспомогательные исходники из tests\ (синтез потока и т. п.)
 set TSRC_detector=pulsegen_host.c
 
@@ -35,6 +37,11 @@ for %%T in (%TESTS%) do (
         if errorlevel 1 set FAILED=!FAILED! %%T
     )
 )
+rem хостовый скрипт tools\gfw.py: кадры shproto, разбор, команда прошивки (без COM-порта)
+echo === test_gfw.py ===
+python -I "%HERE%test_gfw.py"
+if errorlevel 1 set FAILED=!FAILED! gfw.py
+
 if defined FAILED (
     echo FAILED:%FAILED%
     exit /b 1

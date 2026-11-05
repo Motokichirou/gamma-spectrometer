@@ -143,8 +143,10 @@ LoopForever:
 */
     .section	.text.Default_Handler,"ax",%progbits
 Default_Handler:
-Infinite_Loop:
-	b	Infinite_Loop
+/* gamma_fw: неожиданное прерывание — не вечный цикл (кирпич), а Fault_Handler
+   (src/hw/boot.c): ВВ выкл, ~1 с, NVIC_SystemReset. */
+	ldr	r0, =Fault_Handler
+	bx	r0
 	.size	Default_Handler, .-Default_Handler
 /******************************************************************************
 *

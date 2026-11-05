@@ -9,7 +9,7 @@ CM=../gamma_stage1/Drivers/CMSIS
 F="-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard"
 SRCS=$(find src -name '*.c' | sort)
 $TC/arm-none-eabi-gcc $F -std=gnu11 -O2 -g -Wall -Wextra -fno-math-errno -ffunction-sections -fdata-sections \
-  -DSTM32G474xx -Isrc/core -I$CM/Include -I$CM/Device/ST/STM32G4xx/Include \
+  -DSTM32G474xx -Isrc/core -Isrc/hw -I$CM/Include -I$CM/Device/ST/STM32G4xx/Include \
   $SRCS startup_stm32g474xx.s -T gamma_fw.ld \
   --specs=nano.specs --specs=nosys.specs -Wl,--gc-sections -Wl,--no-warn-rwx-segments \
   -Wl,-Map=gamma_fw.map -o gamma_fw.elf -lm
