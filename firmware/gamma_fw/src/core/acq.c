@@ -221,6 +221,30 @@ static void cmd_osc(const acq_ctx_t *c, const char *a, char *reply, size_t cap)
     snprintf(reply, cap, "-ok osc %ld", v);
 }
 
+static void cmd_opa(const acq_ctx_t *c, const char *a, char *reply, size_t cap)
+{
+    int hs; unsigned pga;
+    if (!c->opa_get || !c->opa_set) { snprintf(reply, cap, "-err opa"); return; }
+    c->opa_get(&hs, &pga);
+    if (*a) {
+        char key[4] = {0}; char *e; long v;
+        size_t k = 0;
+        while (a[k] && a[k] != ' ' && a[k] != '	' && k < 3) { key[k] = a[k]; k++; }
+        const char *p = a + k;
+        while (*p == ' ' || *p == '	') p++;
+        v = strtol(p, &e, 10);
+        while (*e == ' ' || *e == '	') e++;
+        if (e == p || *e) { snprintf(reply, cap, "-err opa"); return; }
+        if (strcmp(key, "hs") == 0 && (v == 0 || v == 1)) hs = (int)v;
+        else if (strcmp(key, "pga") == 0 && (v == 2 || v == 4 || v == 8 || v == 16)) pga = (unsigned)v;
+        else { snprintf(reply, cap, "-err opa"); return; }
+        if (c->acquiring && c->acquiring()) { snprintf(reply, cap, "-err acq"); return; }
+        c->opa_set(hs, pga);
+        c->opa_get(&hs, &pga);
+    }
+    snprintf(reply, cap, "-ok opa hs=%d pga=%u", hs, pga);
+}
+
 bool acq_handle(const acq_ctx_t *c, const char *cmd, char *reply, size_t cap)
 {
     const char *a;
@@ -228,6 +252,7 @@ bool acq_handle(const acq_ctx_t *c, const char *cmd, char *reply, size_t cap)
     if ((a = args_of(cmd, "-smp")) != NULL)        cmd_smp(c, a, reply, cap);
     else if ((a = args_of(cmd, "-noise")) != NULL) cmd_noise(c, a, reply, cap);
     else if ((a = args_of(cmd, "-osc")) != NULL)   cmd_osc(c, a, reply, cap);
+    else if ((a = args_of(cmd, "-opa")) != NULL)   cmd_opa(c, a, reply, cap);
     else return false;
     return true;
 }

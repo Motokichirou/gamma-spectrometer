@@ -315,8 +315,10 @@ static bool a_osc_arm(uint16_t n)
     osc_on = true;
     return true;
 }
+static void a_opa_set(int hs, unsigned pga) { opamp_shaper_set(hs, pga); sig_gap(); }
 static const acq_ctx_t acq_ctx = {
-    a_acquiring, a_ready, a_smp_get, a_smp_set, a_fs, a_noise, a_osc_raw, a_osc_arm, OSC_MAX
+    a_acquiring, a_ready, a_smp_get, a_smp_set, a_fs, a_noise, a_osc_raw, a_osc_arm, OSC_MAX,
+    opamp_shaper_get, a_opa_set
 };
 
 /* -osc n: записано n окон или вышло время — выдать кадрами 0x02 и строками сведений */

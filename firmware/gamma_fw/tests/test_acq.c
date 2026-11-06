@@ -168,7 +168,11 @@ static bool c_noise(acq_noise_t *o)
 }
 static bool c_raw(uint32_t *n) { st_raw_calls++; *n = 8192; return true; }
 static bool c_arm(uint16_t n) { st_armed = n; return true; }
-static const acq_ctx_t ctx = { c_acq, c_ready, c_smp_get, c_smp_set, c_fs, c_noise, c_raw, c_arm, 64 };
+static int st_hs; static unsigned st_pga = 4;
+static void c_opa_get(int *hs, unsigned *pga) { *hs = st_hs; *pga = st_pga; }
+static void c_opa_set(int hs, unsigned pga) { st_hs = hs; st_pga = pga; }
+static const acq_ctx_t ctx = { c_acq, c_ready, c_smp_get, c_smp_set, c_fs, c_noise, c_raw, c_arm, 64,
+                               c_opa_get, c_opa_set };
 
 static char rep[256];
 static const char *cmd(const char *c)
@@ -228,6 +232,22 @@ static void test_cmds(void)
     CHECK(strcmp(cmd("-osc raw"), "-err acq") == 0);
     CHECK(st_raw_calls == 1);
     st_acq = false;
+
+    CHECK(strcmp(cmd("-opa"), "-ok opa hs=0 pga=4") == 0);
+    CHECK(strcmp(cmd("-opa hs 1"), "-ok opa hs=1 pga=4") == 0);
+    CHECK(strcmp(cmd("-opa pga 16"), "-ok opa hs=1 pga=16") == 0);
+    CHECK(strcmp(cmd("-opa pga 5"), "-err opa") == 0);
+    CHECK(strcmp(cmd("-opa hs 2"), "-err opa") == 0);
+    CHECK(strcmp(cmd("-opa foo 1"), "-err opa") == 0);
+    CHECK(strcmp(cmd("-opa hs"), "-err opa") == 0);
+    CHECK(strcmp(cmd("-opa hs 0x"), "-err opa") == 0);
+    st_acq = true;
+    CHECK(strcmp(cmd("-opa hs 0"), "-err acq") == 0);
+    CHECK(st_hs == 1);
+    CHECK(strcmp(cmd("-opa"), "-ok opa hs=1 pga=16") == 0);
+    st_acq = false;
+    CHECK(strcmp(cmd("-opa pga 4"), "-ok opa hs=1 pga=4") == 0);
+    CHECK(strcmp(cmd("-opa hs 0"), "-ok opa hs=0 pga=4") == 0);
 
     CHECK(strcmp(cmd("-oscx"), "<not acq>") == 0);   /* чужие команды — не наши */
     CHECK(strcmp(cmd("-gst"), "<not acq>") == 0);

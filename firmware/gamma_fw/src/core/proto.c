@@ -1,5 +1,10 @@
 /* proto.c — команды и ответы по shproto (см. proto.h). Образец BecqMoni-части — firmware/core/app.c. */
 #include <string.h>
+#ifdef HV_EXPERIMENT_1500
+#define HV_EXP_TAG " HVEXP1500"
+#else
+#define HV_EXP_TAG ""
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -125,7 +130,7 @@ static void cmd_inf(void)
 {
     char t[16], r[96];
     fmt_fix(t, sizeof t, temp_c, 1);
-    snprintf(r, sizeof r, "GammaSpec v1 RISE %u FALL %u T1 %s F %lu VERSION 100",
+    snprintf(r, sizeof r, "GammaSpec v1 RISE %u FALL %u T1 %s F %lu VERSION 100" HV_EXP_TAG,
              (unsigned)PROTO_INF_RISE, (unsigned)PROTO_INF_FALL, t, (unsigned long)PROTO_INF_FS);
     proto_send_text(r);
 }

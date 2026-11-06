@@ -23,9 +23,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef HV_EXPERIMENT_1500
 #define HV_MAX_SET_V     1200.0f  /* уставка выхода */
 #define HV_MAX_CW_V      1300.0f  /* C210–C217 по 500 В */
 #define HV_TRIP_ABS_V    1300.0f
+#else
+/* ⚠ ОПЫТНАЯ сборка (EXTRA=-DHV_EXPERIMENT_1500 OUT=gamma_fw_hv1500 ./build.sh): выход до 1350 В, CW до 1500 В
+   (проектный предел умножителя; C210–C217 на 500 В — сознательный риск пробоя, решение пользователя 2026-11-06).
+   ФЭУ R1306/R1307: абсолютный максимум 1500 В — авария "abs" по выходу 1420 В. В приборе не оставлять. */
+#define HV_MAX_SET_V     1350.0f
+#define HV_MAX_CW_V      1500.0f
+#define HV_TRIP_ABS_V    1420.0f
+#endif
 #define HV_TRIP_OVER_V   150.0f
 #define HV_TRIP_OVER_MS  30000u
 #define HV_RAMP_VPS      100.0f

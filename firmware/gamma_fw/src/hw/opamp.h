@@ -8,4 +8,10 @@
    Заводская подстройка смещения (USERTRIM = 0). Выводы — аналог (gpio_safe_init). */
 void opamp_init(void);
 
+/* Сервис (команда -opa): быстрый режим OPAMP1–3 (OPAHSM, бит 7 CSR) и усиление PGA OPAMP3.
+   pga — 2|4|8|16. По RM0440 стр. 790 OPAHSM меняется только при выключенном ОУ:
+   ОУ выключаются, биты пишутся, ОУ включаются. После смены ждать установления базы (сотни мкс). */
+void opamp_shaper_set(int hs, unsigned pga);
+void opamp_shaper_get(int *hs, unsigned *pga);
+
 #endif

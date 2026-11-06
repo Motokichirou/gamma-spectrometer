@@ -15,6 +15,8 @@
  * Сервисные команды сигнального тракта (acq_handle; ответ одной строкой, proto допишет \r\n):
  *   -smp            → -ok smp=2.5 fs=3466667
  *   -smp 2|6        → выборка 2.5 / 6.5 такта; только вне набора (иначе -err acq)
+ *   -opa            → -ok opa hs=0 pga=4   (быстрый режим OPAMP1–3, PGA OPAMP3; опыт, во флеш НЕ пишется)
+ *   -opa hs 0|1 | -opa pga 2|4|8|16 → то же после смены; только вне набора (иначе -err acq)
  *   -noise          → -ok noise smp=… fs=… n=… mean=… sigma=… min=… max=… over=…
  *                     по следующей порции. mean и σ — по «тихим» отсчётам: без отсчётов выше
  *                     mean + 5σ и их окрестности −8…+48 (порог уточняется итерациями), n — их
@@ -86,6 +88,8 @@ typedef struct {
     bool     (*osc_raw)(uint32_t *n);      /* выслать сырую порцию; n — отсчётов */
     bool     (*osc_arm)(uint16_t n);       /* начать запись n окон */
     uint16_t osc_max;
+    void     (*opa_get)(int *hs, unsigned *pga);   /* NULL — команды -opa нет */
+    void     (*opa_set)(int hs, unsigned pga);     /* pga 2|4|8|16; не сохраняется во флеш */
 } acq_ctx_t;
 
 /* true — команда сигнального тракта (ответ в reply), false — не наша. */
