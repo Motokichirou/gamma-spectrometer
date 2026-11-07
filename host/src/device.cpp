@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cmath>
 
+static const int tpl_blk = 8192;   // порция АЦП (-osc raw)
+
 static double now_sec()
 {
     using namespace std::chrono;
@@ -55,6 +57,9 @@ void Device::disconnect()
 {
     lin.running = false;
     hvp.running = false;
+    raw.running = false; raw_wait_ = false;
+    tc.running = false;
+    q_.clear(); q_wait_ = false;
     serial_.close();
     state = State::Disconnected;
     status_text = "Нет связи · порт закрыт";
@@ -142,6 +147,13 @@ void Device::poll()
 
     if (lin.running) lin_tick(now);
     if (hvp.running) hvp_tick(now);
+    if (raw.running) raw_tick(now);
+    if (tc.running)  tc_tick(now);
+    if (q_wait_ && now - q_t_ > 2.0) { q_wait_ = false; queue_errors++; queue_last_err = "нет ответа"; }
+    if (!q_wait_ && !q_.empty()) {
+        send_cmd(q_.front(), true);
+        q_.pop_front(); q_wait_ = true; q_t_ = now;
+    }
 }
 
 static void parse_kv(const std::string& t, std::map<std::string, std::string>& out)
@@ -167,6 +179,23 @@ void Device::on_text(const std::string& t0)
     if (starts(t, "-ok gst")) {                       // телеметрия — без лога
         parse_kv(t.substr(7), gst);
         gst_rx_ = now_sec();
+        return;
+    }
+    if (raw_wait_ && (starts(t, "-ok osc raw") || starts(t, "-err"))) {   // порция для эталона — без лога
+        raw_wait_ = false;
+        if (starts(t, "-ok osc raw") && raw_total_ == tpl_blk && raw_got_ == tpl_blk) raw.blocks.push_back(raw_cur_);
+        else { raw.bad++; if (t.find("acq") != std::string::npos) send_cmd("-sto", true); }
+        return;
+    }
+    if (q_wait_ && (starts(t, "-ok") || starts(t, "-err"))) {
+        q_wait_ = false;
+        if (starts(t, "-err")) { queue_errors++; queue_last_err = t; }
+        if (starts(t, "-ok tc")) {
+            tc_reply = t;
+            if (tc_capture_old_) { old_tc_from(t); tc_capture_old_ = false; }
+        }
+        if (!starts(t, "-ok") || t.size() > 3) log_add(2, t);   // голые "-ok" от -tplw не засоряют лог
+        last_reply = t;
         return;
     }
 
@@ -215,6 +244,15 @@ void Device::on_frame(const shproto::Frame& f)
 {
     if (f.cmd == shproto::CMD_TEXT) {
         on_text(std::string((const char*)f.payload.data(), f.payload.size()));
+    } else if (f.cmd == shproto::CMD_PULSE) {
+        const auto& p = f.payload;
+        if (raw_wait_ && p.size() >= 4 && p.size() % 2 == 0) {
+            int idx = p[0] | (p[1] << 8), tot = p[2] | (p[3] << 8), n = (int)(p.size() - 4) / 2;
+            raw_total_ = tot;
+            for (int i = 0; i < n && idx + i < (int)raw_cur_.size(); i++)
+                raw_cur_[idx + i] = (uint16_t)(p[4 + 2 * i] | (p[5 + 2 * i] << 8));
+            raw_got_ += n;
+        }
     } else if (f.cmd == shproto::CMD_SPECTRUM) {
         const auto& p = f.payload;
         if (p.size() >= 2) {
@@ -470,4 +508,148 @@ void Device::hvp_tick(double now)
         break;
     }
     }
+}
+
+// ================= очередь команд =================
+
+void Device::queue(const std::vector<std::string>& cmds)
+{
+    for (auto& c : cmds) q_.push_back(c);
+}
+
+// ================= сбор сырых порций =================
+
+void Device::raw_start(int nblocks)
+{
+    if (!connected()) return;
+    lin_abort(); hvp_abort(); tc_stop(true);
+    raw = RawRun{};
+    raw.target = nblocks; raw.running = true;
+    raw.was_acq = acquiring;
+    if (acquiring) send_cmd("-sto");
+    raw_cur_.assign(tpl_blk, 0); raw_wait_ = false;
+    raw.msg = "сбор порций…";
+    log_add(0, "эталон: сбор " + std::to_string(nblocks) + " сырых порций (-osc raw)");
+}
+
+void Device::raw_abort()
+{
+    if (!raw.running) return;
+    raw.running = false; raw_wait_ = false;
+    if (raw.was_acq) send_cmd("-sta");
+    raw.msg = "сбор прерван: порций " + std::to_string(raw.blocks.size());
+}
+
+void Device::raw_tick(double now)
+{
+    if (raw_wait_) {
+        if (now - raw_t_ > 5.0) { raw_wait_ = false; raw.bad++; }
+        return;
+    }
+    if ((int)raw.blocks.size() >= raw.target) {
+        raw.running = false;
+        if (raw.was_acq) send_cmd("-sta");
+        raw.msg = "собрано порций: " + std::to_string(raw.blocks.size()) + ", сбоев " + std::to_string(raw.bad);
+        log_add(0, "эталон: " + raw.msg);
+        return;
+    }
+    if (raw.bad > 50 && raw.bad > (int)raw.blocks.size()) {
+        raw.running = false;
+        raw.msg = "слишком много сбоев при чтении порций";
+        return;
+    }
+    std::fill(raw_cur_.begin(), raw_cur_.end(), (uint16_t)0);
+    raw_got_ = raw_total_ = 0;
+    send_cmd("-osc raw", true);
+    raw_wait_ = true; raw_t_ = now;
+}
+
+// ================= термокомпенсация =================
+
+void Device::old_tc_from(const std::string& t)
+{
+    tc.old_tc = t.size() > 7 ? t.substr(7) : "";      // "-ok tc t0 k1 k2" → "t0 k1 k2"
+}
+
+void Device::tc_start()
+{
+    if (!connected()) return;
+    lin_abort(); hvp_abort(); raw_abort();
+    double secs = tc.secs, lo = tc.lo, hi = tc.hi;
+    tc = TcRun{};
+    tc.secs = secs; tc.lo = lo; tc.hi = hi;
+    tc_capture_old_ = true;
+    queue({ "-tc", "-tc 25 0 0" });          // запомнить действующие коэффициенты и выключить поправку
+    tc.running = true; tc.phase = -1; tc.t0 = now_sec();
+    tc.msg = "выключаю термокомпенсацию…";
+    log_add(0, "термокомпенсация: запись (поправка в приборе выключена на время записи)");
+}
+
+void Device::tc_stop(bool restore_old)
+{
+    if (!tc.running) return;
+    tc.running = false;
+    send_cmd("-sto");
+    if (restore_old && !tc.old_tc.empty()) { queue({ "-tc " + tc.old_tc }); tc.msg = "остановлено, прежние коэффициенты возвращены"; }
+    else tc.msg = "остановлено";
+}
+
+void Device::tc_tick(double now)
+{
+    switch (tc.phase) {
+    case -1:
+        if (!queue_busy()) tc.phase = 0;
+        break;
+    case 0:
+        send_cmd("-sto"); send_cmd("-rst"); send_cmd("-sta");
+        for (auto& v : spectrum) v = 0;
+        tc.tsum = 0; tc.tn = 0; tc.t0 = now; tc.phase = 1;
+        if (tc.pts.empty()) tc.msg = "набор первой точки…";
+        break;
+    case 1:
+        if (gst_rx_ > tc_last_gst_ && gstr("pt", "-") == "ok") { tc.tsum += gnum("t"); tc.tn++; }
+        tc_last_gst_ = gst_rx_;
+        if (now - tc.t0 >= tc.secs) { tc_seq_ = full_seq_; chunk_mask_ = 0; tc.phase = 2; tc.t0 = now; }
+        break;
+    case 2: {
+        if (full_seq_ <= tc_seq_ && now - tc.t0 < 3.0) break;
+        double m = 0, sd = 0; uint64_t n = 0;
+        if (tc.tn > 0 && peak_stats(spectrum, (int)tc.lo, (int)tc.hi, m, sd, n) && n >= 200) {
+            TcPoint p; p.t = tc.tsum / tc.tn; p.peak = m; p.sd = sd; p.n = n;
+            tc.pts.push_back(p);
+            char b[96]; snprintf(b, sizeof b, "точка %d: %.2f °C, пик %.2f", (int)tc.pts.size(), p.t, m);
+            tc.msg = b;
+        } else {
+            tc.msg = tc.tn == 0 ? "нет температуры (Pt1000 не ok)" : "пик в окне не найден";
+        }
+        tc.phase = 0;
+        break;
+    }
+    }
+}
+
+bool Device::tc_fit(double t0, int order, double& k1, double& k2, double& rms_pct) const
+{
+    int m = order == 2 ? 3 : 2;
+    if ((int)tc.pts.size() < m + 1) return false;
+    double A[3][4] = {};
+    for (auto& p : tc.pts) {
+        double d = p.t - t0, pw[3] = { 1, d, d * d };
+        for (int r = 0; r < m; r++) { for (int c = 0; c < m; c++) A[r][c] += pw[r] * pw[c]; A[r][m] += pw[r] * p.peak; }
+    }
+    for (int col = 0; col < m; col++) {
+        int piv = col;
+        for (int r = col + 1; r < m; r++) if (fabs(A[r][col]) > fabs(A[piv][col])) piv = r;
+        for (int k = 0; k <= m; k++) { double t = A[col][k]; A[col][k] = A[piv][k]; A[piv][k] = t; }
+        if (fabs(A[col][col]) < 1e-12) return false;
+        for (int r = 0; r < m; r++) if (r != col) { double f = A[r][col] / A[col][col]; for (int k = col; k <= m; k++) A[r][k] -= f * A[col][k]; }
+    }
+    double c[3] = { 0, 0, 0 };
+    for (int i = 0; i < m; i++) c[i] = A[i][m] / A[i][i];
+    if (c[0] <= 0) return false;
+    k1 = c[1] / c[0]; k2 = m == 3 ? c[2] / c[0] : 0.0;
+    double s = 0;
+    for (auto& p : tc.pts) { double d = p.t - t0, f = c[0] + c[1] * d + (m == 3 ? c[2] * d * d : 0); s += (p.peak - f) * (p.peak - f) / (f * f); }
+    rms_pct = 100.0 * sqrt(s / tc.pts.size());
+    return true;
 }

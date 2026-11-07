@@ -16,8 +16,12 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 #include "device.h"
+#include "tpl_learn.h"
 #include "theme.h"
 #include "host_app.h"
 
@@ -61,6 +65,16 @@ static float  g_pt_ref = 25.0f;
 // настройки
 static int    g_thr = 0;
 static int    g_pga = 4;
+// мастер эталона
+static int    g_tpl_blocks = 2000;
+static std::atomic<int> g_tpl_state{ 0 };      // 0 — нет, 1 — считаю, 2 — готово
+static tpl::Result g_tpl_res;
+static std::string g_tpl_info;
+static bool   g_tpl_loaded = false;
+static int    g_tpl_load_err0 = 0;
+// термокомпенсация
+static float  g_tc_t0 = 25.0f;
+static int    g_tc_order = 1;
 
 // ================= помощники UI =================
 
@@ -181,7 +195,7 @@ static void KV(const char* k, const char* v, const ImVec4* col = nullptr)
     ImGui::PopFont();
 }
 
-static bool Busy() { return g_dev.lin.running || g_dev.hvp.running; }
+static bool Busy() { return g_dev.lin.running || g_dev.hvp.running || g_dev.raw.running || g_dev.tc.running; }
 
 // ================= панели =================
 
@@ -645,6 +659,150 @@ static void TabSettings()
     ImGui::PushFont(font_mono); ImGui::TextWrapped("%s", g_dev.last_reply.c_str()); ImGui::PopFont();
 }
 
+static void TabTemplate()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    Device::RawRun& R = g_dev.raw;
+    ImGui::TextWrapped("Эталон формы импульса для детектора. Нужны ВВ на рабочей точке и источник "
+                       "(Cs-137): импульсы 100…1200 кодов. Сбор ≈ 0.3 с на порцию.");
+    ImGui::SetNextItemWidth(90);
+    ImGui::BeginDisabled(R.running);
+    ImGui::InputInt("порций", &g_tpl_blocks, 100, 500);
+    ImGui::EndDisabled();
+    if (g_tpl_blocks < 200) g_tpl_blocks = 200;
+    if (g_tpl_blocks > 6000) g_tpl_blocks = 6000;
+    ImGui::BeginDisabled(!conn || g_dev.lin.running || g_dev.hvp.running || g_dev.tc.running || g_tpl_state == 1);
+    if (!R.running) {
+        if (PrimaryButton("1. Собрать порции", ImVec2(-1, 26))) { g_tpl_state = 0; g_tpl_loaded = false; g_dev.raw_start(g_tpl_blocks); }
+    } else if (DangerButton("Прервать сбор", ImVec2(-1, 26))) g_dev.raw_abort();
+    ImGui::EndDisabled();
+    if (R.running || !R.blocks.empty()) {
+        float fr = R.target ? (float)R.blocks.size() / R.target : 0.0f;
+        char b[64]; snprintf(b, sizeof b, "%zu / %d (сбоев %d)", R.blocks.size(), R.target, R.bad);
+        ImGui::ProgressBar(fr, ImVec2(-1, 0), b);
+    }
+    if (!R.msg.empty()) ImGui::TextDisabled("%s", R.msg.c_str());
+
+    ImGui::BeginDisabled(R.running || R.blocks.empty() || g_tpl_state == 1);
+    if (PrimaryButton("2. Рассчитать эталон", ImVec2(-1, 0))) {
+        g_tpl_state = 1;
+        std::thread([blocks = R.blocks]() {
+            tpl::Singles s = tpl::find_singles(blocks);
+            tpl::Result r = tpl::build(s);
+            char b[200];
+            snprintf(b, sizeof b, "порций %d, σ %.2f, одиночных %d, в 100…1200 кодов %d", s.blocks, s.sigma, s.single, s.amp);
+            g_tpl_info = b;
+            g_tpl_res = r;
+            g_tpl_state = 2;
+        }).detach();
+    }
+    ImGui::EndDisabled();
+    if (g_tpl_state == 1) ImGui::TextUnformatted("считаю…");
+    if (g_tpl_state == 2) {
+        ImGui::TextWrapped("%s", g_tpl_info.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, g_tpl_res.ok ? c_ok : c_danger);
+        ImGui::TextWrapped("%s", g_tpl_res.msg.c_str());
+        ImGui::PopStyleColor();
+        if (g_tpl_res.ok) {
+            static float xs[tpl::NS * tpl::NPH], ys[tpl::NS * tpl::NPH];
+            int k = 0;                          // строки на общей сетке: отсчёт j строки p — время (j − 1) − p/64
+            for (int p = 0; p < tpl::NPH; p++) for (int j = 0; j < tpl::NS; j++) {
+                xs[k] = (float)(j - tpl::IPK) - (float)p / tpl::NPH; ys[k] = g_tpl_res.q[p][j] / (float)tpl::QMAX; k++;
+            }
+            if (ImPlot::BeginPlot("##tplshape", ImVec2(-1, 130), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+                ImPlot::SetupAxes("отсчёт от пика", "", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+                ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 1.5f, c_trace, 1.0f, c_trace);
+                ImPlot::PlotScatter("форма", xs, ys, k);
+                ImPlot::EndPlot();
+            }
+            ImGui::TextDisabled("Норма: невязка < 1 %, размах по фазам < 1 %.");
+            ImGui::BeginDisabled(!conn || g_dev.queue_busy() || g_dev.acquiring);
+            if (PrimaryButton("3. Загрузить в прибор (-tplw ×64, -tplok)", ImVec2(-1, 0))) {
+                g_tpl_load_err0 = g_dev.queue_errors;
+                g_dev.queue(tpl::commands(g_tpl_res));
+                g_dev.queue({ "-tplok" });
+                g_tpl_loaded = true;
+            }
+            if (ImGui::Button("4. Сохранить во флеш (-save)", ImVec2(-1, 0))) g_dev.send_cmd("-save");
+            ImGui::EndDisabled();
+            if (g_tpl_loaded) {
+                if (g_dev.queue_busy()) ImGui::TextUnformatted("загружаю…");
+                else if (g_dev.queue_errors > g_tpl_load_err0) { ImGui::PushStyleColor(ImGuiCol_Text, c_danger); ImGui::TextWrapped("ошибка загрузки: %s", g_dev.queue_last_err.c_str()); ImGui::PopStyleColor(); }
+                else { ImGui::PushStyleColor(ImGuiCol_Text, c_ok); ImGui::TextUnformatted("загружен, действует сразу (до -save — в ОЗУ)"); ImGui::PopStyleColor(); }
+            }
+        }
+    }
+    ImGui::Spacing(); ImGui::Separator();
+    ImGui::BeginDisabled(!conn);
+    if (ImGui::Button("Вернуть вшитый эталон (-tplclr)", ImVec2(-1, 0))) g_dev.send_cmd("-tplclr");
+    ImGui::EndDisabled();
+}
+
+static void TabThermo()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    Device::TcRun& T = g_dev.tc;
+    ImGui::TextWrapped("Термокомпенсация усиления: запись пика источника при меняющейся температуре "
+                       "(прогрев/остывание, часы). ВВ включено, источник на месте, Pt1000 на кристалле. "
+                       "На время записи поправка в приборе выключена.");
+    ImGui::TextDisabled("Сейчас в приборе: %s", g_dev.tc_reply.empty() ? "— (нажми «Запросить»)" : g_dev.tc_reply.c_str() + 7);
+    ImGui::BeginDisabled(!conn || g_dev.queue_busy());
+    if (ImGui::SmallButton("Запросить -tc")) g_dev.queue({ "-tc" });
+    ImGui::EndDisabled();
+    float f;
+    ImGui::BeginDisabled(T.running);
+    ImGui::SetNextItemWidth(70); f = (float)T.secs; if (ImGui::InputFloat("с на точку", &f, 0, 0, "%.0f")) T.secs = f < 20 ? 20 : f;
+    ImGui::SetNextItemWidth(60); f = (float)T.lo; if (ImGui::InputFloat("##tlo", &f, 0, 0, "%.0f")) T.lo = f;
+    ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
+    ImGui::SetNextItemWidth(60); f = (float)T.hi; if (ImGui::InputFloat("окно пика", &f, 0, 0, "%.0f")) T.hi = f;
+    ImGui::EndDisabled();
+    ImGui::BeginDisabled(!conn || g_dev.lin.running || g_dev.hvp.running || g_dev.raw.running);
+    if (!T.running) {
+        if (PrimaryButton("Начать запись", ImVec2(-1, 26))) g_dev.tc_start();
+    } else {
+        if (ImGui::Button("Остановить (вернуть прежние k)", ImVec2(-1, 0))) g_dev.tc_stop(true);
+    }
+    ImGui::EndDisabled();
+    if (!T.msg.empty()) ImGui::TextDisabled("%s", T.msg.c_str());
+
+    if (!T.pts.empty()) {
+        static std::vector<float> tx, ty;
+        tx.clear(); ty.clear();
+        double tmin = 1e9, tmax = -1e9;
+        for (auto& p : T.pts) { tx.push_back((float)p.t); ty.push_back((float)p.peak); if (p.t < tmin) tmin = p.t; if (p.t > tmax) tmax = p.t; }
+        ImGui::Text("точек %zu, температура %.1f…%.1f °C", T.pts.size(), tmin, tmax);
+        if (ImPlot::BeginPlot("##tcplot", ImVec2(-1, 140), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            ImPlot::SetupAxes("°C", "пик", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, c_trace2, 1.0f, c_trace2);
+            ImPlot::PlotScatter("пик", tx.data(), ty.data(), (int)tx.size());
+            ImPlot::EndPlot();
+        }
+        ImGui::SetNextItemWidth(70); ImGui::InputFloat("t0, °C", &g_tc_t0, 0, 0, "%.1f");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("= средняя")) { double s = 0; for (auto& p : T.pts) s += p.t; g_tc_t0 = (float)(s / T.pts.size()); }
+        ImGui::RadioButton("линейная", &g_tc_order, 1); ImGui::SameLine(); ImGui::RadioButton("квадратичная", &g_tc_order, 2);
+        double k1 = 0, k2 = 0, rms = 0;
+        bool ok = g_dev.tc_fit(g_tc_t0, g_tc_order, k1, k2, rms);
+        if (ok) {
+            ImGui::PushFont(font_mono);
+            ImGui::Text("k1 = %.4e /°C  (%.3f %%/°C)", k1, k1 * 100.0);
+            ImGui::Text("k2 = %.4e /°C²", k2);
+            ImGui::Text("остаток %.3f %%", rms);
+            ImGui::PopFont();
+            if (tmax - tmin < 5) ImGui::TextColored(c_warn, "размах температур < 5 °C — коэффициенты ненадёжны");
+            ImGui::BeginDisabled(!conn || g_dev.queue_busy());
+            if (PrimaryButton("Записать в прибор (-tc) и сохранить", ImVec2(-1, 0))) {
+                if (T.running) g_dev.tc_stop(false);
+                char c[96]; snprintf(c, sizeof c, "-tc %.3f %.6e %.6e", g_tc_t0, k1, k2);
+                g_dev.queue({ c, "-save" });
+            }
+            ImGui::EndDisabled();
+        } else ImGui::TextDisabled("для расчёта нужно ≥ %d точек", g_tc_order == 2 ? 4 : 3);
+    }
+}
+
 static void PanelService(ImVec2 pos, ImVec2 size)
 {
     BeginPanel("##svc", pos, size);
@@ -652,6 +810,8 @@ static void PanelService(ImVec2 pos, ImVec2 size)
     if (ImGui::BeginTabBar("##svctabs")) {
         if (ImGui::BeginTabItem("Самотест ЦАП")) { TabSelftest(); ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Калибровки"))   { TabCalib();    ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Эталон"))       { TabTemplate(); ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Термо"))        { TabThermo();   ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Настройки"))    { TabSettings(); ImGui::EndTabItem(); }
         ImGui::EndTabBar();
     }
@@ -770,8 +930,14 @@ static void DrawHelp()
         "< 0.2 %, в пике > 99 % импульсов, k ≈ 4.93 канала на код.");
     HelpSection("Эталон формы");
     ImGui::TextWrapped(
-        "Эталон формы импульса вшит в прошивку (снят с реального тракта). Переснять под другой детектор — "
-        "firmware/gamma_fw/tools/tpl_pmt.py (collect, build --load, затем -save).");
+        "Вкладка «Эталон»: при ВВ на рабочей точке и с источником собрать порции (≈2000, ~11 мин), "
+        "рассчитать (тот же алгоритм, что tools/tpl_pmt.py, результат совпадает бит в бит), загрузить "
+        "и сохранить. Нужен при смене детектора или шейпера. Вернуть вшитый — -tplclr.");
+    HelpSection("Термокомпенсация");
+    ImGui::TextWrapped(
+        "Вкладка «Термо»: запись пика источника и температуры Pt1000 точка за точкой, пока прибор "
+        "прогревается или остывает (размах ≥ 5…10 °C). По точкам — k1 (и k2) усиления; запись -tc и -save. "
+        "Прибор делит канал на G(T) = 1 + k1·(T − t0) + k2·(T − t0)².");
     HelpSection("Командная строка");
     ImGui::PushFont(theme::font_mono);
     ImGui::TextWrapped(

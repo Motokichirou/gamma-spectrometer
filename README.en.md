@@ -120,7 +120,7 @@ Peak positions are set by the HV: for another detector, Cs is placed at channel 
 | STM32 firmware | ✅ Clean firmware [`firmware/gamma_fw/`](firmware/gamma_fw/) on the board: detector with a pulse-shape template (taken from the real chain), HV with trimming, Pt1000, settings and calibration in flash, updates over the COM port; accepted by BecqMoni. Spec and findings log — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) (Russian) |
 | Signal-chain tuning | ✅ Shaper reworked for long shaping, R417 2.7 kΩ: Cs 7.8 → 6.9 %, HV 1030 → ~750 V |
 | Target detector NaI 63×63 + R1307 | ⏭ Next stage: HV tuning, shape template, calibration |
-| Host software `gammapult` | ✅ Service console for the production firmware (GUI + CLI, single .exe): telemetry, HV and peak-based HV tuning, HV-monitor and Pt1000 calibration, threshold/PGA, DAC linearity self-test, save to flash. Spectra and energy calibration — in BecqMoni |
+| Host software `gammapult` | ✅ Service console for the production firmware (GUI + CLI, single .exe): telemetry, HV and peak-based HV tuning, HV-monitor and Pt1000 calibration, threshold/PGA, DAC linearity self-test, shape-template and thermal-compensation wizards, save to flash. Spectra and energy calibration — in BecqMoni |
 
 ---
 

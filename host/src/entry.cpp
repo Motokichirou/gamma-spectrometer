@@ -7,7 +7,7 @@
 
 static bool is_subcommand(const char* a)
 {
-    static const char* subs[] = { "list", "info", "gst", "acquire", "lin", "cmd",
+    static const char* subs[] = { "list", "info", "gst", "acquire", "lin", "cmd", "tpl",
                                   "help", "--help", "-h" };
     for (const char* s : subs)
         if (std::strcmp(a, s) == 0) return true;

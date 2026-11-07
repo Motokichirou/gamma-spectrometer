@@ -88,6 +88,38 @@ public:
     void hvp_start(double v_start);
     void hvp_abort();
 
+    // ---- очередь команд: по одной, следующая — после "-ok…"/"-err…" (загрузка эталона и т. п.) ----
+    void queue(const std::vector<std::string>& cmds);
+    bool queue_busy() const { return !q_.empty() || q_wait_; }
+    int  queue_errors = 0;
+    std::string queue_last_err;
+
+    // ---- сбор сырых порций АЦП ("-osc raw") для обучения эталона ----
+    struct RawRun {
+        bool running = false, was_acq = false;
+        int target = 2000, bad = 0;
+        std::vector<std::vector<uint16_t>> blocks;
+        std::string msg;
+    } raw;
+    void raw_start(int nblocks);
+    void raw_abort();
+
+    // ---- термокомпенсация: пик источника против температуры (поправка в приборе выключена) ----
+    struct TcPoint { double t = 0, peak = 0, sd = 0; uint64_t n = 0; };
+    struct TcRun {
+        bool running = false;
+        double secs = 120, lo = 300, hi = 6000;
+        int phase = 0; double t0 = 0, tsum = 0; int tn = 0;
+        std::vector<TcPoint> pts;
+        std::string old_tc;                  // "t0 k1 k2" до начала — вернуть, если новое не записали
+        std::string msg;
+    } tc;
+    std::string tc_reply;                    // последний ответ "-ok tc …"
+    void tc_start();
+    void tc_stop(bool restore_old);
+    // МНК: пик = a·(1 + k1·(T − t0) + k2·(T − t0)²); order 1 или 2. false — мало точек
+    bool tc_fit(double t0, int order, double& k1, double& k2, double& rms_pct) const;
+
 private:
     serialport::Serial serial_;
     shproto::Parser parser_;
@@ -99,5 +131,13 @@ private:
     void log_add(int dir, const std::string& s);
     void lin_tick(double now);
     void hvp_tick(double now);
-    uint32_t lin_seq_ = 0, hvp_seq_ = 0;
+    void raw_tick(double now);
+    void tc_tick(double now);
+    void old_tc_from(const std::string& t);
+    uint32_t lin_seq_ = 0, hvp_seq_ = 0, tc_seq_ = 0;
+    std::deque<std::string> q_;
+    bool q_wait_ = false; double q_t_ = 0;
+    std::vector<uint16_t> raw_cur_;
+    int raw_got_ = 0, raw_total_ = 0; bool raw_wait_ = false; double raw_t_ = 0;
+    bool tc_capture_old_ = false; double tc_last_gst_ = -1;
 };

@@ -5,7 +5,10 @@
 //   gammapult acquire --port COMx --seconds N [--out file.csv]
 //   gammapult lin     --port COMx [--codes "50 100 … 1350"] [--n 10000] [--period 100]
 //   gammapult cmd     --port COMx --send "-diag" [--read S]
+//   gammapult tpl collect --port COMx [--n 2000] --out raw.bin   (сырые порции uint16 × 8192 подряд)
+//   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
 #include "device.h"
+#include "tpl_learn.h"
 #include "host_app.h"
 #include <cstdio>
 #include <cstring>
@@ -46,7 +49,9 @@ static void usage()
            "  gammapult gst     --port COMx\n"
            "  gammapult acquire --port COMx --seconds N [--out file.csv]\n"
            "  gammapult lin     --port COMx [--codes \"50 100 200 400 600 800 1000 1200 1350\"] [--n 10000] [--period 100]\n"
-           "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n");
+           "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
+           "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
+           "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n");
 }
 
 int run_cli(int argc, char** argv)
@@ -59,6 +64,32 @@ int run_cli(int argc, char** argv)
     if (sub == "list") {
         for (auto& p : serialport::enumerate()) printf("%s\n", p.c_str());
         return 0;
+    }
+
+    // эталон из файла — без прибора (с --load нужен порт)
+    tpl::Result tr;
+    bool tpl_build = (sub == "tpl" && argc >= 4 && std::string(argv[2]) == "build");
+    if (tpl_build) {
+        FILE* f = fopen(argv[3], "rb");
+        if (!f) { printf("не открыть %s\n", argv[3]); return 2; }
+        std::vector<std::vector<uint16_t>> blocks;
+        std::vector<uint16_t> b(tpl::BLK);
+        while (fread(b.data(), 2, tpl::BLK, f) == (size_t)tpl::BLK) blocks.push_back(b);
+        fclose(f);
+        tpl::Singles s = tpl::find_singles(blocks);
+        printf("порций %d, σ шума %.2f кода; пересечений %d, одиночных %d, в 100…1200 кодов %d\n",
+               s.blocks, s.sigma, s.cross, s.single, s.amp);
+        tr = tpl::build(s);
+        printf("%s\n", tr.msg.c_str());
+        if (!tr.ok) return 4;
+        std::string out = opt(argc, argv, "--out");
+        if (!out.empty()) {
+            FILE* h = fopen(out.c_str(), "wb");
+            if (h) { std::string t = tpl::header(tr); fwrite(t.data(), 1, t.size(), h); fclose(h); printf("эталон -> %s\n", out.c_str()); }
+        }
+        bool load = false;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--load") == 0) load = true;
+        if (!load) return 0;
     }
 
     std::string port = opt(argc, argv, "--port");
@@ -121,6 +152,33 @@ int run_cli(int argc, char** argv)
         }
         printf("%s\n", dev.lin.msg.c_str());
         rc = dev.lin.fitted ? 0 : 4;
+    } else if (tpl_build) {
+        dev.queue(tpl::commands(tr));
+        dev.queue({ "-tplok" });
+        bool save = false;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--save") == 0) save = true;
+        if (save) dev.queue({ "-save" });
+        while (dev.queue_busy()) pump(dev, 0.05);
+        printf("загрузка эталона: ошибок %d%s%s\n", dev.queue_errors, dev.queue_errors ? " — " : "", dev.queue_last_err.c_str());
+        printf("ответ: %s\n", dev.last_reply.c_str());
+        rc = dev.queue_errors ? 5 : 0;
+    } else if (sub == "tpl" && argc >= 3 && std::string(argv[2]) == "collect") {
+        int n = atoi(opt(argc, argv, "--n", "2000").c_str());
+        std::string out = opt(argc, argv, "--out");
+        if (out.empty()) { printf("нужен --out raw.bin\n"); dev.disconnect(); return 1; }
+        dev.raw_start(n);
+        size_t shown = 0;
+        while (dev.raw.running) {
+            pump(dev, 0.1);
+            if (dev.raw.blocks.size() >= shown + 100) { shown = dev.raw.blocks.size(); printf("  порций %zu/%d, сбоев %d\n", shown, n, dev.raw.bad); fflush(stdout); }
+        }
+        FILE* f = fopen(out.c_str(), "wb");
+        if (!f) { printf("не открыть %s\n", out.c_str()); rc = 3; }
+        else {
+            for (auto& b : dev.raw.blocks) fwrite(b.data(), 2, b.size(), f);
+            fclose(f);
+            printf("%s -> %s\n", dev.raw.msg.c_str(), out.c_str());
+        }
     } else if (sub == "cmd") {
         std::string c = opt(argc, argv, "--send");
         if (c.empty()) { printf("нужен --send \"...\"\n"); dev.disconnect(); return 1; }

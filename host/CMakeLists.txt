@@ -53,7 +53,8 @@ set(GAMMA_CORE
   src/cli.cpp
   src/device.cpp
   src/shproto.cpp
-  src/serial_win.cpp)
+  src/serial_win.cpp
+  src/tpl_learn.cpp)
 
 # gammapult.exe — двойной режим. Без подкоманды → GUI; с подкомандой → CLI.
 # WINDOWS subsystem (GUI без мерцания); CLI-путь цепляется к родительской консоли.
