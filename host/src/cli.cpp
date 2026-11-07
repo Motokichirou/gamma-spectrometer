@@ -11,6 +11,8 @@
 //   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
 #include "device.h"
 #include "tpl_learn.h"
+#include "fwflash.h"
+#include "peakfit.h"
 #include "host_app.h"
 #include <cstdio>
 #include <cstring>
@@ -53,6 +55,8 @@ static void usage()
            "  gammapult acquire --port COMx --seconds N [--out file.csv]\n"
            "  gammapult lin     --port COMx [--codes \"50 100 200 400 600 800 1000 1200 1350\"] [--n 10000] [--period 100]\n"
            "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
+           "  gammapult bootinfo --port COMx            (загрузчик: ID МК, опции; только чтение)\n"
+           "  gammapult flash   --port COMx [--bin file.bin] [--no-dbank-fix]   (прошить; без --bin — встроенная)\n"
            "  gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
@@ -68,6 +72,26 @@ int run_cli(int argc, char** argv)
 
     if (sub == "list") {
         for (auto& p : serialport::enumerate()) printf("%s\n", p.c_str());
+        return 0;
+    }
+
+    if (sub == "fit" && argc >= 3) {          // подгонка пика по CSV channel,count — без прибора
+        FILE* f = fopen(argv[2], "r");
+        if (!f) { printf("не открыть %s\n", argv[2]); return 2; }
+        static uint32_t sp[Device::CHANNELS] = { 0 };
+        char line[128]; int ch; unsigned v;
+        while (fgets(line, sizeof line, f)) if (sscanf(line, "%d,%u", &ch, &v) == 2 && ch >= 0 && ch < Device::CHANNELS) sp[ch] = v;
+        fclose(f);
+        int lo = atoi(opt(argc, argv, "--lo", "300").c_str()), hi = atoi(opt(argc, argv, "--hi", "7000").c_str());
+        peakfit::Result r = peakfit::fit(sp, Device::CHANNELS, lo, hi);
+        if (!r.ok) { printf("пик не найден\n"); return 4; }
+        printf("пик %.2f  σ %.2f  FWHM %.3f ± %.3f %%\n", r.peak, r.sigma, r.fwhm_pct, r.fwhm_err);
+        return 0;
+    }
+    if (sub == "calenc" && argc >= 7) {       // E = c0 + c1·x + … → команды -cal (формат BecqMoni)
+        double c[5]; for (int i = 0; i < 5; i++) c[i] = atof(argv[2 + i]);
+        char cmds[11][40]; peakfit::becq_cal_commands(c, cmds);
+        for (auto& s : cmds) printf("%s\n", s);
         return 0;
     }
 
@@ -99,6 +123,28 @@ int run_cli(int argc, char** argv)
 
     std::string port = opt(argc, argv, "--port");
     if (port.empty()) { printf("нужен --port COMx\n"); return 1; }
+
+    // загрузчик МК — без сессии shproto (порт открывает сам)
+    auto clog = [](const std::string& m) { printf("  %s\n", m.c_str()); fflush(stdout); };
+    if (sub == "bootinfo") {
+        fwflash::Info in; std::string err;
+        bool ok = fwflash::info(port, in, clog, err);
+        if (!ok) printf("ошибка: %s\n", err.c_str());
+        return ok ? 0 : 6;
+    }
+    if (sub == "flash") {
+        std::vector<uint8_t> img; std::string tag, err;
+        std::string bin = opt(argc, argv, "--bin");
+        if (!bin.empty()) { if (!fwflash::load_file(bin, img, err)) { printf("ошибка: %s\n", err.c_str()); return 2; } tag = bin; }
+        else if (!fwflash::embedded(img, tag)) { printf("встроенного образа нет — укажи --bin\n"); return 2; }
+        printf("образ: %s, %zu байт\n", tag.c_str(), img.size());
+        bool fix = true;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--no-dbank-fix") == 0) fix = false;
+        int last = -1;
+        bool ok = fwflash::flash(port, img, fix, clog, [&](double f) { int p = (int)(f * 20); if (p != last) { last = p; printf("  %3d %%\r", (int)(f * 100)); fflush(stdout); } }, err);
+        printf("\n%s\n", ok ? "готово: прибор прошит и отвечает" : ("ошибка: " + err).c_str());
+        return ok ? 0 : 7;
+    }
 
     Device dev;
     if (!dev.connect(port)) { printf("не удалось открыть %s (занят BecqMoni?)\n", port.c_str()); return 2; }

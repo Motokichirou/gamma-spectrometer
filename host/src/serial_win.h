@@ -13,7 +13,7 @@ class Serial {
 public:
     ~Serial() { close(); }
 
-    bool open(const std::string& port, int baud);
+    bool open(const std::string& port, int baud, bool even_parity = false);   // 8N1 или 8E1 (загрузчик ST)
     void close();
     bool is_open() const { return handle_ != nullptr; }
 

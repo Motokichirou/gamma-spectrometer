@@ -54,7 +54,26 @@ set(GAMMA_CORE
   src/device.cpp
   src/shproto.cpp
   src/serial_win.cpp
-  src/tpl_learn.cpp)
+  src/tpl_learn.cpp
+  src/stm32boot.cpp
+  src/fwflash.cpp
+  src/peakfit.cpp)
+
+# Встроенный образ прошивки gamma_fw (для прошивки голого прибора из пульта). Собирается заранее:
+# firmware/gamma_fw/build.sh. Нет файла — пульт шьёт только из выбранного .bin.
+set(GAMMA_FW_BIN "${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/gamma_fw.bin" CACHE FILEPATH "образ прошивки для встраивания")
+find_package(Git QUIET)
+set(GAMMA_FW_TAG "")
+if(GIT_FOUND)
+  execute_process(COMMAND ${GIT_EXECUTABLE} -C ${CMAKE_SOURCE_DIR}/.. log -1 --format=%h_%cs -- firmware/gamma_fw/src
+                  OUTPUT_VARIABLE GAMMA_FW_TAG OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/gen/fw_embed.h
+  COMMAND ${CMAKE_COMMAND} -DFW_BIN=${GAMMA_FW_BIN} -DFW_TAG=gamma_fw_${GAMMA_FW_TAG} -DOUT=${CMAKE_BINARY_DIR}/gen/fw_embed.h -P ${CMAKE_SOURCE_DIR}/cmake/embed_fw.cmake
+  DEPENDS ${CMAKE_SOURCE_DIR}/cmake/embed_fw.cmake ${GAMMA_FW_BIN}
+  COMMENT "встраивание прошивки gamma_fw")
+add_custom_target(fw_embed DEPENDS ${CMAKE_BINARY_DIR}/gen/fw_embed.h)
 
 # gammapult.exe — двойной режим. Без подкоманды → GUI; с подкомандой → CLI.
 # WINDOWS subsystem (GUI без мерцания); CLI-путь цепляется к родительской консоли.
@@ -65,6 +84,8 @@ add_executable(gammapult WIN32
   ${GAMMA_CORE})
 target_link_libraries(gammapult PRIVATE
   imgui implot d3d11 dxgi d3dcompiler dwmapi)
+target_include_directories(gammapult PRIVATE ${CMAKE_BINARY_DIR}/gen)
+add_dependencies(gammapult fw_embed)
 if(MSVC)
   target_link_options(gammapult PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
@@ -75,4 +96,6 @@ add_executable(gammapult_com
   src/entry.cpp
   ${GAMMA_CORE})
 target_compile_definitions(gammapult_com PRIVATE GAMMAPULT_CONSOLE)
+target_include_directories(gammapult_com PRIVATE ${CMAKE_BINARY_DIR}/gen)
+add_dependencies(gammapult_com fw_embed)
 set_target_properties(gammapult_com PROPERTIES OUTPUT_NAME gammapult SUFFIX ".com")

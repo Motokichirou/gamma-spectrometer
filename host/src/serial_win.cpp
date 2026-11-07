@@ -30,7 +30,7 @@ std::vector<std::string> enumerate()
     return out;
 }
 
-bool Serial::open(const std::string& port, int baud)
+bool Serial::open(const std::string& port, int baud, bool even_parity)
 {
     close();
     std::string path = "\\\\.\\" + port;   // \\.\COMxx — работает и для COM10+
@@ -43,10 +43,10 @@ bool Serial::open(const std::string& port, int baud)
     if (!GetCommState(h, &dcb)) { CloseHandle(h); return false; }
     dcb.BaudRate = (DWORD)baud;
     dcb.ByteSize = 8;
-    dcb.Parity   = NOPARITY;
+    dcb.Parity   = even_parity ? EVENPARITY : NOPARITY;
     dcb.StopBits = ONESTOPBIT;
     dcb.fBinary  = TRUE;
-    dcb.fParity  = FALSE;
+    dcb.fParity  = even_parity ? TRUE : FALSE;
     dcb.fDtrControl = DTR_CONTROL_ENABLE;
     dcb.fRtsControl = RTS_CONTROL_ENABLE;
     if (!SetCommState(h, &dcb)) { CloseHandle(h); return false; }

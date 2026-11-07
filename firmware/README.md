@@ -11,7 +11,8 @@
   `gamma_fw.bin` рядом. Опытная сборка с ВВ до 1350 В:
   `EXTRA=-DHV_EXPERIMENT_1500 OUT=gamma_fw_hv1500 ./build.sh` (в приборе не оставлять).
 - **Тесты на ПК:** `firmware\gamma_fw\tests\run_tests.cmd`.
-- **Обновление по USB:** `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin`.
+- **Обновление по USB:** `gammapult flash --port COMx` (встроенный в пульт образ, без STM32CubeProgrammer) или
+  `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin`.
   Прошивка получает `!boot`, выключает ВВ и уходит в системный загрузчик (USART1 через FT231X).
 - **Сервис:** `python -I firmware/gamma_fw/tools/gfw.py cmd -- "-gst"`. Команды: `-diag`, `-hv <В>` / `-hv off`,
   `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`, `-noise`, `-smp`, `-opa`, `-dac`, `-osc`, `-tplw/-tplok/-tplclr`,
