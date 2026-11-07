@@ -233,7 +233,7 @@ def lin_fit(x, y):
 # ---------------- эталон формы ----------------
 TPL_NPH, TPL_NS, TPL_IPK, TPL_Q = 64, 7, 1, 14
 TPL_QMAX = 1 << TPL_Q
-TPL_H = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "core", "tpl_3467k.h")
+TPL_H = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "core", "tpl_pmt.h")   # эталон прошивки по умолчанию
 TPL_DAC_H = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "core", "tpl_dac.h")
 
 
@@ -308,7 +308,7 @@ def prep_windows(win, base, pre, clip=4090, amin=20.0):
     win = np.asarray(win, dtype=float)
     y = win - np.asarray(base, dtype=float)[:, None]
     im = np.argmax(y, axis=1)
-    ok = (im >= max(pre - 1, 2)) & (im <= pre + 6) & (im + TPL_NS < y.shape[1])
+    ok = (im >= max(pre - 1, 2)) & (im <= pre + 12) & (im + TPL_NS < y.shape[1])   # V2: пик позже триггера
     ok &= win.max(axis=1) < clip
     ok &= y[np.arange(len(y)), im] >= amin
     return y, im, ok

@@ -9,8 +9,8 @@ static void test_defaults_valid(void)
     CHECK(settings_valid(&s));
     CHECK(s.magic == SETTINGS_MAGIC && s.version == SETTINGS_VERSION);
     CHECK(s.size == sizeof(settings_t));
-    CHECK_NEAR(s.hv_mon_zero_mv, 2460.0, 1e-6);
-    CHECK_NEAR(s.hv_mon_k_mv_per_v, 1.640, 1e-6);
+    CHECK_NEAR(s.hv_mon_zero_mv, 2461.8, 1e-4);
+    CHECK_NEAR(s.hv_mon_k_mv_per_v, 1.633, 1e-6);
     CHECK_NEAR(s.hv_setpoint_v, 0.0, 1e-9);
     CHECK(s.reserved_boot == 0);
     CHECK_NEAR(s.pt_rpu_ohm, 10024.5, 1e-3);

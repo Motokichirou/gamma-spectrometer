@@ -169,7 +169,8 @@ static void test_save_failures(void)
     CHECK(!fstore_load(nor.mem, &out));                          /* недописанное не загрузится */
 
     nor_blank();
-    nor.stuck_byte = (int)offsetof(settings_t, hv_mon_zero_mv);  /* запись «прошла», а байт не тот */
+    /* запись «прошла», а байт не тот; байт с битом 0 = 0 (2461.8f = cd dc 19 45: берём dc) */
+    nor.stuck_byte = (int)offsetof(settings_t, hv_mon_zero_mv) + 1;
     CHECK(!fstore_save(&s, &ops));
     CHECK(!fstore_load(nor.mem, &out));
 

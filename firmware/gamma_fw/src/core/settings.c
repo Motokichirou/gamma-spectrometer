@@ -36,8 +36,8 @@ void settings_defaults(settings_t *s)
     s->magic = SETTINGS_MAGIC;
     s->version = SETTINGS_VERSION;
     s->size = (uint32_t)sizeof *s;
-    s->hv_mon_zero_mv = 2460.0f;
-    s->hv_mon_k_mv_per_v = 1.640f;
+    s->hv_mon_zero_mv = 2461.8f;      /* калибровка 2026-11-06 (ADC2 ×256), прибор №1 */
+    s->hv_mon_k_mv_per_v = 1.633f;
     s->hv_setpoint_v = 0.0f;
     s->pt_rpu_ohm = 10024.5f;
     s->tc_t0_c = 25.0f;

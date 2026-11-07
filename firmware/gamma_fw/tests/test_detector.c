@@ -509,7 +509,7 @@ static size_t make_poisson(double rate, int nblk, uint32_t seed, float amp_fixed
 
 static void test_budget_250k(void)
 {
-    CHECK(DET_MAX_FITS_DEF == 198);
+    CHECK(DET_MAX_FITS_DEF == 198 && DET_MAX_FITS_BOARD == 95);
     const int nblk = 22;
     size_t n = make_poisson(250000.0, nblk, 2501u, 580.0f);
     reset(DET_THR_DEF);

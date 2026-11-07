@@ -1,6 +1,6 @@
 """tpl_dac.py — эталон формы импульса тестового ЦАП (src/core/tpl_dac.h) с платы.
 
-  python -I tpl_dac.py [--code 1500] [--period 70] [--blocks 120] [--base <коды>] [--out tpl_dac.h]
+  python -I tpl_dac.py [--code 900] [--period 70] [--blocks 120] [--base <коды>] [--out tpl_dac.h]
                        [--port COM4] [--baud 600000]
 
 Серия -dac <код> 65535 <период> (перезапуск каждые 10 порций), сырые порции "-osc raw", из них —
@@ -84,7 +84,7 @@ def eq_template(y, nph=gfw.TPL_NPH, ns=gfw.TPL_NS, ipk=gfw.TPL_IPK):
 def main(argv=None):
     import numpy as np
     ap = argparse.ArgumentParser()
-    ap.add_argument("--code", type=int, default=1500)
+    ap.add_argument("--code", type=int, default=900)   # V2: ≈2.46 кода АЦП/код, 1500 насыщает
     ap.add_argument("--period", type=int, default=70)
     ap.add_argument("--blocks", type=int, default=120)
     ap.add_argument("--base", type=float, default=None)

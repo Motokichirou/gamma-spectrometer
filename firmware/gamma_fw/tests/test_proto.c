@@ -560,7 +560,7 @@ static void test_defaults_hv_on(void)
     CHECK(applied == 0);
     hv_is_on = false;
     CHECK(eq(cmd("-defaults"), "-ok defaults\r\n"));
-    CHECK(live.hv_mon_zero_mv == 2460.0f && live.thr_codes == 0);
+    CHECK(live.hv_mon_zero_mv == 2461.8f && live.thr_codes == 0);
 }
 
 /* Ревью Fable: -defaults во время набора отменяет отложенную запись — -sto не пишет умолчания во флеш */

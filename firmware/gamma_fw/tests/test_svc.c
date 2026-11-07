@@ -68,7 +68,7 @@ static void run_aux(int secs, float vref_true, float vdd, float pt_raw)
     for (int s = 0; s < secs; s++) {
         for (int t = 0; t < 100; t++) {
             now_ms += 10;
-            float m = svc_aux_10ms(&aux, mon_raw_for(0.0f, 2460.0f, 1.64f, vref_true), true, hv_enabled(&hv), now_ms);
+            float m = svc_aux_10ms(&aux, mon_raw_for(0.0f, 2461.8f, 1.633f, vref_true), true, hv_enabled(&hv), now_ms);
             hv_tick(&hv, m, aux.vdd_mv, now_ms);
         }
         svc_aux_1s(&aux, &hv, raw_for_vref(vref_true), vdd / 3.0f * 4095.0f / vref_true, pt_raw);
@@ -223,7 +223,7 @@ static void test_hv_end_to_end(void)
         CHECK(starts(svc(c), "-ok hv"));
         for (int t = 0; t < 9000; t++) {               /* 90 с */
             now_ms += 10;
-            float m = svc_aux_10ms(&aux, mon_raw_for(vout, 2460.0f, 1.64f, vref), true, hv_enabled(&hv), now_ms);
+            float m = svc_aux_10ms(&aux, mon_raw_for(vout, 2461.8f, 1.633f, vref), true, hv_enabled(&hv), now_ms);
             uint16_t d = hv_tick(&hv, m, aux.vdd_mv, now_ms);
             float cw = (float)d / 4096.0f * vdd / 1000.0f * 454.5f;
             float ratio = (targets[k] > 700.0f) ? 0.916f : 0.94f;
@@ -271,10 +271,10 @@ static void test_cmd_hvk(void)
 {
     reset();
     run_aux(2, 2500.0f, 3296.0f, 1300.0f);
-    CHECK(strcmp(svc("-hvk"), "-ok hvk 1.6400") == 0);
+    CHECK(strcmp(svc("-hvk"), "-ok hvk 1.6330") == 0);
     CHECK(strcmp(svc("-hvk 1.615"), "-ok hvk 1.6150") == 0);
     CHECK_NEAR(live.hv_mon_k_mv_per_v, 1.615, 1e-6);
-    CHECK_NEAR(hv_mon_volts(&hv, 2460.0f - 1.615f * 1000.0f), 1000.0, 0.01);
+    CHECK_NEAR(hv_mon_volts(&hv, 2461.8f - 1.615f * 1000.0f), 1000.0, 0.01);
     CHECK(strcmp(svc("-hvk 9"), "-err hvk") == 0);
     CHECK(strcmp(svc("-hvk x"), "-err hvk") == 0);
     CHECK(strcmp(svc("-hvk 1.6 2"), "-err hvk") == 0);

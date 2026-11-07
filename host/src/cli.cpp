@@ -1,15 +1,17 @@
-// cli.cpp — сервисный CLI для автоматизации (без GUI), поверх класса Device.
+// cli.cpp — сервисный CLI для автоматизации (без GUI), поверх класса Device. Прошивка gamma_fw.
 //   gammapult list
 //   gammapult info    --port COMx
-//   gammapult acquire --port COMx --seconds N [--gen spec|ra|mono|off] [--out file.csv]
-//   gammapult enc     --port COMx
-//   gammapult cmd     --port COMx --send "-inf" [--read S]
+//   gammapult gst     --port COMx
+//   gammapult acquire --port COMx --seconds N [--out file.csv]
+//   gammapult lin     --port COMx [--codes "50 100 … 1350"] [--n 10000] [--period 100]
+//   gammapult cmd     --port COMx --send "-diag" [--read S]
 #include "device.h"
 #include "host_app.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <string>
+#include <vector>
 #include <chrono>
 #include <thread>
 
@@ -38,12 +40,13 @@ static void print_rx(Device& d)
 
 static void usage()
 {
-    printf("gammapult — сервисный CLI гамма-спектрометра\n"
+    printf("gammapult — сервисный CLI гамма-спектрометра (прошивка gamma_fw)\n"
            "  gammapult list\n"
            "  gammapult info    --port COMx\n"
-           "  gammapult acquire --port COMx --seconds N [--gen spec|ra|mono|off] [--out file.csv]\n"
-           "  gammapult enc     --port COMx\n"
-           "  gammapult cmd     --port COMx --send \"-inf\" [--read S]\n");
+           "  gammapult gst     --port COMx\n"
+           "  gammapult acquire --port COMx --seconds N [--out file.csv]\n"
+           "  gammapult lin     --port COMx [--codes \"50 100 200 400 600 800 1000 1200 1350\"] [--n 10000] [--period 100]\n"
+           "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n");
 }
 
 int run_cli(int argc, char** argv)
@@ -62,27 +65,31 @@ int run_cli(int argc, char** argv)
     if (port.empty()) { printf("нужен --port COMx\n"); return 1; }
 
     Device dev;
-    if (!dev.connect(port)) { printf("не удалось открыть %s\n", port.c_str()); return 2; }
-    pump(dev, 0.8);   // идентификация (-inf/-cal)
+    if (!dev.connect(port)) { printf("не удалось открыть %s (занят BecqMoni?)\n", port.c_str()); return 2; }
+    pump(dev, 1.2);   // идентификация (-inf/-cal/-thr/-gst)
 
     int rc = 0;
     if (sub == "info") {
         printf("port: %s\n", port.c_str());
         printf("fw:   %s\n", dev.fw_info.c_str());
         printf("sn:   %s\n", dev.serial.c_str());
+        printf("thr:  %d (коды АЦП, 0 — авто)\n", dev.thr_codes);
+    } else if (sub == "gst") {
+        if (dev.gst.empty()) pump(dev, 1.5);
+        for (auto& kv : dev.gst) printf("%-10s %s\n", kv.first.c_str(), kv.second.c_str());
+        if (dev.gst.empty()) { printf("нет ответа -gst\n"); rc = 3; }
     } else if (sub == "acquire") {
         double secs = atof(opt(argc, argv, "--seconds", "5").c_str());
-        std::string gen = opt(argc, argv, "--gen");
-        if (!gen.empty()) { dev.send_cmd("-tst " + gen); pump(dev, 0.4); }
-        dev.reset_spectrum(); pump(dev, 0.2);
+        dev.stop(); dev.reset_spectrum(); pump(dev, 0.3);
         dev.start();
         printf("...набор %.1f c...\n", secs);
-        pump(dev, secs);
+        pump(dev, secs + 1.2);   // + последний полный спектр
         dev.stop(); pump(dev, 0.4);
-        if (!gen.empty() && gen != "off") { dev.send_cmd("-tst off"); pump(dev, 0.3); }
-        int pk = dev.peak_channel();
-        printf("итог: cps=%u total=%llu peak_ch=%d (=%u) invalid=%u\n",
-               dev.cps, (unsigned long long)dev.total(), pk, dev.spectrum[pk], dev.invalid);
+        double m = 0, sd = 0; uint64_t n = 0;
+        bool pk = dev.peak_stats(dev.spectrum, 30, Device::CHANNELS, m, sd, n);
+        printf("итог: cps=%u total=%llu invalid=%u", dev.cps, (unsigned long long)dev.total(), dev.invalid);
+        if (pk && m > 0) printf(" пик=%.1f σ=%.2f (≈FWHM %.2f %%)", m, sd, 235.48 * sd / m);
+        printf("\n");
         std::string out = opt(argc, argv, "--out");
         if (!out.empty()) {
             FILE* f = fopen(out.c_str(), "w");
@@ -94,12 +101,26 @@ int run_cli(int argc, char** argv)
                 printf("спектр -> %s\n", out.c_str());
             } else { printf("не открыть %s\n", out.c_str()); rc = 3; }
         }
-    } else if (sub == "enc") {
-        dev.log.clear();
-        dev.send_cmd("-tst enc");
-        printf("...ENC ~8 c...\n");
-        pump(dev, 8.0);
-        print_rx(dev);
+    } else if (sub == "lin") {
+        std::string cs = opt(argc, argv, "--codes", "50 100 200 400 600 800 1000 1200 1350");
+        std::vector<int> codes;
+        const char* p = cs.c_str();
+        while (*p) { char* e; long v = strtol(p, &e, 10); if (e == p) { p++; continue; } codes.push_back((int)v); p = e; }
+        int n = atoi(opt(argc, argv, "--n", "10000").c_str());
+        int per = atoi(opt(argc, argv, "--period", "100").c_str());
+        dev.lin_start(codes, n, per);
+        size_t shown = 0;
+        while (dev.lin.running) {
+            pump(dev, 0.05);
+            while (shown < dev.lin.pts.size()) {
+                const auto& q = dev.lin.pts[shown++];
+                if (q.ok) printf("ступенька %5d: канал %9.2f  σ %5.2f  в пике %llu из %d\n", q.code, q.ch, q.sd, (unsigned long long)q.n, n);
+                else      printf("ступенька %5d: пика нет\n", q.code);
+                fflush(stdout);
+            }
+        }
+        printf("%s\n", dev.lin.msg.c_str());
+        rc = dev.lin.fitted ? 0 : 4;
     } else if (sub == "cmd") {
         std::string c = opt(argc, argv, "--send");
         if (c.empty()) { printf("нужен --send \"...\"\n"); dev.disconnect(); return 1; }

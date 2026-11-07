@@ -34,7 +34,7 @@ Compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra via 
 | `core/hv_ctl.c` | HV control: smooth ramp-up, adjustment via HV monitor, faults |
 | `core/temp.c` | Pt1000 temperature |
 | `core/settings.c`, `core/flashstore.c`, `core/becq_cal.c` | Settings, reference and BecqMoni calibration in flash |
-| `core/dactest.c` | Self-test of the signal chain using internal DAC pulses |
+| `core/dactest.c` | Self-test of the signal chain using internal DAC pulses (step 1…1350 codes; `gfw.py lin` checks linearity) |
 | `core/tpl_pmt.h` | Pulse shape template, captured from the real chain (64 phases × 7 samples, Q14) |
 | `core/tpl_dac.h` | DAC pulse shape template for self-test |
 | `hw/*` | Clocking, ADC, OPAMPs, HV PWM, UART, flash, bootloader entry |
@@ -96,8 +96,7 @@ Service commands (response is a single line `-ok …` / `-err …`):
 ## Known Limitations
 
 - Under high load (≥5 kcps), the baseline droops, and resolution degrades slightly.
-- Pt1000 open and short circuits are not yet diagnosed.
 - Live time does not account for rejected pulses.
-- DAC self-test has not yet been recalculated for the long pulse of the current shaper.
+- The detector slow path costs ≈2700 cycles per pulse: at 30 kcps the CPU is ≈60 % busy.
 
 Details, measurements, and findings log — in [SPEC.md](../../firmware/board_g474cb/SPEC.md) (Russian).

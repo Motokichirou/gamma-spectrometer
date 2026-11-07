@@ -57,9 +57,10 @@ static void test_start_limits(void)
     CHECK(!dact_start(&d, 200, 10, DACT_PER_MAX + 1u, CLK, 45));
     CHECK(!dact_start(&d, 200, 10, 100, CLK, 0));
     /* наименьший период растёт со ступенькой: спуск по DACT_DN_MAX */
-    CHECK(dact_ndn(300) == 1 && dact_ndn(301) == 2 && dact_ndn(DACT_STEP_MAX) == 13);
+    CHECK(dact_ndn(DACT_DN_MAX) == 1 && dact_ndn(DACT_DN_MAX + 1u) == 2
+          && dact_ndn(DACT_STEP_MAX) == (DACT_STEP_MAX + DACT_DN_MAX - 1u) / DACT_DN_MAX);
     CHECK(dact_per_min(200) == DACT_PER_MIN);
-    CHECK(dact_per_min(DACT_STEP_MAX) == DACT_HOLD_US + 12u * DACT_DN_US + DACT_REST_MIN_US);
+    CHECK(dact_per_min(DACT_STEP_MAX) == DACT_HOLD_US + (dact_ndn(DACT_STEP_MAX) - 1u) * DACT_DN_US + DACT_REST_MIN_US);
     CHECK(!dact_start(&d, DACT_STEP_MAX, 10, (uint16_t)(dact_per_min(DACT_STEP_MAX) - 1u), CLK, 45));
     CHECK(!dact_busy(&d));
     CHECK(dact_start(&d, DACT_STEP_MAX, 10, DACT_PER_MAX, CLK, 57));   /* край: 16 бит хватает */
@@ -92,12 +93,12 @@ static void test_series(void)
 
     /* большая ступенька: спуск лесенкой, ни одной ступеньки больше DACT_DN_MAX */
     dact_t e = { 0 };
-    CHECK(dact_start(&e, 2700, 500, 100, CLK, 45));
-    CHECK(e.ndn == 9 && e.dn == 468u);
+    CHECK(dact_start(&e, 1300, 500, 100, CLK, 45));
+    CHECK(e.ndn == 7 && e.dn == 468u);
     run(&e);
     CHECK(R.ups == 500 && R.downs == 500 && e.done == 500);
     CHECK(R.bad_code == 0 && R.hold_bad == 0 && R.dn_bad == 0 && R.nonmono == 0);
-    CHECK(R.max_dstep <= DACT_DN_MAX && R.max_dstep >= 2700u / 9u);
+    CHECK(R.max_dstep <= DACT_DN_MAX && R.max_dstep >= 1300u / 7u);
     CHECK(R.min_ticks == 468u);
     per = (double)(R.t_up[499] - R.t_up[0]) / 499.0;
     CHECK_NEAR(per, 15600.0 + 22.0, 4.0);
@@ -166,18 +167,18 @@ static void test_cmd(void)
     CHECK(st_calls == 1);
     CHECK(dact_handle(&ctx, "-dac off", r, sizeof r) && strcmp(r, "-ok dac off done=7") == 0);
     CHECK(stop_calls == 1 && !st_busy);
-    CHECK(dact_handle(&ctx, "-dac  1600 \t 500  250 ", r, sizeof r));
-    CHECK(strcmp(r, "-ok dac step=1600 n=500 period=250") == 0 && st_per == 250);
+    CHECK(dact_handle(&ctx, "-dac  1200 \t 500  250 ", r, sizeof r));
+    CHECK(strcmp(r, "-ok dac step=1200 n=500 period=250") == 0 && st_per == 250);
     st_busy = 0;
-    const char *bad[] = { "-dac 0 10", "-dac 3696 10", "-dac 200", "-dac 200 0", "-dac 200 65536",
+    const char *bad[] = { "-dac 0 10", "-dac 1351 10", "-dac 200", "-dac 200 0", "-dac 200 65536",
                           "-dac 200 10 44", "-dac 200 10 801", "-dac 200 10 100 5", "-dac a b",
                           "-dac -5 10", "-dac 200 1e3", "-dac offx" };
     for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
         CHECK(dact_handle(&ctx, bad[i], r, sizeof r));
-        CHECK(strncmp(r, "-err dac <1..3695>", 18) == 0);
+        CHECK(strncmp(r, "-err dac <1..1350>", 18) == 0);
     }
     CHECK(st_calls == 2);
-    CHECK(dact_handle(&ctx, "-dac 3000 10 50", r, sizeof r) && strcmp(r, "-err dac period>=72") == 0);
+    CHECK(dact_handle(&ctx, "-dac 1300 10 50", r, sizeof r) && strcmp(r, "-err dac period>=63") == 0);
     CHECK(st_calls == 2);
     st_fail = 1;
     CHECK(dact_handle(&ctx, "-dac 200 10", r, sizeof r) && strcmp(r, "-err dac") == 0);

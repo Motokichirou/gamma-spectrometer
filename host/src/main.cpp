@@ -1,6 +1,7 @@
-// main.cpp — GUI-режим gammapult: диагностический пульт гамма-спектрометра.
+// main.cpp — GUI-режим gammapult: сервисный пульт гамма-спектрометра (прошивка firmware/gamma_fw).
 // Win32 + DirectX 11 + Dear ImGui + ImPlot. Единый .exe без зависимостей.
-// Раздвижные панели: связь, телеметрия, калибровка, живой спектр, консоль, самотест.
+// Раздвижные панели: подключение, телеметрия (-gst), высокое напряжение, живой спектр, консоль,
+// сервис (самотест ЦАП, калибровки монитора ВВ и Pt1000, настройки). Энергокалибровка — в BecqMoni.
 
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -11,8 +12,10 @@
 #include <tchar.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <cmath>
 #include <vector>
+#include <string>
 
 #include "device.h"
 #include "theme.h"
@@ -38,36 +41,26 @@ static int    g_port_sel = 0;
 static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
 static bool   g_open_help = false;
-static float  gLeftW = 300.0f, gRightW = 340.0f, gConnH = 276.0f, gConsoleH = 190.0f;
-static float  gTeleH = 230.0f;
-
-// калибровка энергий (канал → кэВ)
-struct CalPoint { double energy = 0.0; double channel = 0.0; bool has_ch = false; };
-struct Isotope  { const char* name; int n; double e[8]; };
-static const Isotope ISOTOPES[] = {
-    { "— нет —", 0, { 0 } },
-    { "Am-241",  1, { 59.5 } },
-    { "Cs-137",  1, { 661.7 } },
-    { "Co-60",   2, { 1173.2, 1332.5 } },
-    { "Lu-176",  3, { 88.0, 201.8, 306.8 } },
-    { "Ra-226",  8, { 46.5, 186.2, 242.0, 295.2, 351.9, 609.3, 1120.3, 1764.5 } },
-    { "Th-232",  5, { 238.6, 338.3, 583.2, 911.2, 2614.5 } },
-};
-static const int N_ISO = (int)(sizeof(ISOTOPES) / sizeof(ISOTOPES[0]));
-static std::vector<CalPoint> g_cal;
-static bool   g_calib_active = false;
-static int    g_cal_isotope  = 0;
-static bool   g_cal_fitted   = false;
-static int    g_cal_order    = 2;       // степень полинома 1..4 (как PolynomialOrder в BecqMoni)
-static bool   g_cal_valid    = false;   // прошла ли проверка монотонности (BecqMoni CheckCalibration)
-static double g_cal_c[5]     = { 0, 0, 0, 0, 0 };   // c0..c4: E = Σ cᵢ·chⁱ (сырые каналы)
-static double g_cal_maxres   = 0.0;
-static bool   g_sel_active   = false;
-static double g_sel_x0 = 0.0, g_sel_x1 = 0.0;
-static int    g_view_lo = 0, g_view_hi = Device::CHANNELS;   // окно отображаемых каналов
-static bool   g_view_apply = false;
+static float  gLeftW = 330.0f, gRightW = 380.0f, gConnH = 245.0f, gConsoleH = 200.0f;
+static float  gTeleH = 285.0f;
 static float  g_spec_x[Device::CHANNELS];
 static float  g_spec_y[Device::CHANNELS];
+
+// ВВ
+static int    g_hv_set = 750;
+static bool   g_hv_confirm = false;            // открыть подтверждение включения ВВ
+// самотест ЦАП
+static char   g_lin_codes[128] = "50 100 200 400 600 800 1000 1200 1350";
+static int    g_lin_n = 10000, g_lin_period = 100;
+// калибровки
+static float  g_mon_meas_v = 0.0f;             // ВВ по мультиметру, В
+static float  g_mon_rec_mv = 0.0f;             // запомненное показание монитора, мВ
+static float  g_mon_rec_set = 0.0f;
+static float  g_mon_k_new = 0.0f;
+static float  g_pt_ref = 25.0f;
+// настройки
+static int    g_thr = 0;
+static int    g_pga = 4;
 
 // ================= помощники UI =================
 
@@ -138,8 +131,6 @@ static bool BeginPanel(const char* id, ImVec2 pos, ImVec2 size)
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-// Раздвижной разделитель: тонкое окно поверх стыка панелей. Возвращает дельту
-// перетаскивания (по X для вертикального, по Y для горизонтального).
 static float Splitter(const char* id, ImVec2 pos, ImVec2 size, bool vertical)
 {
     ImGui::SetNextWindowPos(pos);
@@ -178,87 +169,19 @@ static ImVec4 StateColor()
     return c_text_dim;
 }
 
-// Центр пика в диапазоне каналов [cx0..cx1]: вычитаем линейный фон по краям,
-// берём взвешенный центроид → суб-канальный центр.
-static double FindCentroid(double cx0, double cx1)
+// строка «подпись — значение» моноширинным
+static void KV(const char* k, const char* v, const ImVec4* col = nullptr)
 {
-    int a = (int)floor(cx0 < cx1 ? cx0 : cx1);
-    int b = (int)ceil (cx0 < cx1 ? cx1 : cx0);
-    if (a < 0) a = 0;
-    if (b > Device::CHANNELS - 1) b = Device::CHANNELS - 1;
-    if (b <= a) return (double)a;
-    double bg0 = (double)g_dev.spectrum[a], bg1 = (double)g_dev.spectrum[b];
-    double num = 0, den = 0;
-    for (int i = a; i <= b; i++) {
-        double bg = bg0 + (bg1 - bg0) * (double)(i - a) / (double)(b - a);
-        double w = (double)g_dev.spectrum[i] - bg;
-        if (w < 0) w = 0;
-        num += (double)i * w; den += w;
-    }
-    return den > 0 ? num / den : (double)(a + b) / 2.0;
+    Caption(k);
+    ImGui::SameLine(130);
+    ImGui::PushFont(theme::font_mono);
+    if (col) ImGui::PushStyleColor(ImGuiCol_Text, *col);
+    ImGui::TextUnformatted(v);
+    if (col) ImGui::PopStyleColor();
+    ImGui::PopFont();
 }
 
-// Проверка валидности (порт BecqMoni CheckCalibration): энергия должна монотонно
-// возрастать по каналам 0..N и лежать в пределах [-1000, 100000] кэВ.
-static bool CheckCalibration()
-{
-    double prev = -1.0e18;
-    for (int ch = 0; ch <= Device::CHANNELS; ch++) {
-        double d = (double)ch;
-        double e = g_cal_c[0] + d * (g_cal_c[1] + d * (g_cal_c[2] + d * (g_cal_c[3] + d * g_cal_c[4])));
-        if (e <= -1000.0 || e >= 100000.0) return false;
-        if (ch > 0 && e < prev) return false;
-        prev = e;
-    }
-    return true;
-}
-
-// МНК-фит полинома выбранной степени E(ch)=Σcᵢ·chⁱ. Фитим в нормированной
-// переменной xn=ch/CHANNELS (обусловленность), затем cᵢ = aᵢ / CHANNELSⁱ.
-static void FitCalibration()
-{
-    double X[16], Y[16]; int n = 0;
-    for (auto& p : g_cal)
-        if (p.has_ch && p.energy > 0 && n < 16) { X[n] = p.channel; Y[n] = p.energy; n++; }
-    g_cal_fitted = false;
-    if (n < 2) return;
-
-    int deg = g_cal_order; if (deg > n - 1) deg = n - 1; if (deg < 1) deg = 1;
-    int m = deg + 1;
-    const double S = (double)Device::CHANNELS;
-    double A[5][6];
-    for (int r = 0; r < m; r++) { for (int c = 0; c <= m; c++) A[r][c] = 0; }
-    for (int k = 0; k < n; k++) {
-        double xn = X[k] / S, pw[5]; pw[0] = 1;
-        for (int j = 1; j < m; j++) pw[j] = pw[j - 1] * xn;
-        for (int r = 0; r < m; r++) {
-            for (int c = 0; c < m; c++) A[r][c] += pw[r] * pw[c];
-            A[r][m] += pw[r] * Y[k];
-        }
-    }
-    for (int col = 0; col < m; col++) {                 // Гаусс с выбором ведущего
-        int piv = col;
-        for (int r = col + 1; r < m; r++) if (fabs(A[r][col]) > fabs(A[piv][col])) piv = r;
-        for (int c = 0; c <= m; c++) { double t = A[col][c]; A[col][c] = A[piv][c]; A[piv][c] = t; }
-        if (fabs(A[col][col]) < 1e-12) return;
-        for (int r = 0; r < m; r++) if (r != col) {
-            double f = A[r][col] / A[col][col];
-            for (int c = col; c <= m; c++) A[r][c] -= f * A[col][c];
-        }
-    }
-    for (int i = 0; i < 5; i++) g_cal_c[i] = 0;
-    for (int i = 0; i < m; i++) g_cal_c[i] = (A[i][m] / A[i][i]) / pow(S, (double)i);
-
-    g_cal_maxres = 0;
-    for (auto& p : g_cal) if (p.has_ch && p.energy > 0) {
-        double ch = p.channel;
-        double e = g_cal_c[0] + ch * (g_cal_c[1] + ch * (g_cal_c[2] + ch * (g_cal_c[3] + ch * g_cal_c[4])));
-        double d = fabs(e - p.energy);
-        if (d > g_cal_maxres) g_cal_maxres = d;
-    }
-    g_cal_fitted = true;
-    g_cal_valid  = CheckCalibration();
-}
+static bool Busy() { return g_dev.lin.running || g_dev.hvp.running; }
 
 // ================= панели =================
 
@@ -275,8 +198,7 @@ static void PanelConnection(ImVec2 pos, ImVec2 size)
     if (g_port_sel >= (int)g_dev.ports.size()) g_port_sel = 0;
     ImGui::BeginDisabled(busy);
     ImGui::SetNextItemWidth(-1);
-    const char* prev = g_dev.ports.empty() ? "(нет портов)"
-                                           : g_dev.ports[g_port_sel].c_str();
+    const char* prev = g_dev.ports.empty() ? "(нет портов)" : g_dev.ports[g_port_sel].c_str();
     if (ImGui::BeginCombo("##port", prev)) {
         for (int i = 0; i < (int)g_dev.ports.size(); i++)
             if (ImGui::Selectable(g_dev.ports[i].c_str(), i == g_port_sel))
@@ -284,49 +206,37 @@ static void PanelConnection(ImVec2 pos, ImVec2 size)
         ImGui::EndCombo();
     }
     ImGui::EndDisabled();
-
-    Caption("Скорость");
-    ImGui::SameLine();
-    ImGui::PushFont(font_mono); ImGui::TextUnformatted("600000"); ImGui::PopFont();
-    ImGui::SameLine(); Caption("бод · 8N1");
     ImGui::Spacing();
 
-    if (g_dev.state == Device::State::Disconnected || g_dev.state == Device::State::Error) {
+    if (!busy) {
         if (PrimaryButton("Подключить", ImVec2(-1, 26)) && !g_dev.ports.empty())
             g_dev.connect(g_dev.ports[g_port_sel]);
-        if (ImGui::Button("Обновить порты", ImVec2(-1, 0)))
+        if (ImGui::Button("Обновить порты", ImVec2(-1, 0))) {
             g_dev.refresh_ports();
-    } else {
-        if (!g_dev.acquiring) {
-            if (PrimaryButton("Старт набора (-sta)", ImVec2(-1, 26)))
-                g_dev.start();
-        } else {
-            if (DangerButton("Стоп набора (-sto)", ImVec2(-1, 26)))
-                g_dev.stop();
+            if (!g_dev.ports.empty()) g_port_sel = (int)g_dev.ports.size() - 1;
         }
-        if (ImGui::Button("Сброс спектра (-rst)", ImVec2(-1, 0)))
-            g_dev.reset_spectrum();
-        if (DangerButton("Отключить", ImVec2(-1, 0)))
-            g_dev.disconnect();
+    } else {
+        ImGui::BeginDisabled(Busy());
+        if (!g_dev.acquiring) {
+            if (PrimaryButton("Старт набора (-sta)", ImVec2(-1, 26))) g_dev.start();
+        } else {
+            if (DangerButton("Стоп набора (-sto)", ImVec2(-1, 26))) g_dev.stop();
+        }
+        if (ImGui::Button("Сброс спектра (-rst)", ImVec2(-1, 0))) g_dev.reset_spectrum();
+        ImGui::EndDisabled();
+        if (DangerButton("Отключить", ImVec2(-1, 0))) g_dev.disconnect();
     }
 
     ImGui::Separator();
     StatusDot(StateColor());
-    ImGui::TextUnformatted(g_dev.status_text.c_str());
+    ImGui::TextWrapped("%s", g_dev.status_text.c_str());
     ImGui::Separator();
 
-    Caption("Серийник");
-    ImGui::PushFont(font_mono);
-    ImGui::PushStyleColor(ImGuiCol_Text, c_accent);
-    ImGui::TextUnformatted(g_dev.serial.empty() ? "—" : g_dev.serial.c_str());
-    ImGui::PopStyleColor(); ImGui::PopFont();
-
+    KV("Серийник", g_dev.serial.empty() ? "—" : g_dev.serial.c_str(), &c_accent);
     Caption("Прошивка");
     ImGui::PushFont(font_mono);
-    ImGui::PushStyleColor(ImGuiCol_Text, c_text_strong);
     ImGui::TextWrapped("%s", g_dev.fw_info.empty() ? "—" : g_dev.fw_info.c_str());
-    ImGui::PopStyleColor(); ImGui::PopFont();
-
+    ImGui::PopFont();
     ImGui::End();
 }
 
@@ -334,52 +244,125 @@ static void PanelTelemetry(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##tele", pos, size);
-    PanelHeader("СТАТУС / ТЕЛЕМЕТРИЯ");
+    PanelHeader("ТЕЛЕМЕТРИЯ (-gst)");
 
-    Caption("Время набора");
     char tb[16];
     uint32_t s = g_dev.elapsed_s;
     snprintf(tb, sizeof(tb), "%02u:%02u:%02u", s / 3600, (s / 60) % 60, s % 60);
     ImGui::PushFont(font_mono_time); ImGui::TextUnformatted(tb); ImGui::PopFont();
-    ImGui::Spacing();
-
-    Caption("Скорость счёта, cps");
+    ImGui::SameLine();
     char cb[24]; snprintf(cb, sizeof(cb), "%u", g_dev.cps);
     ImGui::PushFont(font_mono_big);
     ImGui::PushStyleColor(ImGuiCol_Text, g_dev.acquiring ? c_accent : c_text_strong);
+    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(cb).x - 50);
     ImGui::TextUnformatted(cb);
     ImGui::PopStyleColor(); ImGui::PopFont();
-    ImGui::Spacing();
+    ImGui::SameLine(); Caption("cps");
+    ImGui::Separator();
 
-    Caption("Отбраковано"); ImGui::SameLine();
-    char ib[24]; snprintf(ib, sizeof(ib), "%u", g_dev.invalid);
-    ImGui::PushFont(font_mono);
-    ImGui::PushStyleColor(ImGuiCol_Text, c_warn); ImGui::TextUnformatted(ib);
-    ImGui::PopStyleColor(); ImGui::PopFont();
+    if (g_dev.gst.empty()) {
+        ImGui::TextDisabled(g_dev.connected() ? "жду -gst…" : "нет связи");
+        ImGui::End();
+        return;
+    }
+    char b[96];
+    bool hv = g_dev.hv_on();
+    snprintf(b, sizeof b, "%s  %.0f В (уставка %.0f)", hv ? "ВКЛ" : "выкл",
+             fabs(g_dev.gnum("hv_out")), g_dev.gnum("hv_set"));
+    KV("ВВ", b, hv ? &c_danger : nullptr);
+    std::string trip = g_dev.gstr("hv_trip", "-");
+    if (trip != "-") KV("Авария ВВ", trip.c_str(), &c_danger);
 
-    Caption("Суммарный счёт"); ImGui::SameLine();
-    char sb[32]; snprintf(sb, sizeof(sb), "%llu", (unsigned long long)g_dev.total());
-    ImGui::PushFont(font_mono); ImGui::TextUnformatted(sb); ImGui::PopFont();
+    std::string pt = g_dev.gstr("pt", "-");
+    if (pt == "ok") snprintf(b, sizeof b, "%.2f °C", g_dev.gnum("t"));
+    else            snprintf(b, sizeof b, "датчик: %s", pt.c_str());
+    KV("Температура", b, pt == "ok" ? nullptr : &c_warn);
 
-    ImGui::Spacing(); ImGui::Separator();
-    if (g_dev.acquiring) {
-        StatusDot(c_accent);
-        ImGui::PushStyleColor(ImGuiCol_Text, c_accent);
-        ImGui::TextUnformatted("ИДЁТ НАБОР");
+    snprintf(b, sizeof b, "%.1f кодов, σ %.2f", g_dev.gnum("base"), g_dev.gnum("sigma"));
+    KV("База / шум", b);
+    snprintf(b, sizeof b, "вход %.0f  принято %.0f  брак %.0f", g_dev.gnum("cps_in"), g_dev.gnum("cps_acc"), g_dev.gnum("rej"));
+    KV("Импульсы/с", b);
+    snprintf(b, sizeof b, "%.0f кодов%s", g_dev.gnum("thr"), g_dev.thr_codes == 0 ? " (авто 5σ)" : "");
+    KV("Порог", b);
+    snprintf(b, sizeof b, "%.1f / %.1f с", g_dev.gnum("live_s"), g_dev.gnum("real_s"));
+    KV("Живое / реальное", b);
+    snprintf(b, sizeof b, "%.1f %%  потери %.0f  переполн. %.0f", g_dev.gnum("cpu"), g_dev.gnum("lost"), g_dev.gnum("overrun"));
+    KV("ЦП", b);
+    bool vok = g_dev.gnum("vref_ok", 0) > 0.5;
+    snprintf(b, sizeof b, "%.1f мВ %s", g_dev.gnum("vref"), vok ? "норма" : "ВНЕ НОРМЫ");
+    KV("Опора", b, vok ? nullptr : &c_danger);
+    std::string fl = g_dev.gstr("flash");
+    KV("Флеш", fl.c_str(), fl == "ok" ? nullptr : &c_warn);
+    if (g_dev.gst_age() > 3) { ImGui::PushStyleColor(ImGuiCol_Text, c_warn); ImGui::TextUnformatted("телеметрия устарела"); ImGui::PopStyleColor(); }
+    ImGui::End();
+}
+
+static void PanelHV(ImVec2 pos, ImVec2 size)
+{
+    using namespace theme;
+    BeginPanel("##hv", pos, size);
+    PanelHeader("ВЫСОКОЕ НАПРЯЖЕНИЕ");
+    bool conn = g_dev.connected();
+    bool hv = g_dev.hv_on();
+
+    if (hv) {
+        StatusDot(c_danger);
+        ImGui::PushStyleColor(ImGuiCol_Text, c_danger);
+        ImGui::Text("ВВ ВКЛЮЧЕНО: %.0f В", fabs(g_dev.gnum("hv_out")));
         ImGui::PopStyleColor();
     } else {
-        StatusDot(c_text_dim); Caption("Набор остановлен");
+        StatusDot(c_ok); ImGui::TextUnformatted("ВВ выключено");
+    }
+    ImGui::BeginDisabled(!conn);
+    if (DangerButton("ВЫКЛЮЧИТЬ ВВ", ImVec2(-1, 28))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
+    ImGui::SetNextItemWidth(90);
+    ImGui::InputInt("В##hvset", &g_hv_set, 10, 50);
+    if (g_hv_set < 0) g_hv_set = 0;
+    if (g_hv_set > 1200) g_hv_set = 1200;
+    ImGui::SameLine();
+    ImGui::BeginDisabled(Busy());
+    if (PrimaryButton(hv ? "Установить" : "Включить…")) {
+        if (hv) { char c[32]; snprintf(c, sizeof c, "-hv %d", g_hv_set); g_dev.send_cmd(c); }
+        else g_hv_confirm = true;
+    }
+    ImGui::EndDisabled();
+    ImGui::EndDisabled();
+    if (g_hv_confirm) { ImGui::OpenPopup("Включить ВВ?"); g_hv_confirm = false; }
+    if (ImGui::BeginPopupModal("Включить ВВ?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Подать %d В на ФЭУ?", g_hv_set);
+        ImGui::TextDisabled("Стек должен быть собран, ФЭУ в темноте, щупы убраны.");
+        if (PrimaryButton("Включить", ImVec2(120, 0))) {
+            char c[32]; snprintf(c, sizeof c, "-hv %d", g_hv_set); g_dev.send_cmd(c);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Отмена", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 
+    ImGui::Spacing();
     ImGui::Separator();
-    Caption("Порог детектора, каналов:");
-    ImGui::SetNextItemWidth(72);
-    ImGui::InputInt("##thr", &g_dev.threshold_ch, 0, 0);
-    ImGui::SameLine();
-    if (ImGui::Button("Применить##thr")) {
-        char c[24]; snprintf(c, sizeof(c), "-thr %d", g_dev.threshold_ch);
-        g_dev.send_cmd(c);
-    }
+    Caption("Подстройка ВВ по пику (источник на месте)");
+    Device::HvPeak& h = g_dev.hvp;
+    float f;
+    ImGui::BeginDisabled(h.running);
+    ImGui::SetNextItemWidth(80); f = (float)h.target; if (ImGui::InputFloat("цель, канал", &f, 0, 0, "%.0f")) h.target = f;
+    ImGui::SetNextItemWidth(60); f = (float)h.lo; if (ImGui::InputFloat("##lo", &f, 0, 0, "%.0f")) h.lo = f;
+    ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
+    ImGui::SetNextItemWidth(60); f = (float)h.hi; if (ImGui::InputFloat("окно пика", &f, 0, 0, "%.0f")) h.hi = f;
+    ImGui::SetNextItemWidth(60); f = (float)h.secs; if (ImGui::InputFloat("набор, с", &f, 0, 0, "%.0f")) h.secs = f < 5 ? 5 : f;
+    ImGui::SetNextItemWidth(60); f = (float)h.gain_exp; if (ImGui::InputFloat("показатель усиления", &f, 0, 0, "%.1f")) h.gain_exp = f < 2 ? 2 : f;
+    ImGui::EndDisabled();
+    ImGui::BeginDisabled(!conn || g_dev.lin.running);
+    if (!h.running) {
+        if (PrimaryButton("Подстроить", ImVec2(-1, 0))) {
+            double v0 = hv ? fabs(g_dev.gnum("hv_set")) : g_hv_set;
+            g_dev.hvp_start(v0);
+        }
+    } else if (ImGui::Button("Прервать подстройку", ImVec2(-1, 0))) g_dev.hvp_abort();
+    ImGui::EndDisabled();
+    if (!h.msg.empty()) ImGui::TextWrapped("%s", h.msg.c_str());
+    for (auto& p : h.hist) ImGui::TextDisabled("%.0f В → пик %.1f", p.first, p.second);
     ImGui::End();
 }
 
@@ -393,7 +376,6 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     ImGui::TextUnformatted("СПЕКТР");
     ImGui::PopStyleColor(); ImGui::PopFont();
 
-    // сегмент Лин/Лог справа
     float rx = ImGui::GetWindowWidth() - 8 - 88;
     ImGui::SameLine(rx);
     auto seg = [&](const char* lbl, bool active) {
@@ -410,9 +392,14 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     if (seg("Лог", g_log_scale)) g_log_scale = true;
     ImGui::Separator();
 
-    char st[128];
-    snprintf(st, sizeof(st), "Σ %llu    пик %d",
-             (unsigned long long)g_dev.total(), g_dev.peak_channel());
+    char st[160];
+    double m = 0, sd = 0; uint64_t n = 0;
+    int pk = g_dev.peak_channel(30);
+    if (g_dev.peak_stats(g_dev.spectrum, 30, Device::CHANNELS, m, sd, n) && m > 0)
+        snprintf(st, sizeof(st), "Σ %llu    пик %.1f   FWHM %.2f %% (по окну ±4σ, грубо)",
+                 (unsigned long long)g_dev.total(), m, 235.48 * sd / m);
+    else
+        snprintf(st, sizeof(st), "Σ %llu    пик %d", (unsigned long long)g_dev.total(), pk);
     ImGui::PushFont(font_mono);
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
     ImGui::TextUnformatted(st);
@@ -424,68 +411,29 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     }
 
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    // в режиме калибровки ЛКМ свободна под выделение (пан уводим на среднюю кнопку)
-    ImPlot::GetInputMap().Pan = g_calib_active ? ImGuiMouseButton_Middle : ImGuiMouseButton_Left;
+    ImPlot::GetInputMap().Pan = ImGuiMouseButton_Left;
     if (ImPlot::BeginPlot("##plot", avail,
                           ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-        // X — навигация мышью (колесо/перетаскивание). Y — авто-подгон под данные,
-        // поэтому спектр виден и в линейном, и в лог-масштабе.
-        // Shift: колесо масштабирует Y (X на это время фиксируется).
         bool shift = ImGui::GetIO().KeyShift;
         ImPlot::SetupAxis(ImAxis_X1, "канал", shift ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None);
         ImPlot::SetupAxis(ImAxis_Y1, "счёт",  shift ? ImPlotAxisFlags_None : ImPlotAxisFlags_AutoFit);
         if (g_log_scale) ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
-        // нельзя уехать за пределы данных: X в [0..8192], Y не ниже нуля
         ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, (double)Device::CHANNELS);
         ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, g_log_scale ? 0.1 : 0.0, 1.0e12);
-        if (g_view_apply) {            // одноразово выставить окно каналов (дальше можно зумить колесом)
-            int lo = g_view_lo < 0 ? 0 : g_view_lo;
-            int hi = g_view_hi > Device::CHANNELS ? Device::CHANNELS : g_view_hi;
-            if (hi <= lo) hi = lo + 1;
-            ImPlot::SetupAxisLimits(ImAxis_X1, lo, hi, ImPlotCond_Always);
-            g_view_apply = false;
-        } else {
-            ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
-        }
+        ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
         ImPlot::PushStyleColor(ImPlotCol_Line, c_trace);
         ImPlot::PlotLine("спектр", g_spec_x, g_spec_y, Device::CHANNELS);
         ImPlot::PopStyleColor();
-
-        if (g_calib_active) {
-            ImPlotRect lim = ImPlot::GetPlotLimits();
-            if (ImPlot::IsPlotHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                g_sel_active = true;
-                g_sel_x0 = g_sel_x1 = ImPlot::GetPlotMousePos().x;
-            }
-            if (g_sel_active && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-                g_sel_x1 = ImPlot::GetPlotMousePos().x;
-            if (g_sel_active && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                g_sel_active = false;
-                if (fabs(g_sel_x1 - g_sel_x0) >= 2.0) {
-                    double c = FindCentroid(g_sel_x0, g_sel_x1);
-                    int tgt = -1;
-                    for (int i = 0; i < (int)g_cal.size(); i++)
-                        if (!g_cal[i].has_ch) { tgt = i; break; }
-                    if (tgt < 0) { g_cal.push_back(CalPoint{}); tgt = (int)g_cal.size() - 1; }
-                    g_cal[tgt].channel = c; g_cal[tgt].has_ch = true;
-                    g_cal_fitted = false;
-                }
-            }
-            ImPlot::PushPlotClipRect();
-            ImDrawList* dl = ImPlot::GetPlotDrawList();
-            if (g_sel_active) {
-                double a = g_sel_x0 < g_sel_x1 ? g_sel_x0 : g_sel_x1;
-                double b = g_sel_x0 < g_sel_x1 ? g_sel_x1 : g_sel_x0;
-                ImVec2 p0 = ImPlot::PlotToPixels(a, lim.Y.Max);
-                ImVec2 p1 = ImPlot::PlotToPixels(b, lim.Y.Min);
-                dl->AddRectFilled(p0, p1, U32(c_accent_sel));
-            }
-            for (size_t i = 0; i < g_cal.size(); i++) if (g_cal[i].has_ch) {
-                ImVec2 t   = ImPlot::PlotToPixels(g_cal[i].channel, lim.Y.Max);
-                ImVec2 btm = ImPlot::PlotToPixels(g_cal[i].channel, lim.Y.Min);
-                dl->AddLine(t, btm, U32(c_cursor), 1.0f);
-            }
-            ImPlot::PopPlotClipRect();
+        const Device::HvPeak& h = g_dev.hvp;
+        if (h.running || h.done) {           // окно и цель подстройки ВВ
+            double xs[2] = { h.lo, h.hi };
+            ImPlot::PushStyleColor(ImPlotCol_Line, c_accent_line);
+            ImPlot::PlotInfLines("окно", xs, 2);
+            ImPlot::PopStyleColor();
+            double tg[1] = { h.target };
+            ImPlot::PushStyleColor(ImPlotCol_Line, c_cursor);
+            ImPlot::PlotInfLines("цель", tg, 1);
+            ImPlot::PopStyleColor();
         }
         ImPlot::EndPlot();
     }
@@ -498,8 +446,7 @@ static void PanelConsole(ImVec2 pos, ImVec2 size)
     BeginPanel("##con", pos, size);
     PanelHeader("КОНСОЛЬ · shproto");
 
-    const char* chips[] = { "-sta", "-sto", "-rst", "-inf", "-cal",
-                            "-tst spec", "-tst ra", "-tst off", "-tst enc" };
+    const char* chips[] = { "-sta", "-sto", "-rst", "-inf", "-gst", "-diag", "-hv", "-thr", "-opa", "-noise" };
     ImGui::PushFont(font_small);
     for (int i = 0; i < (int)(sizeof(chips) / sizeof(chips[0])); i++) {
         if (i) ImGui::SameLine();
@@ -537,114 +484,177 @@ static void PanelConsole(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void PanelSelftest(ImVec2 pos, ImVec2 size)
+static void TabSelftest()
 {
     using namespace theme;
-    BeginPanel("##enc", pos, size);
-    PanelHeader("САМОТЕСТ · ENC");
-
-    bool conn = (g_dev.state == Device::State::Connected ||
-                 g_dev.state == Device::State::Acquiring);
-    ImGui::BeginDisabled(!conn);
-    if (PrimaryButton("Прогон ENC", ImVec2(-1, 26))) {
-        g_dev.enc = Device::EncResult{};
-        g_dev.enc.running = true;
-        g_dev.send_cmd("-tst enc");
-    }
+    Device::LinRun& L = g_dev.lin;
+    bool conn = g_dev.connected();
+    Caption("Ступеньки ЦАП, коды (1…1350):");
+    ImGui::SetNextItemWidth(-1);
+    ImGui::BeginDisabled(L.running);
+    ImGui::InputText("##codes", g_lin_codes, sizeof g_lin_codes);
+    ImGui::SetNextItemWidth(80); ImGui::InputInt("импульсов", &g_lin_n, 0, 0);
+    ImGui::SetNextItemWidth(80); ImGui::InputInt("период, мкс", &g_lin_period, 0, 0);
     ImGui::EndDisabled();
-
-    Caption("Тест-генератор");
-    if (ImGui::Button("spec"))  g_dev.send_cmd("-tst spec");
-    ImGui::SameLine(); if (ImGui::Button("ra"))   g_dev.send_cmd("-tst ra");
-    ImGui::SameLine(); if (ImGui::Button("off"))  g_dev.send_cmd("-tst off");
-    ImGui::SameLine(); if (ImGui::Button("stat")) g_dev.send_cmd("-tst stat");
-    ImGui::Separator();
-
-    const Device::EncResult& e = g_dev.enc;
-    if (e.running) {
-        ImGui::PushStyleColor(ImGuiCol_Text, c_accent);
-        ImGui::TextUnformatted("идёт прогон ~6 c…");
+    if (g_lin_n < 100) g_lin_n = 100;
+    if (g_lin_period < 45) g_lin_period = 45;
+    ImGui::BeginDisabled(!conn || g_dev.hvp.running);
+    if (!L.running) {
+        if (PrimaryButton("Прогон линейности", ImVec2(-1, 26))) {
+            std::vector<int> codes;
+            const char* p = g_lin_codes;
+            while (*p) {
+                char* e; long v = strtol(p, &e, 10);
+                if (e == p) { p++; continue; }
+                if (v >= 1 && v <= 1350) codes.push_back((int)v);
+                p = e;
+            }
+            g_dev.lin_start(codes, g_lin_n, g_lin_period);
+        }
+    } else if (DangerButton("Прервать", ImVec2(-1, 26))) g_dev.lin_abort();
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Без ВВ. Набор спектра на время прогона занят.");
+    if (!L.msg.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, L.fitted ? c_ok : c_text);
+        ImGui::TextWrapped("%s", L.msg.c_str());
         ImGui::PopStyleColor();
     }
-
-    if (ImGui::BeginTable("enc", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+    if (ImGui::BeginTable("lin", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
         ImGui::PushFont(font_small);
-        ImGui::TableSetupColumn("Ампл.");
-        ImGui::TableSetupColumn("Центроид");
-        ImGui::TableSetupColumn("σ");
-        ImGui::TableSetupColumn("FWHM %");
+        ImGui::TableSetupColumn("код"); ImGui::TableSetupColumn("канал");
+        ImGui::TableSetupColumn("σ");   ImGui::TableSetupColumn("в пике");
         ImGui::TableHeadersRow();
         ImGui::PopFont();
         ImGui::PushFont(font_mono);
-        int rows = e.valid ? e.n : 5;
-        for (int i = 0; i < rows; i++) {
+        for (auto& p : L.pts) {
             ImGui::TableNextRow();
-            if (e.valid) {
-                const Device::EncPoint& p = e.pts[i];
-                ImGui::TableSetColumnIndex(0); ImGui::Text("%d", p.amp);
-                ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", p.ch);
-                ImGui::TableSetColumnIndex(2); ImGui::Text("%.2f", p.sig);
-                ImGui::TableSetColumnIndex(3);
-                ImGui::Text("%.2f", p.ch > 0 ? 100.0f * p.fwhm / p.ch : 0.0f);
-            } else {
-                for (int c = 0; c < 4; c++) { ImGui::TableSetColumnIndex(c); ImGui::TextDisabled("—"); }
-            }
+            ImGui::TableSetColumnIndex(0); ImGui::Text("%d", p.code);
+            ImGui::TableSetColumnIndex(1); if (p.ok) ImGui::Text("%.2f", p.ch); else ImGui::TextDisabled("нет пика");
+            ImGui::TableSetColumnIndex(2); if (p.ok) ImGui::Text("%.2f", p.sd);
+            ImGui::TableSetColumnIndex(3); if (p.ok) ImGui::Text("%llu", (unsigned long long)p.n);
         }
         ImGui::PopFont();
         ImGui::EndTable();
     }
-
-    ImGui::PushFont(font_mono);
-    if (e.valid) {
-        ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
-        ImGui::Text("k=%.4f ch/code", e.k);
-        ImGui::PopStyleColor();
-        ImGui::Text("INL=%.3f%%FS   R²=%.4f", e.inl, e.r2);
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-        ImGui::TextUnformatted("k = —   INL = —   R² = —");
-        ImGui::PopStyleColor();
-    }
-    ImGui::PopFont();
-
-    if (e.valid && e.n >= 2) {
-        static float ax[8], cy[8], fy[8], lx[2], ly[2];
-        for (int i = 0; i < e.n; i++) {
-            ax[i] = (float)e.pts[i].amp;
-            cy[i] = e.pts[i].ch;
-            fy[i] = e.pts[i].ch > 0 ? 100.0f * e.pts[i].fwhm / e.pts[i].ch : 0.0f;
+    if (L.fitted) {
+        static std::vector<float> ax, ay, ar;
+        ax.clear(); ay.clear(); ar.clear();
+        for (auto& p : L.pts) if (p.ok) {
+            ax.push_back((float)p.code); ay.push_back((float)p.ch);
+            ar.push_back((float)((p.ch - (L.k * p.code + L.b)) / p.ch * 100.0));
         }
-        lx[0] = ax[0]; lx[1] = ax[e.n - 1];
-        ly[0] = e.k * lx[0] + e.b; ly[1] = e.k * lx[1] + e.b;
-
-        ImGui::Spacing();
-        Caption("Линейность: центроид vs код");
-        if (ImPlot::BeginPlot("##lin", ImVec2(-1, 130),
-                              ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-            ImPlot::SetupAxes("код", "канал");
-            ImPlot::PushStyleColor(ImPlotCol_Line, c_accent);
-            ImPlot::PlotLine("фит", lx, ly, 2);
-            ImPlot::PopStyleColor();
+        Caption("Отклонение от прямой, %");
+        if (ImPlot::BeginPlot("##linres", ImVec2(-1, 140), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            ImPlot::SetupAxes("код", "%", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
             ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_trace2, 1.0f, c_trace2);
-            ImPlot::PlotScatter("точки", ax, cy, e.n);
+            ImPlot::PlotLine("откл", ax.data(), ar.data(), (int)ax.size());
             ImPlot::EndPlot();
         }
-        Caption("FWHM, % vs код");
-        if (ImPlot::BeginPlot("##fwhm", ImVec2(-1, 130),
-                              ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-            ImPlot::SetupAxes("код", "FWHM %");
-            ImPlot::PushStyleColor(ImPlotCol_Line, c_warn);
-            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, c_warn, 1.0f, c_warn);
-            ImPlot::PlotLine("fwhm", ax, fy, e.n);
-            ImPlot::PopStyleColor();
-            ImPlot::EndPlot();
+    }
+}
+
+static void TabCalib()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    bool hv = g_dev.hv_on();
+    char b[96];
+
+    Caption("Монитор ВВ");
+    snprintf(b, sizeof b, "ноль %.1f мВ, k %.4f мВ/В", g_dev.gnum("hv_zero"), g_dev.gnum("hv_k"));
+    ImGui::PushFont(font_mono); ImGui::TextUnformatted(b); ImGui::PopFont();
+    ImGui::TextDisabled("Ноль: ВВ выкл. ≥ 2 мин (умножитель разрядился).");
+    ImGui::BeginDisabled(!conn || hv);
+    if (ImGui::Button("Записать ноль (-hvzero)", ImVec2(-1, 0))) g_dev.send_cmd("-hvzero");
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Коэффициент: при ВВ ВКЛ измерь выход мультиметром");
+    ImGui::TextDisabled("(делитель ≥1 ГОм), введи и запомни показание;");
+    ImGui::TextDisabled("затем выключи ВВ и запиши k.");
+    ImGui::SetNextItemWidth(90); ImGui::InputFloat("В по мультиметру", &g_mon_meas_v, 0, 0, "%.1f");
+    ImGui::BeginDisabled(!conn || !hv || g_mon_meas_v < 100);
+    if (ImGui::Button("Запомнить показание монитора", ImVec2(-1, 0))) {
+        g_mon_rec_mv = (float)g_dev.gnum("mon_mv");
+        g_mon_rec_set = (float)g_dev.gnum("hv_set");
+        double zero = g_dev.gnum("hv_zero");
+        g_mon_k_new = (float)((zero - g_mon_rec_mv) / g_mon_meas_v);
+    }
+    ImGui::EndDisabled();
+    if (g_mon_k_new > 0) {
+        snprintf(b, sizeof b, "монитор %.1f мВ при %.0f В ⇒ k = %.4f", g_mon_rec_mv, g_mon_meas_v, g_mon_k_new);
+        ImGui::TextUnformatted(b);
+        ImGui::BeginDisabled(!conn || hv || g_mon_k_new < 0.5f || g_mon_k_new > 5.0f);
+        snprintf(b, sizeof b, "Записать k = %.4f (-hvk)", g_mon_k_new);
+        if (PrimaryButton(b, ImVec2(-1, 0))) {
+            char c[48]; snprintf(c, sizeof c, "-hvk %.4f", g_mon_k_new); g_dev.send_cmd(c);
         }
-    } else if (!e.running) {
-        ImGui::Spacing();
-        ImGui::TextDisabled("Нажми «Прогон ENC» — таблица и");
-        ImGui::TextDisabled("графики заполнятся (~6 c).");
+        ImGui::EndDisabled();
     }
 
+    ImGui::Spacing(); ImGui::Separator();
+    Caption("Pt1000");
+    snprintf(b, sizeof b, "%s, R_pu %.1f Ом, raw %.1f", g_dev.gstr("pt").c_str(), g_dev.gnum("pt_rpu"), g_dev.gnum("pt_raw"));
+    ImGui::PushFont(font_mono); ImGui::TextUnformatted(b); ImGui::PopFont();
+    ImGui::SetNextItemWidth(80); ImGui::InputFloat("°C эталон", &g_pt_ref, 0, 0, "%.2f");
+    ImGui::BeginDisabled(!conn || g_pt_ref < 0 || g_pt_ref > 60);
+    if (ImGui::Button("Калибровать по эталону (-ptcal)", ImVec2(-1, 0))) {
+        char c[48]; snprintf(c, sizeof c, "-ptcal %.2f", g_pt_ref); g_dev.send_cmd(c);
+    }
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Эталон — термометр на корпусе кристалла после выдержки.");
+    ImGui::TextDisabled("Калибровки действуют сразу; во флеш — «Сохранить».");
+}
+
+static void TabSettings()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    Caption("Порог детектора, коды АЦП (0 — авто 5σ)");
+    ImGui::SetNextItemWidth(80); ImGui::InputInt("##thr", &g_thr, 0, 0);
+    if (g_thr < 0) g_thr = 0;
+    if (g_thr > 1000) g_thr = 1000;
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!conn);
+    if (ImGui::Button("Применить##thr")) { char c[24]; snprintf(c, sizeof c, "-thr %d", g_thr); g_dev.send_cmd(c); g_dev.send_cmd("-thr"); }
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Сейчас: %s", g_dev.thr_codes < 0 ? "—" : g_dev.thr_codes == 0 ? "авто" : std::to_string(g_dev.thr_codes).c_str());
+
+    ImGui::Spacing();
+    Caption("Усиление PGA (только вне набора, во флеш не пишется)");
+    const char* pg[] = { "×2", "×4 (штатно)", "×8", "×16" };
+    const int pv[] = { 2, 4, 8, 16 };
+    int sel = g_pga == 2 ? 0 : g_pga == 8 ? 2 : g_pga == 16 ? 3 : 1;
+    ImGui::SetNextItemWidth(140);
+    if (ImGui::Combo("##pga", &sel, pg, 4)) g_pga = pv[sel];
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!conn || g_dev.acquiring);
+    if (ImGui::Button("Применить##pga")) { char c[24]; snprintf(c, sizeof c, "-opa pga %d", g_pga); g_dev.send_cmd(c); }
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Эталон формы снят на ×4 — для спектрометрии оставлять ×4.");
+
+    ImGui::Spacing(); ImGui::Separator();
+    ImGui::BeginDisabled(!conn);
+    if (PrimaryButton("Сохранить во флеш (-save)", ImVec2(-1, 26))) g_dev.send_cmd("-save");
+    if (ImGui::Button("Проверка тракта (-diag)", ImVec2(-1, 0))) g_dev.send_cmd("-diag");
+    if (ImGui::Button("Шум базы (-noise)", ImVec2(-1, 0))) g_dev.send_cmd("-noise");
+    ImGui::EndDisabled();
+    ImGui::BeginDisabled(!conn || g_dev.hv_on());
+    if (DangerButton("Умолчания (-defaults, до -save — в ОЗУ)", ImVec2(-1, 0))) g_dev.send_cmd("-defaults");
+    ImGui::EndDisabled();
+    ImGui::Spacing();
+    ImGui::TextDisabled("Последний ответ:");
+    ImGui::PushFont(font_mono); ImGui::TextWrapped("%s", g_dev.last_reply.c_str()); ImGui::PopFont();
+}
+
+static void PanelService(ImVec2 pos, ImVec2 size)
+{
+    BeginPanel("##svc", pos, size);
+    PanelHeader("СЕРВИС");
+    if (ImGui::BeginTabBar("##svctabs")) {
+        if (ImGui::BeginTabItem("Самотест ЦАП")) { TabSelftest(); ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Калибровки"))   { TabCalib();    ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Настройки"))    { TabSettings(); ImGui::EndTabItem(); }
+        ImGui::EndTabBar();
+    }
     ImGui::End();
 }
 
@@ -662,25 +672,17 @@ static void MenuBar()
             g_dev.connect(g_dev.ports[g_port_sel]);
         if (ImGui::MenuItem("Отключить", nullptr, false, dis))
             g_dev.disconnect();
+        ImGui::Separator();
+        if (ImGui::MenuItem("Выключить ВВ", nullptr, false, g_dev.connected())) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Вид")) {
         ImGui::MenuItem("Лог-шкала спектра", nullptr, &g_log_scale);
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Самотест")) {
-        if (ImGui::MenuItem("Прогон ENC")) g_dev.send_cmd("-tst enc");
-        ImGui::EndMenu();
-    }
     if (ImGui::MenuItem("Справка")) g_open_help = true;
-    if (ImGui::MenuItem("Калибровка энергий", nullptr, g_calib_active)) {
-        g_calib_active = !g_calib_active;
-        if (g_calib_active) g_dev.stop();
-    }
-    ImGui::BeginMenu("Высокое напряжение", false);
-    ImGui::BeginMenu("Термокалибровка", false);
 
-    const char* hint = "shproto · 600000 8N1 · v0.1";
+    const char* hint = "gamma_fw · shproto 600000 8N1 · v0.2";
     ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(hint).x - 14);
     ImGui::TextDisabled("%s", hint);
     ImGui::EndMainMenuBar();
@@ -700,12 +702,17 @@ static void StatusBar(ImVec2 pos, ImVec2 size)
     ImGui::PushFont(font_mono);
     char buf[256];
     if (g_dev.acquiring)
-        snprintf(buf, sizeof(buf), "ИДЁТ НАБОР   t=%us   cps=%u   Σ=%llu   drop=%u",
+        snprintf(buf, sizeof(buf), "ИДЁТ НАБОР   t=%us   cps=%u   Σ=%llu   брак=%u",
                  g_dev.elapsed_s, g_dev.cps, (unsigned long long)g_dev.total(), g_dev.invalid);
     else
         snprintf(buf, sizeof(buf), "%s", g_dev.state_str());
     ImGui::TextUnformatted(buf);
-
+    if (g_dev.hv_on()) {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, c_danger);
+        ImGui::Text("   ВВ %.0f В", fabs(g_dev.gnum("hv_out")));
+        ImGui::PopStyleColor();
+    }
     char right[64];
     snprintf(right, sizeof(right), "%s   600000 8N1",
              g_dev.port_name.empty() ? "—" : g_dev.port_name.c_str());
@@ -716,145 +723,6 @@ static void StatusBar(ImVec2 pos, ImVec2 size)
     ImGui::PopFont();
     ImGui::End();
     ImGui::PopStyleVar();
-}
-
-static void PanelCalibration(ImVec2 pos, ImVec2 size)
-{
-    using namespace theme;
-    BeginPanel("##calib", pos, size);
-    PanelHeader("КАЛИБРОВКА ЭНЕРГИЙ");
-
-    if (g_calib_active) {
-        ImGui::PushStyleColor(ImGuiCol_Button, c_accent);
-        ImGui::PushStyleColor(ImGuiCol_Text, c_white);
-        if (ImGui::Button("Калибровка энергий: ВКЛ", ImVec2(-1, 24))) g_calib_active = false;
-        ImGui::PopStyleColor(2);
-        Caption("ЛКМ по спектру: выдели пик → центр в таблицу");
-    } else {
-        if (ImGui::Button("Калибровка энергий: выкл", ImVec2(-1, 24))) {
-            g_calib_active = true;
-            g_dev.stop();   // замораживаем спектр (авто -sto)
-        }
-    }
-
-    ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("##iso", ISOTOPES[g_cal_isotope].name)) {
-        for (int i = 0; i < N_ISO; i++)
-            if (ImGui::Selectable(ISOTOPES[i].name, i == g_cal_isotope)) {
-                g_cal_isotope = i;
-                if (i > 0) {                 // предзаполнить энергии изотопа
-                    g_cal.clear();
-                    for (int j = 0; j < ISOTOPES[i].n; j++) {
-                        CalPoint p; p.energy = ISOTOPES[i].e[j]; g_cal.push_back(p);
-                    }
-                    g_cal_fitted = false;
-                }
-            }
-        ImGui::EndCombo();
-    }
-
-    // окно отображаемых каналов — зум в нужную область спектра
-    Caption("Окно каналов (вид):");
-    ImGui::SetNextItemWidth(64);
-    ImGui::InputInt("##vlo", &g_view_lo, 0, 0);
-    ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
-    ImGui::SetNextItemWidth(64);
-    ImGui::InputInt("##vhi", &g_view_hi, 0, 0);
-    if (ImGui::SmallButton("Показать окно")) g_view_apply = true;
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Весь спектр")) { g_view_lo = 0; g_view_hi = Device::CHANNELS; g_view_apply = true; }
-
-    if (ImGui::BeginTable("cal", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                          ImGuiTableFlags_ScrollY,
-                          ImVec2(0, ImGui::GetFrameHeightWithSpacing() * 6.0f))) {
-        ImGui::PushFont(font_small);
-        ImGui::TableSetupColumn("кэВ");
-        ImGui::TableSetupColumn("канал");
-        ImGui::TableSetupColumn("ост.");
-        ImGui::TableSetupColumn("");
-        ImGui::TableHeadersRow();
-        ImGui::PopFont();
-        ImGui::PushFont(font_mono);
-        int to_remove = -1;
-        for (int i = 0; i < (int)g_cal.size(); i++) {
-            ImGui::TableNextRow();
-            ImGui::PushID(i);
-            ImGui::TableSetColumnIndex(0);
-            ImGui::SetNextItemWidth(-1);
-            float e = (float)g_cal[i].energy;
-            if (ImGui::InputFloat("##e", &e, 0.0f, 0.0f, "%.1f")) {
-                g_cal[i].energy = e; g_cal_fitted = false;
-            }
-            ImGui::TableSetColumnIndex(1);
-            if (g_cal[i].has_ch) ImGui::Text("%.1f", g_cal[i].channel);
-            else                 ImGui::TextDisabled("—");
-            ImGui::TableSetColumnIndex(2);
-            if (g_cal_fitted && g_cal[i].has_ch && g_cal[i].energy > 0) {
-                double ch = g_cal[i].channel;
-                double ef = g_cal_c[0] + ch * (g_cal_c[1] + ch * (g_cal_c[2] + ch * (g_cal_c[3] + ch * g_cal_c[4])));
-                ImGui::Text("%+.1f", ef - g_cal[i].energy);
-            } else ImGui::TextDisabled("—");
-            ImGui::TableSetColumnIndex(3);
-            if (ImGui::SmallButton("x")) to_remove = i;
-            ImGui::PopID();
-        }
-        ImGui::PopFont();
-        ImGui::EndTable();
-        if (to_remove >= 0) { g_cal.erase(g_cal.begin() + to_remove); g_cal_fitted = false; }
-    }
-
-    ImGui::SetNextItemWidth(150);
-    const char* orders[] = { "1 — линейный", "2 — квадратичный", "3 — кубический", "4 — 4-й порядок" };
-    int oi = g_cal_order - 1;
-    if (ImGui::Combo("Порядок", &oi, orders, 4)) { g_cal_order = oi + 1; g_cal_fitted = false; }
-
-    if (PrimaryButton("Выполнить калибровку")) FitCalibration();
-    ImGui::SameLine();
-    if (ImGui::Button("Очистить")) { g_cal.clear(); g_cal_fitted = false; }
-
-    ImGui::PushFont(font_mono);
-    if (g_cal_fitted) {
-        ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
-        ImGui::Text("a=%.3e b=%.3e", g_cal_c[4], g_cal_c[3]);
-        ImGui::Text("c=%.3e d=%.4f", g_cal_c[2], g_cal_c[1]);
-        ImGui::Text("e=%.3f  ост.макс=%.2f кэВ", g_cal_c[0], g_cal_maxres);
-        ImGui::PopStyleColor();
-    } else {
-        int usable = 0;
-        for (auto& p : g_cal) if (p.has_ch && p.energy > 0) usable++;
-        ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-        if (usable < 2) ImGui::TextWrapped("E = a·x⁴+b·x³+c·x²+d·x+e\nнужно ≥ 2 точки (канал + кэВ)");
-        else            ImGui::TextUnformatted("нажми «Выполнить калибровку»");
-        ImGui::PopStyleColor();
-    }
-    ImGui::PopFont();
-
-    if (g_cal_fitted) {
-        if (g_cal_valid) {
-            ImGui::PushStyleColor(ImGuiCol_Text, c_ok);
-            ImGui::TextUnformatted("калибровка валидна (монотонна)");
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Text, c_danger);
-            ImGui::TextWrapped("НЕ валидна: немонотонна — понизь порядок или добавь точки");
-        }
-        ImGui::PopStyleColor();
-    }
-
-    bool can_write = g_cal_fitted && g_cal_valid &&
-                     (g_dev.state == Device::State::Connected ||
-                      g_dev.state == Device::State::Acquiring);
-    ImGui::BeginDisabled(!can_write);
-    if (ImGui::Button("Записать в прибор", ImVec2(-1, 0))) {
-        char c[220];
-        int o = snprintf(c, sizeof c, "-wcal %d", g_cal_order);
-        for (int i = 0; i <= g_cal_order && i < 5; i++)
-            o += snprintf(c + o, sizeof(c) - (size_t)o, " %.9e", g_cal_c[i]);
-        g_dev.send_cmd(c);
-        g_dev.send_cmd("-rcal");  // читаем обратно для подтверждения (в консоль)
-    }
-    ImGui::EndDisabled();
-
-    ImGui::End();
 }
 
 static void HelpSection(const char* h)
@@ -869,68 +737,51 @@ static void HelpSection(const char* h)
 
 static void DrawHelp()
 {
-    if (g_open_help) { ImGui::OpenPopup("Справка по настройке"); g_open_help = false; }
+    if (g_open_help) { ImGui::OpenPopup("Справка"); g_open_help = false; }
 
     ImVec2 c = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(710, 580), ImGuiCond_Appearing);
-    if (!ImGui::BeginPopupModal("Справка по настройке", nullptr)) return;
-
+    ImGui::SetNextWindowSize(ImVec2(720, 600), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Справка", nullptr)) return;
     ImGui::BeginChild("helpbody", ImVec2(0, -36), false);
 
-    HelpSection("1. Подключение");
+    HelpSection("Назначение");
     ImGui::TextWrapped(
-        "Подключи прибор по USB — появится виртуальный COM-порт (600000 бод, 8N1). "
-        "В панели «Подключение» нажми «Обновить порты», выбери COM и «Подключить». "
-        "При подключении пульт сам шлёт -inf и -cal — серийник и версия прошивки "
-        "появятся в полях ниже.");
-
-    HelpSection("2. Набор спектра");
+        "Сервисный пульт для настройки прибора с прошивкой gamma_fw: высокое напряжение, калибровки "
+        "монитора ВВ и Pt1000, порог, самотест тракта. Настроил — сохранил во флеш — закрыл пульт и "
+        "работаешь в BecqMoni. Энергокалибровка делается в BecqMoni (кнопка «Записать в устройство»). "
+        "Один COM-порт держит одна программа: при работе пульта закрой BecqMoni, и наоборот.");
+    HelpSection("Высокое напряжение");
     ImGui::TextWrapped(
-        "Команды/чипы: -sta старт набора, -sto стоп, -rst сброс. Гистограмма на 8192 "
-        "канала рисуется в центре; переключатель Лин/Лог меняет шкалу Y.");
-
-    HelpSection("3. Телеметрия");
+        "Включение — с подтверждением. Красная кнопка выключает ВВ сразу. Перед пайкой и щупами — "
+        "ВВ выкл и монитор < 10 В. «Подстроить» сам ведёт ВВ так, чтобы пик (например, Cs-137) встал "
+        "на заданный канал: набор → центроид в окне → новое ВВ по закону усиления V^k (k ≈ 5.3), шаг "
+        "не больше 15 %, до попадания в допуск 1 %. Окно пика ставь так, чтобы в нём был только фотопик.");
+    HelpSection("Калибровки");
     ImGui::TextWrapped(
-        "Время набора, скорость счёта (cps), доля отбракованных (наложения/шум) и "
-        "суммарный счёт. В наборе cps подсвечивается акцентом.");
-
-    HelpSection("4. Тест-генератор (диагностика без источника)");
+        "Ноль монитора — при выключенном ВВ после разряда. Коэффициент — по мультиметру с высокоомным "
+        "делителем: при включённом ВВ ввести показание и «Запомнить», затем выключить ВВ и записать k "
+        "(прошивка меняет k только при выключенном ВВ). Pt1000 — по эталонному термометру. После "
+        "калибровок — «Сохранить во флеш».");
+    HelpSection("Самотест ЦАП");
     ImGui::TextWrapped(
-        "-tst spec — встроенное распределение Cs-137; -tst mono <amp> [период_мкс] — "
-        "моно-линия; -tst off — выключить. По умолчанию генератор ВЫКЛЮЧЕН: на боевой "
-        "плате вход АЦП — реальный сигнал ФЭУ, и генератор не должен стартовать сам.");
-
-    HelpSection("5. Самотест ENC");
+        "Серия импульсов встроенного ЦАП на вход шейпера (без ВВ и источника). Для каждой ступеньки — "
+        "центроид пика; прямая канал = k·код + b, R² и отклонение. Норма: R² > 0.9999, отклонение "
+        "< 0.2 %, в пике > 99 % импульсов, k ≈ 4.93 канала на код.");
+    HelpSection("Эталон формы");
     ImGui::TextWrapped(
-        "«Прогон ENC» гоняет 5 амплитуд и считает линейность k (кан/код), INL (%FS) и "
-        "FWHM по точкам. Отчёт приходит в консоль.");
-
-    HelpSection("6. Консоль shproto");
-    ImGui::TextWrapped(
-        "Лог кадров (TX/RX), чипы быстрых команд и поле ввода. Протокол shproto — "
-        "контракт с BecqMoni, вручную его править не нужно.");
-
-    HelpSection("7. BecqMoni и порт");
-    ImGui::TextWrapped(
-        "Для повседневного просмотра спектров прибор подключается в BecqMoni (тот же COM, "
-        "shproto). Этот пульт — для наладки/диагностики/калибровки. ВАЖНО: один COM-порт "
-        "держит одна программа — при работе пульта закрой BecqMoni, и наоборот.");
-
-    HelpSection("8. Командная строка (автоматизация)");
+        "Эталон формы импульса вшит в прошивку (снят с реального тракта). Переснять под другой детектор — "
+        "firmware/gamma_fw/tools/tpl_pmt.py (collect, build --load, затем -save).");
+    HelpSection("Командная строка");
     ImGui::PushFont(theme::font_mono);
     ImGui::TextWrapped(
         "gammapult list\n"
-        "gammapult info    --port COM6\n"
-        "gammapult acquire --port COM6 --seconds 30 --gen spec --out spec.csv\n"
-        "gammapult enc     --port COM6\n"
-        "gammapult cmd     --port COM6 --send \"-inf\"");
+        "gammapult info    --port COM4\n"
+        "gammapult gst     --port COM4\n"
+        "gammapult acquire --port COM4 --seconds 60 --out spec.csv\n"
+        "gammapult lin     --port COM4 [--codes \"100 600 1300\"]\n"
+        "gammapult cmd     --port COM4 --send \"-diag\"");
     ImGui::PopFont();
-
-    HelpSection("9. Высокое напряжение / Термокалибровка");
-    ImGui::TextWrapped(
-        "В разработке. ВВ (0…−1500 В) — с явной индикацией опасности; термокалибровка — "
-        "запись спектров по температуре и расчёт компенсации усиления.");
 
     ImGui::EndChild();
     ImGui::Separator();
@@ -941,10 +792,6 @@ static void DrawHelp()
 static void DrawApp()
 {
     MenuBar();
-
-    // старт набора несовместим с калибровкой (нужен «замороженный» спектр):
-    // как только пошёл набор — снимаем режим калибровки
-    if (g_dev.acquiring && g_calib_active) g_calib_active = false;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     float menuH = ImGui::GetFrameHeight();
@@ -957,9 +804,8 @@ static void DrawApp()
     float innerX = area.x + p, innerY = area.y + p;
     float innerW = asz.x - 2 * p, innerH = asz.y - 2 * p;
 
-    // раздвижные границы — ограничения
-    gLeftW    = clampf(gLeftW, 180.0f, innerW - gRightW - 2 * g - 260.0f);
-    gRightW   = clampf(gRightW, 200.0f, innerW - gLeftW - 2 * g - 260.0f);
+    gLeftW    = clampf(gLeftW, 220.0f, innerW - gRightW - 2 * g - 260.0f);
+    gRightW   = clampf(gRightW, 260.0f, innerW - gLeftW - 2 * g - 260.0f);
     gConnH    = clampf(gConnH, 150.0f, innerH - 320.0f);
     gTeleH    = clampf(gTeleH, 120.0f, innerH - gConnH - 180.0f);
     gConsoleH = clampf(gConsoleH, 110.0f, innerH - 220.0f);
@@ -967,23 +813,22 @@ static void DrawApp()
     float leftW = gLeftW, rightW = gRightW;
     float centerW = innerW - leftW - rightW - 2 * g;
     float connH = gConnH, teleH = gTeleH;
-    float calibH = innerH - connH - teleH - 2 * g;
+    float hvH = innerH - connH - teleH - 2 * g;
     float consoleH = gConsoleH, spectrumH = innerH - consoleH - g;
     float lx = innerX, cx = innerX + leftW + g, rx = cx + centerW + g;
 
-    PanelConnection (ImVec2(lx, innerY),                         ImVec2(leftW, connH));
-    PanelTelemetry  (ImVec2(lx, innerY + connH + g),             ImVec2(leftW, teleH));
-    PanelCalibration(ImVec2(lx, innerY + connH + g + teleH + g), ImVec2(leftW, calibH));
-    PanelSpectrum   (ImVec2(cx, innerY),                         ImVec2(centerW, spectrumH));
-    PanelConsole    (ImVec2(cx, innerY + spectrumH + g),         ImVec2(centerW, consoleH));
-    PanelSelftest   (ImVec2(rx, innerY),                         ImVec2(rightW, innerH));
+    PanelConnection(ImVec2(lx, innerY),                         ImVec2(leftW, connH));
+    PanelTelemetry (ImVec2(lx, innerY + connH + g),             ImVec2(leftW, teleH));
+    PanelHV        (ImVec2(lx, innerY + connH + g + teleH + g), ImVec2(leftW, hvH));
+    PanelSpectrum  (ImVec2(cx, innerY),                         ImVec2(centerW, spectrumH));
+    PanelConsole   (ImVec2(cx, innerY + spectrumH + g),         ImVec2(centerW, consoleH));
+    PanelService   (ImVec2(rx, innerY),                         ImVec2(rightW, innerH));
 
-    // раздвижные разделители (поверх стыков панелей)
-    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),                     ImVec2(6, innerH), true);
-    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                             ImVec2(6, innerH), true);
-    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),                 ImVec2(centerW, 6), false);
-    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),                     ImVec2(leftW, 6), false);
-    gTeleH    += Splitter("##sp_tc", ImVec2(lx, innerY + connH + g + teleH + g * 0.5f - 3),         ImVec2(leftW, 6), false);
+    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),             ImVec2(6, innerH), true);
+    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                     ImVec2(6, innerH), true);
+    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),         ImVec2(centerW, 6), false);
+    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),             ImVec2(leftW, 6), false);
+    gTeleH    += Splitter("##sp_tc", ImVec2(lx, innerY + connH + g + teleH + g * 0.5f - 3), ImVec2(leftW, 6), false);
 
     StatusBar(ImVec2(vp->Pos.x, vp->Pos.y + vp->Size.y - statusH),
               ImVec2(vp->Size.x, statusH));
@@ -1000,7 +845,7 @@ int run_gui()
                        nullptr, L"gammapult", nullptr };
     ::RegisterClassExW(&wc);
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"GammaPult - service console",
-                                WS_OVERLAPPEDWINDOW, 80, 60, 1200, 760,
+                                WS_OVERLAPPEDWINDOW, 60, 40, 1440, 920,
                                 nullptr, nullptr, wc.hInstance, nullptr);
     if (!CreateDeviceD3D(hwnd)) {
         CleanupDeviceD3D();
@@ -1024,6 +869,7 @@ int run_gui()
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
     g_dev.refresh_ports();
+    if (!g_dev.ports.empty()) g_port_sel = (int)g_dev.ports.size() - 1;   // мост FT231X обычно последний
 
     bool done = false;
     while (!done && !g_quit) {

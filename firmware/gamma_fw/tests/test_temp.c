@@ -61,8 +61,10 @@ static void test_pt_faults(void)
     CHECK(pt_state(3233.0f) == PT_OK);                    /* 25 °C */
     CHECK(pt_state(2430.0f) == PT_OK);                    /* −50 °C */
     CHECK(pt_state(0.0f) == PT_SHORT);
-    CHECK(pt_state(150.0f) == PT_SHORT);                  /* < 0.05·4095 */
-    CHECK(pt_state(0.05f * 4095.0f + 1.0f) == PT_OK);
+    CHECK(pt_state(150.0f) == PT_SHORT);
+    CHECK(pt_state(1500.0f) == PT_SHORT);                 /* ≈ 450 Ом: оторванная перемычка (2026-11-07) */
+    CHECK(pt_state(PT_RAW_MIN - 1.0f) == PT_SHORT);
+    CHECK(pt_state(PT_RAW_MIN + 1.0f) == PT_OK);
     CHECK(pt_state(4090.0f) == PT_OPEN);
     volatile float zero = 0.0f;
     CHECK(pt_state(zero / zero) == PT_OPEN);

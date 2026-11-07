@@ -51,7 +51,7 @@
 #include "temp.h"
 #include "detector.h"
 #include "spectrum.h"
-#include "tpl_pmt.h"      /* умолчание: эталон с реального тракта (шейпер V2, R417 2.7k, 752 В, 2026-11-07) */
+#include "tpl_pmt.h"      /* умолчание: эталон с реального тракта (шейпер V2, R417 2.7k, ~755 В, 2026-11-07) */
 #include "tpl_dac.h"
 #include "hwcalc.h"
 #include "svc.h"
@@ -340,9 +340,9 @@ static void osc_poll(void)
 }
 
 /* ---- тестовые импульсы ЦАП (core/dactest.c) ----
- * Импульс ЦАП по форме не похож на импульс ФЭУ (ток через (R_ЦАП + R307)·C318: фронт за 1–2 отсчёта,
- * спад τ ≈ 2.3 мкс, выше порога до ≈ 50 отсчётов против 3–4; dactest.h): с эталоном ФЭУ невязка
- * ≈ 33 % (χ² — отбраковка почти всех), по ширине DET_MAXW_DEF = 16 — тоже. Поэтому на время серии
+ * Импульс ЦАП по форме не похож на импульс ФЭУ (ток через (R_ЦАП + R307)·C318, τ ≈ 1.5 мкс: фронт
+ * 11 отсчётов против 5–6 у ФЭУ, выше порога до ≈ 59 отсчётов; dactest.h): с эталоном ФЭУ χ²
+ * отбраковывал бы почти всё. Поэтому на время серии
  * детектор — в режиме самотеста: эталон tpl_dac (с платы, tools/tpl_dac.py, невязка 0.1 %),
  * max_w = DACT_MAXW, база и σ заморожены (спуск ЦАП — отрицательные импульсы, они утащили бы базу).
  * Импульсы ФЭУ, если он подключён, в это время считаются с чужим эталоном — самотест делать без
@@ -355,7 +355,7 @@ static void dac_mode_set(bool on)
     det_set_width(&det, DET_MINW_BOARD, on ? (uint8_t)DACT_MAXW : DET_MAXW_BOARD);
     det_set_base_hold(&det, on);
     /* порог: после спуска выход стоит выше замороженной базы на ≈ 0.3 % амплитуды (медленный хвост
-       тракта, τ ≈ 330 мкс; +4.5 кода при ступеньке 2000) — шум пересекал порог 7, детектор не
+       тракта, τ ≈ 330 мкс; замер до V2: +4.5 кода при ступеньке 2000) — шум пересекал порог 7, детектор не
        взводился (нужно ниже thr/2) и пропускал 18 % импульсов. В режиме ЦАП — не ниже DACT_THR. */
     if (on) { if (det_thr(&det) < DACT_THR) det_set_thr(&det, DACT_THR); }
     else det_set_thr(&det, live.thr_codes);
@@ -489,7 +489,7 @@ int main(void)
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     svc_aux_init(&aux, adc_aux_vrefint_cal());
     svc_init(&svc_ctx);
-    det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 0 };
+    det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
     det_init(&det, &cfg, tpl_now, emit);
     spectrum_clear();
     {
