@@ -5,6 +5,8 @@
 //   gammapult acquire --port COMx --seconds N [--out file.csv]
 //   gammapult lin     --port COMx [--codes "50 100 … 1350"] [--n 10000] [--period 100]
 //   gammapult cmd     --port COMx --send "-diag" [--read S]
+//   gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]
+//   gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]   (запись термокомпенсации)
 //   gammapult tpl collect --port COMx [--n 2000] --out raw.bin   (сырые порции uint16 × 8192 подряд)
 //   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
 #include "device.h"
@@ -17,6 +19,7 @@
 #include <vector>
 #include <chrono>
 #include <thread>
+#include <cmath>
 
 static std::string opt(int argc, char** argv, const char* key, const char* def = "")
 {
@@ -50,6 +53,8 @@ static void usage()
            "  gammapult acquire --port COMx --seconds N [--out file.csv]\n"
            "  gammapult lin     --port COMx [--codes \"50 100 200 400 600 800 1000 1200 1350\"] [--n 10000] [--period 100]\n"
            "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
+           "  gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]\n"
+           "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
            "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n");
 }
@@ -152,6 +157,48 @@ int run_cli(int argc, char** argv)
         }
         printf("%s\n", dev.lin.msg.c_str());
         rc = dev.lin.fitted ? 0 : 4;
+    } else if (sub == "hvpeak") {
+        double v0 = atof(opt(argc, argv, "--start", "0").c_str());
+        if (v0 < 300 || v0 > 1200) { printf("нужен --start 300…1200 В\n"); dev.disconnect(); return 1; }
+        dev.hvp.target = atof(opt(argc, argv, "--target", "1180").c_str());
+        dev.hvp.lo = atof(opt(argc, argv, "--lo", "300").c_str());
+        dev.hvp.hi = atof(opt(argc, argv, "--hi", "6000").c_str());
+        dev.hvp.secs = atof(opt(argc, argv, "--secs", "20").c_str());
+        dev.hvp_start(v0);
+        std::string last; size_t shown = 0;
+        while (dev.hvp.running) {
+            pump(dev, 0.2);
+            if (dev.hvp.msg != last) { last = dev.hvp.msg; printf("  %s\n", last.c_str()); fflush(stdout); }
+            while (shown < dev.hvp.hist.size()) { auto& h = dev.hvp.hist[shown++]; printf("  шаг %zu: %.0f В → пик %.2f\n", shown, h.first, h.second); fflush(stdout); }
+        }
+        printf("%s\n", dev.hvp.msg.c_str());
+        bool off = false;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--off") == 0) off = true;
+        if (off) { dev.send_cmd("-hv off"); pump(dev, 0.5); printf("ВВ выключено\n"); }
+        else printf("ВВ оставлено: %.0f В\n", fabs(dev.gnum("hv_set")));
+        rc = dev.hvp.done ? 0 : 4;
+    } else if (sub == "tc") {
+        dev.tc.secs = atof(opt(argc, argv, "--secs", "120").c_str());
+        dev.tc.lo = atof(opt(argc, argv, "--lo", "300").c_str());
+        dev.tc.hi = atof(opt(argc, argv, "--hi", "6000").c_str());
+        int npts = atoi(opt(argc, argv, "--points", "5").c_str());
+        dev.tc_start();
+        size_t shown = 0;
+        while (dev.tc.running && (int)dev.tc.pts.size() < npts) {
+            pump(dev, 0.2);
+            while (shown < dev.tc.pts.size()) { auto& p = dev.tc.pts[shown++]; printf("  точка %zu: %.2f °C  пик %.2f  σ %.2f  n %llu\n", shown, p.t, p.peak, p.sd, (unsigned long long)p.n); fflush(stdout); }
+        }
+        if (dev.tc.running) dev.tc_stop(true);
+        while (dev.queue_busy()) pump(dev, 0.05);
+        double k1, k2, rms, t0 = 0;
+        for (auto& p : dev.tc.pts) t0 += p.t;
+        if (!dev.tc.pts.empty()) t0 /= dev.tc.pts.size();
+        double tmn = 1e9, tmx = -1e9;
+        for (auto& p : dev.tc.pts) { if (p.t < tmn) tmn = p.t; if (p.t > tmx) tmx = p.t; }
+        if (tmx - tmn < 5) printf("внимание: размах температуры %.2f °C < 5 °C — k1 ненадёжен, нужен прогрев/остывание\n", tmx - tmn);
+        if (dev.tc_fit(t0, 1, k1, k2, rms)) printf("линейно: t0 %.2f °C, k1 = %.4e /°C (%.3f %%/°C), остаток %.3f %%\n", t0, k1, 100 * k1, rms);
+        else printf("для оценки k1 мало точек или нет разброса температуры\n");
+        printf("в приборе возвращено: %s\n", dev.tc_reply.c_str());
     } else if (tpl_build) {
         dev.queue(tpl::commands(tr));
         dev.queue({ "-tplok" });

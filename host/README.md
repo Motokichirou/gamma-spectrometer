@@ -62,6 +62,8 @@ gammapult gst     --port COM4                    # телеметрия key=valu
 gammapult acquire --port COM4 --seconds N [--out file.csv]   # набор спектра
 gammapult lin     --port COM4 [--codes "100 600 1300"] [--n 10000] [--period 100]   # самотест ЦАП
 gammapult cmd     --port COM4 --send "-diag" [--read СЕК]   # произвольная команда
+gammapult hvpeak  --port COM4 --start 700 [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]   # ВВ по пику
+gammapult tc      --port COM4 [--secs 120] [--points N]   # запись термокомпенсации (оценка k1)
 gammapult tpl collect --port COM4 [--n 2000] --out raw.bin    # сырые порции (uint16 × 8192 подряд)
 gammapult tpl build raw.bin [--out tpl.h] [--load --port COM4 [--save]]   # эталон из порций
 ```

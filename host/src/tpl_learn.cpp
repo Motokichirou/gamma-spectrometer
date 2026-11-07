@@ -100,6 +100,21 @@ static Shape interleave(const std::vector<Win>& rows)
     int nph = (int)rows.size();
     std::vector<double> S(nph * W);
     for (int j = 0; j < W; j++) for (int p = 0; p < nph; p++) S[j * nph + p] = rows[p][j];
+    {   // медиана по 5 узлам (как tpl_pmt.py): убирает одиночный выброс узла на отсчёте максимума
+        std::vector<double> m(S.size());
+        int N = (int)S.size();
+        auto pad = [&](int q) {             // np.r_[S[:2], S, S[-2:]]
+            if (q < 2) return S[q];
+            if (q < N + 2) return S[q - 2];
+            return S[q == N + 2 ? N - 2 : N - 1];
+        };
+        for (int g = 0; g < N; g++) {
+            double v[5];
+            for (int k = 0; k < 5; k++) v[k] = pad(g + k);
+            std::sort(v, v + 5); m[g] = v[2];
+        }
+        S.swap(m);
+    }
     int ip = (int)(std::max_element(S.begin(), S.end()) - S.begin());
     // полином 4-й степени по |g − ip| ≤ nph/2 (переменная нормирована на nph/2)
     double A[5][6] = {};

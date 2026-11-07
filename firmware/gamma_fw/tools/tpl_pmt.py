@@ -143,6 +143,10 @@ def interleave(rows, ipk):
     import numpy as np
     nph, W = rows.shape
     S = rows.T.reshape(-1)                          # узел 64·j + p
+    # медиана по 5 узлам (5/64 отсчёта): одиночный выброс узла — фазовая группа на отсчёте максимума,
+    # где смешались импульсы с максимумом на соседнем отсчёте (S 0.74 вместо 0.99, 2026-11-07); форму не искажает
+    Sp = np.r_[S[:2], S, S[-2:]]
+    S = np.median(np.stack([Sp[i:i + len(S)] for i in range(5)]), axis=0)
     g = np.arange(len(S), dtype=float)
     ip = int(np.argmax(S))
     m = np.abs(g - ip) <= nph // 2

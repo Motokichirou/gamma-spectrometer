@@ -446,7 +446,7 @@ void Device::hvp_tick(double now)
         hvp_abort();
         return;
     }
-    char c[64];
+    char c[256];
     switch (hvp.phase) {
     case 0:   // уставка
         snprintf(c, sizeof c, "-hv %d", (int)lround(hvp.v));
