@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/detector-NaI(Tl)%20%C3%9863%C3%9763-green" alt="Detector">
   <img src="https://img.shields.io/badge/PMT-Hamamatsu%20R1307-green" alt="PMT">
   <img src="https://img.shields.io/badge/protocol-shproto-orange" alt="Protocol">
-  <img src="https://img.shields.io/badge/status-in%20development-yellow" alt="Status">
+  <img src="https://img.shields.io/badge/status-prototype%20working-brightgreen" alt="Status">
   <img src="https://img.shields.io/badge/HW-CERN--OHL--S--2.0-lightgrey" alt="HW License">
   <img src="https://img.shields.io/badge/SW-MIT-lightgrey" alt="SW License">
 </p>
@@ -18,8 +18,8 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md) · [simulations](docs/en/simulations.md)
 
-> 🔧 **Late October 2026:** the boards are made and all components are in hand. Next step —
-> assembly and first power-up.
+> ✅ **November 2026: the instrument is assembled and works with BecqMoni.** On a temporary NaI(Tl) 40×40
+> detector — **Cs-137 6.9 % FWHM**, PMT at ~750 V. Next stage — the target NaI(Tl) Ø63×63 + R1307.
 
 ---
 
@@ -30,11 +30,11 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 | Detector | NaI(Tl) Ø63×63 mm |
 | PMT | Hamamatsu R1307 (8-stage, Ø76 mm) |
 | Energy range | 50 keV – 3.5 MeV |
-| Target FWHM @ Cs-137 | 6.0–6.5 % |
+| FWHM @ Cs-137 | **6.9 % measured** (NaI 40×40, PMT from a Sypher build); target for 63×63 — 6.0–6.5 % |
 | Spectrum channels | 8192 |
 | Count rate | up to ~30 000 cps |
-| MCU | STM32G474CBT6 (LQFP-48) @ 170 MHz, 12-bit ADC 4 Msps, on-chip op-amps |
-| HV supply | 0 … −1500 V (MAX1847 + 4-stage CW multiplier) |
+| MCU | STM32G474CBT6 (LQFP-48) @ 156 MHz, 12-bit ADC (signal at 3.47 Msps), on-chip op-amps |
+| HV supply | 0 … −1200 V, ~750 V in operation (MAX1847 + 4-stage CW multiplier) |
 | Interface | USB-C → UART 600 kbps (FT231X), shproto protocol |
 | Power | USB 5 V, ~370 mA |
 | Form factor | Cylindrical stack, Ø45 mm boards |
@@ -58,7 +58,7 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  ├─────────────────────────────────────────┤
  │  Divider board    Ø42–45 mm            │  ← Hamamatsu R1307 + NaI(Tl)
  │  R1307 divider · MMBTA42 buffers       │
- │  ADA4817-1 TIA (Zt = 499 Ω)            │
+ │  ADA4817-1 TIA (Zt = 2.7 kΩ)           │
  └─────────────────────────────────────────┘
 ```
 
@@ -75,25 +75,34 @@ Inter-board connections — no connectors:
 ```
 NaI(Tl) + R1307             Divider board                 MCU board
 ─────────────    ─────────────────────────────   ──────────────────────────────────
- Scintillation →  Divider (7.72 MΩ chain)     →  CR  (OPAMP1, τ=1 µs)
- τ_decay=230 ns   Active buffers (Dy6/7/8)        RC  (OPAMP2, τ=510 ns)
- I_anode(Cs-137)  ADA4817 TIA, Zt=499 Ω, BW≈92 MHz →  PGA ×4 (OPAMP3)
-  = 0.94 mA       V_out = +469 mV (Cs-137)        V_ADC = 0.408 V baseline
-                                                   ADC1_IN12, 4 Msps
+ Scintillation →  Divider (7.72 MΩ chain)     →  OPAMP1: integrator, τ=1 µs
+ τ_decay=230 ns   Active buffers (Dy6/7/8)        OPAMP2: integrator, τ=1.8 µs
+ PMT at ~750 V    ADA4817 TIA, Zt=2.7 kΩ       →  PGA ×4 (OPAMP3)
+                                                   V_ADC = 0.394 V baseline
+                                                   ADC3_IN1, 3.47 Msps
+                                                   pulse: 5–6-sample rise, 3.6 µs FWHM
+                                                   amplitude by shape template (64 phases)
                                                    8192-ch histogram → USB
 ```
 
-**ADC polarity:** the anode sinks current ⇒ the TIA output swings up ⇒ pulses are **positive** w.r.t. the 0.408 V baseline → `amplitude = sample − baseline`
+**ADC polarity:** the anode sinks current ⇒ the TIA output swings up ⇒ pulses are **positive** w.r.t. the 0.394 V baseline → `amplitude = sample − baseline`
 
-### Energy Calibration (simulated, G474 OPAMP model)
+### Energy Calibration (measured: NaI 40×40, ~755 V, Ra-226)
 
-| Source | Energy | ADC channel / 8192 |
-|---|---|---|
-| Am-241 | 59.5 keV | 105 |
-| Cs-137 | 662 keV | 1159 |
-| Co-60 | 1.33 MeV | 2321 |
-| Tl-208 | 2.61 MeV | 4554 |
-| Ceiling | 3.5 MeV | 6133 |
+5-point calibration in BecqMoni: `E[keV] = −6.01 + 0.5518·x + 6.63·10⁻⁶·x²` (x — channel).
+The curvature is mostly NaI light-yield non-proportionality, not the electronics.
+
+| Line | Energy | ADC channel / 8192 | Found by calibration |
+|---|---|---|---|
+| Pb-214 | 295 keV | 549 | 299 keV |
+| Pb-214 | 352 keV | 652 | 356 keV |
+| Bi-214 | 609 keV | 1102 | 610 keV |
+| Cs-137 | 662 keV | ≈1194 | — |
+| Bi-214 | 1120 keV | 1990 | 1118 keV |
+| Bi-214 | 1764 keV | 3107 | 1773 keV |
+| Ceiling | 3.5 MeV | ≈5930 | — |
+
+Peak positions are set by the HV: for another detector, Cs is placed at channel ~1160–1200 by tuning the HV.
 
 ---
 
@@ -107,7 +116,10 @@ NaI(Tl) + R1307             Divider board                 MCU board
 | PCB layout | ✅ 2 layers, 4 boards in one 187.5 × 45 mm panel, HV clearance norms 3 mm/kV in `.kicad_dru`. MCU board re-routed for LQFP-48 (October 2026) |
 | PCB fabrication | ✅ Received (PS-Electro, 1.5 mm, no silkscreen) |
 | Components | ✅ All received and checked |
-| STM32 firmware | 🚧 Stages 1–2 on Nucleo: shproto, real histogram, self-test, energy calibration in flash, amplitude by pulse-shape template. For stage 3 the ADC reference setup, 128 KB linker script and first power-up procedure are ready ([`firmware/board_g474cb/`](firmware/board_g474cb/README.md)) |
+| Assembly and first power-up | ✅ Stack assembled, flashed over UART via the system bootloader, HV under load, signal chain healthy |
+| STM32 firmware | ✅ Clean firmware [`firmware/gamma_fw/`](firmware/gamma_fw/) on the board: detector with a pulse-shape template (taken from the real chain), HV with trimming, Pt1000, settings and calibration in flash, updates over the COM port; accepted by BecqMoni. Spec and findings log — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) (Russian) |
+| Signal-chain tuning | ✅ Shaper reworked for long shaping, R417 2.7 kΩ: Cs 7.8 → 6.9 %, HV 1030 → ~750 V |
+| Target detector NaI 63×63 + R1307 | ⏭ Next stage: HV tuning, shape template, calibration |
 | Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
 | v2 — 1 000 000 cps | 🔬 Research: pile-up separation, digitising straight from the TIA — [`v2/`](v2/design.md) (Russian). v1 goes to hardware first: it is also the measurement bench for v2 |
 
@@ -132,7 +144,8 @@ gamma-spectrometer/
 ├── firmware/
 │   ├── core/                         # Portable core (shproto, DSP, histogram)
 │   ├── gamma_stage1/                 # Stages 1–2 on Nucleo-G474RE
-│   └── board_g474cb/                 # Stage-3 groundwork (target board)
+│   ├── board_g474cb/                 # Target-board bring-up, SPEC.md — spec and findings log
+│   └── gamma_fw/                     # Production firmware (build.sh, PC tests, tools/gfw.py)
 ├── host/                             # PC software `gammapult` (Win32/ImGui, GUI + CLI)
 ├── pcb/
 │   └── gamma_spectrometer/           # KiCad project (all 4 boards, panel, Gerbers)
@@ -144,19 +157,20 @@ gamma-spectrometer/
 
 ---
 
-## Noise Budget (sim3)
+## Resolution (measured, Cs-137)
 
-| Contribution | FWHM |
+| Configuration | FWHM |
 |---|---|
-| PMT R1307 + NaI(Tl) statistics | 6.3 % |
-| HV ripple (after the output RC filter — a few nV) | negligible |
-| ADC nonlinearity (12-bit, ENOB ~10.5) | 0.1 % |
-| Electronics noise (σ = 76.9 µV rms with the ADA4817 TIA) | **0.05 %** |
-| Digital processing (shape template, 30 kcps, Monte Carlo) | 0.44 % |
-| **Total** | **≈6.3 %** |
+| First chain (pulse shorter than an ADC sample), ~1040 V | 7.6–7.8 % |
+| Shaper V2 (5–6-sample rise), 1030 V | 6.99 % |
+| Shaper V2 + R417 2.7 kΩ, ~755 V | 7.1 % |
+| Same, 40×40 crystal with higher light yield, 735 V | **6.9 %** |
+| The same Sypher detector on its own electronics (in energy, keV) | 7.08 % |
 
-Electronics and processing are an order of magnitude below PMT statistics — resolution is
-limited by the crystal and PMT, not by the signal chain.
+An HV scan on the new chain decomposes as FWHM² = a² + (b/channel)²: a constant part a ≈ 7.0 %
+(crystal + PMT + processing) and electronics noise of ≈0.8 % at the Cs channel. Resolution is limited by
+the detector, not by the chain. Resolution is compared in energy only: on chains with a nonlinear scale
+the per-channel percentage looks better than it really is. Details — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) §10 (Russian).
 
 ---
 
