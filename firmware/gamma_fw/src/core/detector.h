@@ -79,7 +79,9 @@
 #define DET_NPH       64u    /* фаз эталона */
 #define DET_Q         14u    /* формат эталона Q14 */
 #define DET_COARSE    4u     /* шаг грубого поиска фазы (64/4 = 16 фаз) */
-#define DET_GUARD     16u    /* отсчётов после импульса не идут в базу (отрицательный хвост) */
+#ifndef DET_GUARD          /* отсчётов после импульса не идут в базу (хвост); плата с шейпером V2 — 40 (build.sh) */
+#define DET_GUARD     16u
+#endif
 #define DET_MAX_W     64u    /* потолок max_w */
 #define DET_BUF       (DET_IPK + DET_MAX_W + DET_NS + 2u)
 #define DET_SHAPE_EPS 0.01f  /* точность эталона относительно A (для χ²) */
@@ -92,8 +94,12 @@
 
 /* умолчания (SPEC §7.3) */
 #define DET_THR_DEF   9u     /* ≈ 5σ шума базы */
-#define DET_MINW_DEF  2u
+#define DET_MINW_DEF  2u     /* умолчание алгоритма (тесты, короткий импульс) */
 #define DET_MAXW_DEF  16u
+/* окна на плате под шейпер V2 (2026-11-07: C323 100p ∥ R305, −C315, C316 220p, R306 8.2k): фронт 5–6, FWHM 14,
+   3.5 МэВ выше порога ≈40 отсч. Задаются в main.c (det_cfg, режим ЦАП). */
+#define DET_MINW_BOARD 4u
+#define DET_MAXW_BOARD 56u
 
 /* авто-порог 5σ */
 #define DET_THR_AUTO_MIN 3u

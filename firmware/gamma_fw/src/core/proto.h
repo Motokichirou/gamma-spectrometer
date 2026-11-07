@@ -80,8 +80,8 @@
 /* -inf: мёртвое время для BecqMoni = (RISE + FALL + 1) / F. В отсчётах АЦП 3.4667 Мвыб/с:
    фронт ≈ 3, спад до thr/2 ≈ 12 (CR-RC², τ 1 мкс / 0.51 мкс) ⇒ ≈ 4.6 мкс. Уточнить на плате
    (Task 10). Живое время прибор и так считает сам (статус -gst). */
-#define PROTO_INF_RISE      3u
-#define PROTO_INF_FALL      12u
+#define PROTO_INF_RISE      6u
+#define PROTO_INF_FALL      30u
 #define PROTO_INF_FS        3466667u
 
 /* флаги для port->apply: что поменялось в live-настройках */

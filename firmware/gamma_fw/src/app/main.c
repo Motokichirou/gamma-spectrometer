@@ -51,7 +51,7 @@
 #include "temp.h"
 #include "detector.h"
 #include "spectrum.h"
-#include "tpl_3467k.h"
+#include "tpl_pmt.h"      /* умолчание: эталон с реального тракта (шейпер V2, R417 2.7k, 752 В, 2026-11-07) */
 #include "tpl_dac.h"
 #include "hwcalc.h"
 #include "svc.h"
@@ -120,7 +120,7 @@ static CCM_BSS det_cap_t osc_info[OSC_MAX];
 static bool       osc_on;
 static uint16_t   osc_n;
 static uint32_t   osc_t0;
-static const int16_t (*tpl_now)[DET_NS] = tpl_3467k;
+static const int16_t (*tpl_now)[DET_NS] = tpl_pmt;
 /* режим самотеста ЦАП: эталон tpl_dac, ширина до DACT_MAXW, база заморожена (dactest.h) */
 static bool       dac_mode;
 static uint32_t   dac_end_ms;                   /* 0 — серия идёт; иначе момент, когда кончилась */
@@ -230,7 +230,7 @@ static void p_apply(uint32_t what)
     if (what == PROTO_APPLY_ALL) hv_set_cal(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     if ((what & PROTO_APPLY_THR) && !dac_mode) det_set_thr(&det, live.thr_codes);   /* ЦАП — по окончании */
     if (what & PROTO_APPLY_TPL) {
-        tpl_now = live.tpl_valid ? (const int16_t (*)[DET_NS])live.tpl : tpl_3467k;
+        tpl_now = live.tpl_valid ? (const int16_t (*)[DET_NS])live.tpl : tpl_pmt;
         if (!dac_mode) det_set_template(&det, tpl_now);   /* в режиме ЦАП — по его окончании */
     }
 }
@@ -352,7 +352,7 @@ static void osc_poll(void)
 static void dac_mode_set(bool on)
 {
     det_set_template(&det, on ? tpl_dac : tpl_now);
-    det_set_width(&det, DET_MINW_DEF, on ? (uint8_t)DACT_MAXW : DET_MAXW_DEF);
+    det_set_width(&det, DET_MINW_BOARD, on ? (uint8_t)DACT_MAXW : DET_MAXW_BOARD);
     det_set_base_hold(&det, on);
     /* порог: после спуска выход стоит выше замороженной базы на ≈ 0.3 % амплитуды (медленный хвост
        тракта, τ ≈ 330 мкс; +4.5 кода при ступеньке 2000) — шум пересекал порог 7, детектор не
@@ -489,7 +489,7 @@ int main(void)
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     svc_aux_init(&aux, adc_aux_vrefint_cal());
     svc_init(&svc_ctx);
-    det_cfg_t cfg = { live.thr_codes, DET_MINW_DEF, DET_MAXW_DEF, 0.0f, 0 };
+    det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 0 };
     det_init(&det, &cfg, tpl_now, emit);
     spectrum_clear();
     {
