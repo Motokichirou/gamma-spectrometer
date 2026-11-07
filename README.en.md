@@ -16,7 +16,7 @@
 
 Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal and Hamamatsu R1307 PMT, with a USB-C interface compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (shproto protocol).
 
-> 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md) · [simulations](docs/en/simulations.md)
+> 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md)
 
 > ✅ **November 2026: the instrument is assembled and works with BecqMoni.** On a temporary NaI(Tl) 40×40
 > detector — **Cs-137 6.9 % FWHM**, PMT at ~750 V. Next stage — the target NaI(Tl) Ø63×63 + R1307.
@@ -51,10 +51,10 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
  │  LP5907 · AMS1117 · TPS60400 · FT231X  │
  ├─────────────────────────────────────────┤
  │  HV board         Ø45 mm               │
- │  MAX1847 · IRLML0060 · CW ×4 · −1500 V │
+ │  MAX1847 · IRLML0060 · CW ×4 · ≤−1200 V│
  ├─────────────────────────────────────────┤
  │  MCU board        Ø45 mm               │
- │  STM32G474CBT6 · CR-RC² · ADC · SPI    │
+ │  STM32G474CBT6 · shaper · ADC · SPI    │
  ├─────────────────────────────────────────┤
  │  Divider board    Ø42–45 mm            │  ← Hamamatsu R1307 + NaI(Tl)
  │  R1307 divider · MMBTA42 buffers       │
@@ -65,7 +65,7 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 Inter-board connections — no connectors:
 - **Stack bus**: Ø1.5 mm collet pins on an R20 mm arc, coaxial across all boards (44 sites:
   USB 11, HV 15, MCU 13, divider 5); the divider's ±5 V_A supply runs on it too
-- **Signal** (Divider → MCU, ~470 mV for Cs-137): thin coax soldered to pads
+- **Signal** (Divider → MCU): thin coax soldered to pads
 - **−HV**: shielded ≥5 kV wire (HV → Divider) through a Ø4.5 mm hole in the MCU board
 - **Pt1000** on the crystal housing: twisted pair to MCU-board pads
 - Mechanics: three M2.5 standoffs in the centre of each board
@@ -111,7 +111,7 @@ Peak positions are set by the HV: for another detector, Cs is placed at channel 
 | Task | Status |
 |---|---|
 | Schematics of all 4 boards | ✅ Done (ERC 0) |
-| LTspice: TIA + active divider, shaper, noise, HV loop | ✅ Validated (`simulation/`) |
+| LTspice: TIA + active divider, shaper, noise, HV loop | ✅ Before layout; result confirmed by measurements on the board |
 | BOM with MPN + footprints | ✅ 176 components. Device cost **6 749 RUB** in cash (8 540 RUB including parts from own stock, detector excluded) — [`docs/cost.md`](docs/cost.md) |
 | PCB layout | ✅ 2 layers, 4 boards in one 187.5 × 45 mm panel, HV clearance norms 3 mm/kV in `.kicad_dru`. MCU board re-routed for LQFP-48 (October 2026) |
 | PCB fabrication | ✅ Received (PS-Electro, 1.5 mm, no silkscreen) |
@@ -120,8 +120,7 @@ Peak positions are set by the HV: for another detector, Cs is placed at channel 
 | STM32 firmware | ✅ Clean firmware [`firmware/gamma_fw/`](firmware/gamma_fw/) on the board: detector with a pulse-shape template (taken from the real chain), HV with trimming, Pt1000, settings and calibration in flash, updates over the COM port; accepted by BecqMoni. Spec and findings log — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) (Russian) |
 | Signal-chain tuning | ✅ Shaper reworked for long shaping, R417 2.7 kΩ: Cs 7.8 → 6.9 %, HV 1030 → ~750 V |
 | Target detector NaI 63×63 + R1307 | ⏭ Next stage: HV tuning, shape template, calibration |
-| Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe); calibration interoperates with BecqMoni's buttons |
-| v2 — 1 000 000 cps | 🔬 Research: pile-up separation, digitising straight from the TIA — [`v2/`](v2/design.md) (Russian). v1 goes to hardware first: it is also the measurement bench for v2 |
+| Host software `gammapult` | 🚧 Connection, diagnostics, live spectrum, energy-calibration wizard (GUI + CLI, single .exe). ⚠ Still built around the stage 1–2 firmware commands (`-tst`, `-wcal`, `-rcal`); compatibility with the production `gamma_fw` is in progress. Use BecqMoni with the instrument for now |
 
 ---
 
@@ -130,29 +129,23 @@ Peak positions are set by the HV: for another detector, Cs is placed at channel 
 ```
 gamma-spectrometer/
 ├── docs/
-│   ├── en/                           # English documentation set
 │   ├── adc_mcu_board.md              # MCU board v1.6 — full technical doc
 │   ├── divider_board.md              # Divider + ADA4817 TIA board
 │   ├── usb_power_board.md            # USB/Power board overview
 │   ├── usb_power_board_schematic.md  # USB/Power board — detailed schematic
 │   ├── hv_board_schematic.md         # HV board — detailed schematic
-│   ├── mcu_lqfp48_migration.md       # MCU board move to LQFP-48
+│   ├── mcu_board_bringup.md          # MCU board bring-up (first power-up, rework)
+│   ├── hv_board_bringup.md           # HV board bring-up, 257 kHz interference and shield
+│   ├── assembly_notes.md             # Assembly notes
 │   ├── fab_pselectro.md              # Fab requirements and check
 │   ├── cost.md                       # Cost breakdown
-│   ├── cheatsheet_mistakes.md        # Design rules & past mistakes log
-│   └── refs/                         # Datasheets
+│   └── ru/, en/                      # Curated documentation (RU/EN)
 ├── firmware/
-│   ├── core/                         # Portable core (shproto, DSP, histogram)
-│   ├── gamma_stage1/                 # Stages 1–2 on Nucleo-G474RE
-│   ├── board_g474cb/                 # Target-board bring-up, SPEC.md — spec and findings log
+│   ├── board_g474cb/SPEC.md          # Firmware spec and findings log (Russian)
 │   └── gamma_fw/                     # Production firmware (build.sh, PC tests, tools/gfw.py)
 ├── host/                             # PC software `gammapult` (Win32/ImGui, GUI + CLI)
 ├── pcb/
 │   └── gamma_spectrometer/           # KiCad project (all 4 boards, panel, Gerbers)
-├── simulation/                       # LTspice + Python: signal chain, noise, HV loop, TIA parasitics
-├── stock/                            # Purchasing, delivery check, cost script
-├── review/                           # Independent design reviews
-└── v2/                               # 1 Mcps instrument research
 ```
 
 ---

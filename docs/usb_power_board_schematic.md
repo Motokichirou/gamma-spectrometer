@@ -1,5 +1,8 @@
 # USB/Power board — схемотехника
 
+> ⚠ **Документ проектного этапа (2026-05…10).** Прибор собран и работает; актуальное состояние —
+> [`docs/ru/hardware.md`](ru/hardware.md) и [`firmware/board_g474cb/SPEC.md`](../firmware/board_g474cb/SPEC.md) §10.
+
 > **Статус:** Схема в KiCad (usb_power_board.kicad_sch), ERC ✓. **Плата собрана 2026-10-31 —
 > доработки первого экземпляра и ошибки разводки в §11.**
 

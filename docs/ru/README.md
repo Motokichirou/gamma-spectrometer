@@ -10,9 +10,8 @@
 | Документ | Содержание |
 |---|---|
 | [hardware.md](hardware.md) | Стек плат, цепь сигнала и обзор всех четырёх плат |
-| [firmware.md](firmware.md) | Прошивка STM32G474: переносимое ядро, этапы, DSP-детектор, самотест |
+| [firmware.md](firmware.md) | Боевая прошивка `firmware/gamma_fw`: тракт АЦП, детектор по эталону формы, ВВ, команды, сборка и обновление |
 | [protocol.md](protocol.md) | Справочник по последовательному протоколу shproto / AtomSpectra |
-| [simulations.md](simulations.md) | Симуляции LTspice (AD8000, шейпер CR-RC², шум) и бюджет шумов |
 
 > Детальные инженерные заметки по каждой плате (`docs/adc_mcu_board.md`,
 > `docs/divider_board.md`, `docs/hv_board_schematic.md`,

@@ -4,120 +4,100 @@
 [Русский](../ru/firmware.md) | **English**
 <!-- README-I18N:END -->
 
-The STM32G474 firmware acquires shaped pulses with the ADC, detects and measures
-each pulse, accumulates an 8192-channel histogram, and streams it to a host over
-the [shproto protocol](protocol.md) so that [BecqMoni](https://github.com/Am6er/BecqMoni)
-can display the spectrum.
+Production firmware for the MCU board — [`firmware/gamma_fw/`](../../firmware/gamma_fw/). Written from scratch per the spec
+[`firmware/board_g474cb/SPEC.md`](../../firmware/board_g474cb/SPEC.md) (Russian): bare CMSIS registers, no HAL.
+Portable logic resides in `src/core/` and is covered by PC-based tests; hardware drivers are in `src/hw/`.
+Compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra via the shproto protocol
+(see [protocol.md](protocol.md)).
 
-## Portable core
+## Signal Chain and Clocking
 
-The signal-processing code lives in `firmware/core/` and has **no HAL dependency** —
-it compiles anywhere and is shared between the Nucleo bring-up board and the target
-MCU board:
-
-| Module | Responsibility |
+| Parameter | Value |
 |---|---|
-| `shproto.c/.h` | Frame parser/builder: CRC16-MODBUS, byte stuffing, FSM |
-| `spectrum.c/.h` | 8192-channel `uint32` histogram |
-| `dsp.c/.h` | Pulse detector: baseline tracker, pile-up rejection, amplitude by shape template (or parabola) |
-| `pulsegen.c/.h` | Test-pulse generator (built-in self-test source) |
-| `selftest.c/.h` | ENC / linearity self-test FSM |
-| `app.c/.h` | Command handling (`-sta/-sto/-rst/-stt/-mode/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst`) and 1 Hz spectrum + status |
+| MCU | STM32G474CBT6, 156 MHz from 16 MHz crystal (PLL M=2, N=39, R=2) |
+| Signal ADC | ADC3_IN1 (PB1), 12-bit, **3.467 MS/s**, 2.5-cycle sampling, continuous via DMA in chunks of 8192 samples |
+| Shaper | Built-in OPAMP1 and OPAMP2 — integrators (τ ≈ 1 and ≈ 1.8 µs), OPAMP3 — PGA ×4 |
+| ADC Baseline | ≈0.394 V (≈645 codes); pulses are positive: `amplitude = sample − baseline` |
+| Pulse | 10% rise time to peak 5–6 samples, FWHM ≈14 samples (3.6 µs) |
+| Spectrum | 8192 channels, channel = 2 × amplitude in ADC codes |
+| Service ADCs | HV monitor (ADC2), VREFINT (reference), Pt1000 via OPAMP6 ×8 (ADC4), +3.3V_D |
 
-The core talks to hardware through a few port functions (`app_port_uart_send`,
-`app_port_millis`, …) implemented in the board-specific glue.
+## Modules
 
-**Energy calibration** is stored in internal flash (`cal_store.c`, the last page,
-magic + CRC16) and **survives a reboot**. The address is derived from the factory
-flash-size register: `0x0807F800` on the Nucleo (512 KB), `0x0801F000` on the target board
-(128 KB) in single-bank mode. The target board runs **only with `DBANK=0`**: for 128 KB in
-dual-bank mode the reference manual and the HAL disagree on where bank 2 starts, so the
-firmware refuses to write rather than guess. Every write is verified by reading back. It
-keeps the 11 raw BecqMoni-format words; the `-cal`/CRC-32 protocol is described in
-[protocol.md](protocol.md). It can be written from BecqMoni ("Write to device") or by our
-tool (`-wcal`); read back via `-cal` (BecqMoni format) or `-rcal` (our format). On stage 1
-(no flash) the calibration hooks are empty stubs.
-
-## Development stages
-
-| Stage | Hardware | Goal | Status |
-|---|---|---|---|
-| 1 | Nucleo-G474RE | shproto over VCP → BecqMoni draws a test spectrum | ✅ working |
-| 2 | Nucleo-G474RE | DAC→ADC loopback: real pulses, peak detect, real histogram | ✅ working |
-| 3 | Target MCU board | OPAMP shaper, real PMT pulses, HV, Pt1000 compensation | ⏳ boards and parts in hand, assembly; ADC reference setup, 128 KB linker script and first power-up procedure ready — [`firmware/board_g474cb/`](../../firmware/board_g474cb/README.md) (RU) |
-
-On the Nucleo, stage 2 closes the loop entirely on-chip: a TIM7 Poisson scheduler
-fires the DAC with realistic pulse shapes, a jumper feeds DAC (PA4/A2) back into the
-ADC (PA0/A0) at 2.83 Msps, and the same DSP that will run on the target board builds
-the histogram. Measured throughput ≈ 6000 cps accepted of ≈ 8500 generated.
-
-## Pulse DSP (`dsp.c`)
-
-For each ADC sample the detector:
-
-1. **Tracks the baseline** with an EMA that only updates inside a `±threshold`
-   corridor, so neither pulses nor undershoots drag the baseline.
-2. **Triggers** when the deviation exceeds the threshold, with hysteresis: the
-   trigger re-arms only after the signal falls below `threshold/2`.
-3. **Rejects pile-up**: once a developed peak (`≥ 2×threshold`) starts falling,
-   a renewed rise from the fall minimum marks the event as pile-up and discards it.
-4. **Measures amplitude** in one of two ways:
-   - **by shape template** (`dsp_set_template`, target-board mode): least squares
-     `y ≈ A·h + B` over a window around the maximum, where `h` is the reference pulse shape
-     in 32 sub-sample phases (`dsp_template.h`). On a model of the target chain this gives
-     0.44 % electronic FWHM at 30 kcps versus 7.4 % for the parabola, −0.02 % amplitude bias
-     instead of −10 %, and ±0.03 % linearity up to 3.5 MeV, at ~18 % CPU at 30 kcps. After the
-     first spectrum the template is replaced with one recorded from the real chain;
-   - **by parabola** over `2m+1` samples (no `dsp_set_template` call) — the Nucleo loopback
-     mode, where the pulse is wide.
-
-Polarity is configurable, but **both the Nucleo loopback and the target board need
-`+1`**: the PMT anode sinks current, the TIA output rises, so the ADC pulse goes UP
-from the 0.41 V baseline — `amplitude = sample − baseline`, searching for a maximum.
-⛔ The former instruction "`−1` for the target board, pulses below baseline" is WRONG
-(it came from `sim2_shaper.cir` with a reversed anode current source; fixed
-2026-08-07) — setting `−1` yields no spectrum at all.
-The hot path is forced to `-O2` even in Debug
-builds, because at 2.83 Msps an unoptimized ISR cannot keep up with the half-buffer
-rate.
-
-## Self-test subsystem
-
-The test generator doubles as a built-in self-test, driven by the `-tst` command:
-
-| Command | Action |
+| Module | Function |
 |---|---|
-| `-tst off` | Generator off (default at boot) |
-| `-tst spec` | Replays a real Cs-137 amplitude distribution (inverse-CDF sampled) |
-| `-tst mono <amp> [t_us]` | Monoenergetic pulses at a fixed amplitude/period |
-| `-tst stat` | Reports running mean / σ / FWHM of detected amplitudes |
-| `-tst enc` | Automated ENC + linearity sweep (5 amplitudes × 1000 events) |
+| `core/detector.c` | Pulse detection, pile-up and glitch rejection, amplitude via template matching, baseline tracking, auto-threshold 5σ |
+| `core/acq.c` | Acquisition: start/stop/reset, live and real time, CPU load |
+| `core/spectrum.c` | 8192-channel histogram |
+| `core/proto.c`, `core/shproto.c` | shproto protocol: spectrum and status frames, text commands |
+| `core/svc.c` | Service measurements and service commands (`-hv`, `-gst`, `-diag` …) |
+| `core/hv_ctl.c` | HV control: smooth ramp-up, adjustment via HV monitor, faults |
+| `core/temp.c` | Pt1000 temperature |
+| `core/settings.c`, `core/flashstore.c`, `core/becq_cal.c` | Settings, reference and BecqMoni calibration in flash |
+| `core/dactest.c` | Self-test of the signal chain using internal DAC pulses |
+| `core/tpl_pmt.h` | Pulse shape template, captured from the real chain (64 phases × 7 samples, Q14) |
+| `core/tpl_dac.h` | DAC pulse shape template for self-test |
+| `hw/*` | Clocking, ADC, OPAMPs, HV PWM, UART, flash, bootloader entry |
 
-The `-tst enc` autotest returns one text frame with centroid, σ and FWHM at each
-amplitude, plus the fitted slope and INL. A representative hardware run:
-`k = 2.0048 ch/code`, `INL max = 0.025 %FS`, `FWHM @ Cs-equivalent = 0.66 %` —
-confirming on real silicon that the electronics + DSP contribution is negligible
-next to the ≈6.3 % PMT statistics (see [simulations.md](simulations.md)).
+## Detector
 
-> The generator is **off at boot** and only runs when explicitly enabled. On the
-> target board the ADC input is the real PMT signal, so the generator must never
-> start on its own.
+- Pulses are detected by a threshold above the baseline. The threshold is set in ADC codes or selected automatically
+  (5σ of baseline noise).
+- Amplitude is calculated by fitting the shape template over 7 samples around the maximum, iterating through 64
+  sub-sample phases. The template is captured from the real chain (`tools/tpl_pmt.py`) and embedded by default.
+  A custom template can be loaded via `-tplw`/`-tplok` commands and saved to flash with `-save`.
+- Rejection: width outside window (4…56 samples on the board), pile-ups, bad shape (χ²), noise glitches.
+- Baseline is tracked using quiet samples. For 40 samples after a pulse, data is excluded from the baseline: tail
+  of a long pulse.
 
-## Build & flash (headless)
+## High Voltage
 
-```bash
-# Build (no IDE needed; the -import path uses backslashes)
-"…/stm32cubeidec.exe" --launcher.suppressErrors -nosplash \
-  -application org.eclipse.cdt.managedbuilder.core.headlessbuild \
-  -data /tmp/cube_hb_ws -import 'D:\gamma-spectrometer\firmware\gamma_stage1' \
-  -build gamma_stage1/Debug
+- Setpoint 0…1200 V via `-hv` command. Ramp-up is smooth, output is adjusted via the HV monitor.
+- Protections: multiplier ceiling 1300 V, reference failure, stuck monitor, output deviation. HV
+  is disabled upon entering the bootloader.
+- Operating point depends on the PMT. On the current detector ~735–755 V, Cs-137 peak at channel ~1160–1200.
 
-# Flash over SWD
-STM32_Programmer_CLI.exe -c port=SWD mode=UR reset=HWrst \
-  -w ".../Debug/gamma_stage1.elf" -v -rst
-```
+## Commands
 
-The newlib-nano `printf` needs the `-u _printf_float` linker flag for the
-floating-point self-test reports.
+BecqMoni commands: `-sta`, `-sto`, `-rst`, `-stt`, `-sho`, `-mode`, `-inf`, `-cal` (energy calibration
+in BecqMoni format, 40 registers).
 
-See [`firmware/README.md`](../../firmware/README.md) for the step-by-step setup.
+Service commands (response is a single line `-ok …` / `-err …`):
+
+| Command | Function |
+|---|---|
+| `-hv <0…1200>` / `-hv off` / `-hv` | HV setpoint, V / disable / query |
+| `-hvzero`, `-hvk [mV/V]` | HV monitor calibration: zero and gain |
+| `-ptcal <°C>` | Pt1000 calibration against reference temperature |
+| `-gst` | Instrument status in one line `key=value`: HV, reference, temperature, baseline, noise, load, live time |
+| `-diag` | Signal chain node voltages and verdict against specs |
+| `-thr [codes]` | Detector threshold in ADC codes (0 — auto 5σ) |
+| `-opa [hs 0\|1 \| pga 2\|4\|8\|16]` | Shaper OPAMP mode and PGA gain (only outside acquisition, not written to flash) |
+| `-smp`, `-noise` | ADC sampling time; baseline noise measurement |
+| `-osc [raw]` | Pulse windows or raw ADC chunks (frames 0x02) |
+| `-dac …` | Test pulses from internal DAC |
+| `-tplw`, `-tplok`, `-tplclr` | Load shape template (64 lines) / apply / restore embedded |
+| `-tc [t0 k1 k2]` | Gain thermal compensation coefficients (query without arguments) |
+| `-save`, `-defaults` | Write settings to flash / restore defaults (in RAM) |
+| `!boot` | Disable HV and enter system bootloader (firmware update) |
+
+## Build, Tests, Update
+
+- Build: `sh firmware/gamma_fw/build.sh` (arm-none-eabi-gcc), RAM budget is checked.
+- PC tests: `firmware\gamma_fw\tests\run_tests.cmd`.
+- Update via USB, no programmer:
+  `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin`.
+  The firmware receives `!boot`, disables HV, and enters the STM32 system bootloader (USART1 via FT231X).
+  SWD does not work on the first board prototype. If the main firmware fails to start, the bootloader can
+  be entered via the BOOT0 pin.
+- Tools (`firmware/gamma_fw/tools/`): `gfw.py` (commands, spectrum, flashing), `tpl_pmt.py`
+  (shape template from real chain), `tpl_dac.py` (DAC template).
+
+## Known Limitations
+
+- Under high load (≥5 kcps), the baseline droops, and resolution degrades slightly.
+- Pt1000 open and short circuits are not yet diagnosed.
+- Live time does not account for rejected pulses.
+- DAC self-test has not yet been recalculated for the long pulse of the current shaper.
+
+Details, measurements, and findings log — in [SPEC.md](../../firmware/board_g474cb/SPEC.md) (Russian).

@@ -1,138 +1,33 @@
 # Прошивка STM32G474 — гамма-спектрометр
 
-## Этапы разработки
+Боевая прошивка — [`gamma_fw/`](gamma_fw/): голые регистры CMSIS, без HAL. Переносимая логика лежит
+в `gamma_fw/src/core/` и покрыта тестами на ПК, драйверы железа — в `gamma_fw/src/hw/`.
+ТЗ и журнал находок по плате — [`board_g474cb/SPEC.md`](board_g474cb/SPEC.md).
+Обзор (тракт, детектор, команды) — [`docs/ru/firmware.md`](../docs/ru/firmware.md).
 
-| Этап | Железо | Цель | Статус |
-|---|---|---|---|
-| **1** | Nucleo-G474RE | shproto через VCP → BecqMoni рисует тестовый спектр | ✅ работает |
-| **2** | Nucleo-G474RE | DAC→ADC петля: синтетические импульсы, peak detect, реальная гистограмма | ✅ работает |
-| 3 | Боевая MCU board | OPAMP-шейпер, реальные импульсы, HV, Pt1000-термокомпенсация | ⏳ ждёт железа |
+## Быстрый старт
 
-Дополнительно реализованы: подсистема самотеста (`-tst`), настраиваемый порог DSP
-(`-thr`) и энергокалибровка во flash (`-cal`/`-rcal`/`-wcal`, совместимая с BecqMoni —
-см. [docs/ru/protocol.md](../docs/ru/protocol.md)).
+- **Сборка:** `sh firmware/gamma_fw/build.sh` (arm-none-eabi-gcc). Скрипт проверяет бюджет ОЗУ и кладёт
+  `gamma_fw.bin` рядом. Опытная сборка с ВВ до 1350 В:
+  `EXTRA=-DHV_EXPERIMENT_1500 OUT=gamma_fw_hv1500 ./build.sh` (в приборе не оставлять).
+- **Тесты на ПК:** `firmware\gamma_fw\tests\run_tests.cmd`.
+- **Обновление по USB:** `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin`.
+  Прошивка получает `!boot`, выключает ВВ и уходит в системный загрузчик (USART1 через FT231X).
+- **Сервис:** `python -I firmware/gamma_fw/tools/gfw.py cmd -- "-gst"`. Команды: `-diag`, `-hv <В>` / `-hv off`,
+  `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`, `-noise`, `-smp`, `-opa`, `-dac`, `-osc`, `-tplw/-tplok/-tplclr`,
+  `-tc`, `-save`, `-defaults`.
+- **Эталоны формы:** `tools/tpl_pmt.py collect|build` — эталон с реального тракта (ФЭУ под ВВ, источник);
+  `tools/tpl_dac.py --code 900` — эталон импульса ЦАП. Вшитые умолчания — `src/core/tpl_pmt.h`, `src/core/tpl_dac.h`.
+- **BecqMoni:** устройство AtomSpectra VCP, 600 000 бод, 8192 канала.
 
-## gamma_fw — боевая прошивка (2026-11-06)
+## Окна детектора под шейпер
 
-Чистая прошивка платы МК по ТЗ `board_g474cb/SPEC.md`, план — `docs/superpowers/plans/2026-11-06-clean-firmware.md`.
-Голые регистры CMSIS, без HAL; переносимая логика в `gamma_fw/src/core/` с тестами на ПК, драйверы в `src/hw/`.
+Окна детектора задаются на уровне платы: `DET_MINW_BOARD` / `DET_MAXW_BOARD` в `src/core/detector.h`
+(сейчас 4 / 56 отсчётов) и `DET_GUARD` через `build.sh` (40). Тесты алгоритма гоняют прежние
+умолчания (2 / 16 / 16) на модельном коротком импульсе `tpl_3467k.h`. Если меняется шейпер, нужно
+переснять оба эталона и пересмотреть окна, `PROTO_INF_RISE/FALL` и константы самотеста ЦАП (`dactest.h`).
 
-- Сборка: `sh firmware/gamma_fw/build.sh` (проверяет бюджет ОЗУ). Тесты на ПК: `cmd //c firmware\gamma_fw	ests
-un_tests.cmd`.
-- Прошивка: `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin` (через `!boot`;
-  с прошивки запуска — `board_g474cb/bringup/tools/reflash.py`).
-- Сервис: `gfw.py cmd -- "-gst"` (статус), `-diag`, `-hv <В>`/`-hv off`, `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`,
-  `-noise`, `-smp 2|6`, `-opa [hs 0|1|pga 2|4|8|16]`, `-dac <код> <n> [период]`, `-osc`, `-save`, `-defaults`; `gfw.py lin …` — линейность по ЦАП.
-- BecqMoni: AtomSpectra VCP, 600000 бод, 8192 канала.
+## История
 
-## Структура
-
-```
-firmware/
-├── core/                 # Переносимые модули (без HAL — компилируются где угодно)
-│   ├── shproto.h/.c      # Протокол BecqMoni: CRC16 MODBUS, стаффинг, парсер, билдер
-│   ├── spectrum.h/.c     # Гистограмма 8192
-│   ├── dsp.h/.c          # Детектор импульсов: baseline, pile-up, LSQ-фит вершины
-│   ├── pulsegen.h/.c     # Генератор тест-импульсов (источник самотеста)
-│   ├── selftest.h/.c     # FSM самотеста ENC / линейности
-│   └── app.h/.c          # Команды (-sta/-sto/-rst/-inf/-cal/-rcal/-wcal/-calclr/-thr/-tst) + спектр/статус 1 Гц
-├── gamma_stage1/         # Проект CubeIDE (Nucleo): клей HAL, stage2_hw.c (DAC/ADC/DSP), cal_store.c (flash)
-├── nucleo_stage1/
-│   └── main_glue.c       # Шаблон интеграции в CubeMX-проект (копировать в USER CODE)
-├── tools/                # becqmoni_sim.py, flash_stage1.cmd
-└── README.md
-```
-
-`core/` не зависит от HAL — связь с железом через функции-порты (`app_port_uart_send`,
-`app_port_millis`, `app_port_temperature_c`), которые реализуются в main.c. Слабые хуки
-калибровки переопределяются в `cal_store.c`. Этот же код без изменений поедет на боевую
-плату.
-
-## Этап 1 — пошаговая инструкция
-
-### 1. Установить STM32CubeIDE
-https://www.st.com/en/development-tools/stm32cubeide.html (бесплатно, ~1 ГБ).
-
-### 2. Создать проект
-1. File → New → STM32 Project
-2. Вкладка **Board Selector** → `NUCLEO-G474RE` → Next
-3. "Initialize all peripherals with their default Mode?" → **Yes**
-   (CubeMX сам назначит LPUART1 на PA2/PA3 — это VCP через ST-LINK)
-
-### 3. Настроить в CubeMX (.ioc)
-1. **Clock Configuration:** HCLK = **170 МГц**
-   - источник PLL: HSI16, PLLM=4, PLLN=85, PLLR=2
-   - CubeMX сам включит Boost mode (R1MODE) при 170 МГц
-2. **LPUART1** (Connectivity): Asynchronous, **600000** бод, 8N1
-3. **DMA** (вкладка DMA Settings у LPUART1): Add → `LPUART1_RX`,
-   Mode = **Circular**, Data Width = Byte
-4. Сгенерировать код (Ctrl+S → Generate)
-
-### 4. Подключить core/
-1. Скопировать `firmware/core/*.c` в `Core/Src/`, `firmware/core/*.h` в `Core/Inc/`
-   (или: Project Properties → C/C++ General → Paths → добавить путь к `firmware/core`)
-2. Перенести куски из `nucleo_stage1/main_glue.c` в `Core/Src/main.c`
-   в соответствующие секции `USER CODE` (номера секций — в комментариях шаблона)
-
-### 5. Собрать и прошить
-Build (молоток) → Run (зелёная стрелка). Прошивается через встроенный ST-LINK.
-
-### 6. Проверить с BecqMoni
-1. Узнать номер COM-порта ST-LINK VCP (Диспетчер устройств → Ports)
-2. BecqMoni: настройки устройства → AtomSpectra (shproto), COM-порт, **600000 бод**
-3. **Каналов: 8192** (иначе BecqMoni будет даунсемплить)
-4. Подключиться → старт набора
-5. Ожидаемо: накапливающийся спектр с пиками на каналах **101** (как Am-241 59.5 кэВ)
-   и **1138** (как Cs-137 662 кэВ), ~500 cps
-
-### Если не работает
-- Терминалом (PuTTY, 600000 8N1) на COM-порт: должен идти бинарный поток после `-sta`
-- Проверить что LPUART1, а не USART2 подключён к VCP (UM2505, солдер-бриджи SB)
-- BecqMoni шлёт при подключении `-sto`→`-rst`→`-sta` и ждёт `-ok` на каждую
-
-## Протокол shproto (краткая шпаргалка)
-
-```
-Кадр: 0xFF 0xFE [CMD][PAYLOAD...][CRC_LSB][CRC_MSB] 0xA5
-Стаффинг: 0xFE/0xFD/0xA5 внутри кадра → 0xFD + ~байт
-CRC16 MODBUS (init 0xFFFF, poly 0xA001) по нестаффленным CMD+PAYLOAD
-CMD: 0x01 спектр [offset u16][ch u32 ×N]; 0x03 текст; 0x04 статус (триггер отрисовки!)
-Статус: [elapsed_СЕК u32][cpu_load u16][cps u32][invalid u32]  (elapsed в СЕКУНДАХ!)
-```
-
-Полная спецификация: `docs/session_context.md` → «Протокол shproto».
-
-## Этап 2 — выполнено ✅
-
-Петля DAC→ADC замкнута целиком на кристалле Nucleo (перемычка PA4/A2 → PA0/A0):
-TIM7 (пуассон) → DAC1+DMA (форма CR-RC²) → ADC1 circular DMA @2.83 Мвыб/с → DSP
-(`dsp.c`: baseline, pile-up, LSQ-фит вершины) → гистограмма. Подробности и архитектура
-термокомпенсации — в [docs/ru/firmware.md](../docs/ru/firmware.md) и
-`docs/adc_mcu_board.md` (раздел 8).
-
-## Оценка амплитуды: эталон формы (2026-09-21)
-
-На боевой плате импульс короткий — FWHM 2.56 отсчёта при 4 Мвыб/с, и парабола по 5 точкам занижает
-амплитуду на 10–15 %, а главное даёт разброс по фазе прихода: электронное FWHM 7.4 % — вровень с
-собственным разрешением NaI. Поэтому `dsp.c` умеет подгонять окно импульса по таблице эталона формы:
-
-```c
-#include "dsp_template.h"
-dsp_init(&dsp, +1, thr, min_w, max_w, fit_m, emit);
-dsp_set_template(&dsp, &dsp_template[0][0], DSP_TPL_NPH, DSP_TPL_NS, DSP_TPL_IPK, DSP_TPL_Q);
-```
-
-Без `dsp_set_template` работает прежняя парабола — петля Nucleo (этап 2, широкий пик) не затронута.
-Таблица: 32 суб-отсчётные фазы × 7 отсчётов в Q14, генератор `simulation/fix_c320/gen_template.py`
-(форма — из LTspice; позже её можно снять с реального тракта усреднением ~10 000 импульсов).
-Для каждой фазы решается МНК `y ≈ A·h + B`; свободный член делает оценку нечувствительной к ошибке
-трекера базовой линии. Итог: смещение −0.02 %, электронное FWHM 0.44 % при 30 кимп/с, линейность
-±0.03 % до 3.5 МэВ; цена ~18 % ЦП при 30 кимп/с. Проверки — `simulation/fix_c320/test_template.py`
-и `mc.py --template`.
-
-## Дальше (этап 3)
-
-- Перенос на боевую MCU board: внутренние OPAMP-шейпер CR-RC², реальные импульсы ФЭУ.
-- Вызвать `dsp_set_template()` при инициализации боевого тракта.
-- Термокомпенсация по Pt1000 (g(T)), управление ВВ.
-- Сервисное ПО `gammapult` (см. [host/README.md](../host/README.md)).
+Этапы 1–2 (Nucleo-G474RE: shproto, синтетические импульсы, первая гистограмма) и прошивка запуска
+платы лежат в теге `archive-2026-11`.
