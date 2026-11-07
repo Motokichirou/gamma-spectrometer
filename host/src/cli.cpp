@@ -132,6 +132,28 @@ int run_cli(int argc, char** argv)
         if (!ok) printf("ошибка: %s\n", err.c_str());
         return ok ? 0 : 6;
     }
+    if (sub == "obtest") {                      // проверка пути записи опций: DBANK=0 поверх DBANK=0
+        stm32boot::Boot b(clog);
+        if (!stm32boot::Boot::kick_firmware(port, clog) || !b.open(port)) { printf("ошибка: нет загрузчика: %s\n", b.error.c_str()); return 6; }
+        std::vector<uint8_t> ob0, ob1;
+        if (!b.read_ob(ob0)) { printf("ошибка чтения опций: %s\n", b.error.c_str()); return 6; }
+        auto dump = [](const std::vector<uint8_t>& o) { std::string s; char h[12]; for (size_t i = 0; i < o.size(); i += 4) { snprintf(h, sizeof h, " %08X", (unsigned)(o[i] | (o[i+1] << 8) | (o[i+2] << 16) | ((uint32_t)o[i+3] << 24))); s += h; } return s; };
+        printf("до:   %s\n", dump(ob0).c_str());
+        uint32_t w0 = ob0[0] | (ob0[1] << 8) | (ob0[2] << 16) | ((uint32_t)ob0[3] << 24);
+        if (w0 & stm32boot::OPTR_DBANK) { printf("DBANK=1 — это уже не тест, отмена\n"); b.go(stm32boot::FLASH_BASE); return 6; }
+        if (!b.write_ob_dbank0(ob0)) { printf("ошибка записи опций: %s\n", b.error.c_str()); return 6; }
+        printf("  опции записаны, жду перезагрузки МК (BOOT0 на земле — стартует прошивка)…\n");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+        stm32boot::Boot b2(clog);
+        bool fw = stm32boot::Boot::kick_firmware(port, clog);
+        if (!b2.open(port)) { printf("ошибка: после записи загрузчик недоступен (прошивка %s): %s\n", fw ? "отвечала" : "НЕ отвечала", b2.error.c_str()); return 6; }
+        if (!b2.read_ob(ob1)) { printf("ошибка чтения опций после записи: %s\n", b2.error.c_str()); return 6; }
+        printf("после:%s\n", dump(ob1).c_str());
+        bool same = ob0 == ob1;
+        printf("%s\n", same ? "блок опций не изменился — путь записи работает" : "БЛОК ОПЦИЙ ИЗМЕНИЛСЯ");
+        b2.go(stm32boot::FLASH_BASE);
+        return same ? 0 : 6;
+    }
     if (sub == "flash") {
         std::vector<uint8_t> img; std::string tag, err;
         std::string bin = opt(argc, argv, "--bin");

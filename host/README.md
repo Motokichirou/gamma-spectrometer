@@ -87,6 +87,7 @@ gammapult bootinfo --port COM4                   # загрузчик: ID МК, 
 gammapult flash   --port COM4 [--bin fw.bin] [--no-dbank-fix]   # прошивка (без --bin — встроенная)
 gammapult fit     spec.csv [--lo 300] [--hi 7000]   # подгонка фотопика по CSV
 gammapult calenc  c0 c1 c2 c3 c4                  # команды -cal для калибровки BecqMoni
+gammapult obtest  --port COM4                    # проверка записи опций: DBANK=0 поверх DBANK=0, сверка
 gammapult hvpeak  --port COM4 --start 700 [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]   # ВВ по пику
 gammapult tc      --port COM4 [--secs 120] [--points N]   # запись термокомпенсации (оценка k1)
 gammapult tpl collect --port COM4 [--n 2000] --out raw.bin    # сырые порции (uint16 × 8192 подряд)
