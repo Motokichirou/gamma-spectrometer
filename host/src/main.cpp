@@ -1300,7 +1300,7 @@ static void MenuBar()
     }
     if (ImGui::MenuItem("Справка")) g_open_help = true;
 
-    const char* hint = "gamma_fw · shproto 600000 8N1 · v0.2";
+    const char* hint = "gamma_fw · shproto 600000 8N1 · gammapult v0.5.0";
     ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(hint).x - 14);
     ImGui::TextDisabled("%s", hint);
     ImGui::EndMainMenuBar();
