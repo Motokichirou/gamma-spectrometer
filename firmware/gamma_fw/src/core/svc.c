@@ -88,7 +88,8 @@ bool svc_aux_1s(svc_aux_t *a, hv_ctl_t *hv, float vrefint_raw, float vbat_raw, f
 
 bool svc_hv_allowed(const svc_aux_t *a)
 {
-    return a->ready && a->vref_ok && a->vdd_seeded && isfinite(a->vdd_mv) && a->mon_ever;
+    return a->ready && a->vref_seeded && a->vref_bad < SVC_VREF_TRIP_N
+        && a->vdd_seeded && isfinite(a->vdd_mv) && a->mon_ever;
 }
 
 /* ---------------- -diag ---------------- */
@@ -193,6 +194,7 @@ static void cmd_gst(char *reply, size_t cap)
     putf(&o, "hv_trim", hv_trim(h), 1);
     putu(&o, "hv_pwm", g.pwm);
     put(&o, "hv_trip", hv_trip_reason(h) ? hv_trip_reason(h) : "-");
+    putf(&o, "hv_boot", C->live->hv_setpoint_v, 0);
     putf(&o, "hv_zero", C->live->hv_mon_zero_mv, 1);
     putf(&o, "hv_k", C->live->hv_mon_k_mv_per_v, 4);
     putf(&o, "mon_mv", a->mon_mv_f, 1);
@@ -254,6 +256,7 @@ static void cmd_hv(const char *a, char *reply, size_t cap)
     uint32_t now = C->millis ? C->millis() : 0u;
     /* «выключено с» для -hvzero — и без тиков между включением и выключением */
     if (hv_enabled(h)) C->aux->hv_off_since_ms = now;
+    C->aux->hv_cmd_seen = true;                /* ручное управление — автозапуск уже не нужен */
     if (strcmp(a, "off") == 0) { hv_off(h, "cmd"); snprintf(reply, cap, "-ok hv off"); return; }
     /* строго: целое и ничего после ("-hv abc" через atoi давал 0 — выключение, "12abc" → 12) */
     char *e;
@@ -261,13 +264,31 @@ static void cmd_hv(const char *a, char *reply, size_t cap)
     while (*e == ' ' || *e == '\t') e++;
     if (e == a || *e || v < 0 || v > (long)HV_MAX_SET_V) { snprintf(reply, cap, "-err hv"); return; }
     if (v > 0 && !svc_hv_allowed(C->aux)) {
-        snprintf(reply, cap, C->aux->ready && !C->aux->vref_ok ? "-err vref" : "-err notready");
+        snprintf(reply, cap, C->aux->ready && C->aux->vref_bad >= SVC_VREF_TRIP_N ? "-err vref" : "-err notready");
         return;
     }
     if (v > 0 && !hv_cal_ok(h)) { snprintf(reply, cap, "-err hvcal"); return; }
     if (hv_set(h, (float)v, now) != 0) { snprintf(reply, cap, "-err hv"); return; }
     if (hv_enabled(h)) C->aux->hv_off_since_ms = now;
     snprintf(reply, cap, "-ok hv %ld", v);
+}
+
+/* -hvboot: уставка автозапуска ВВ (settings.hv_setpoint_v; 0 — выкл). Во флеш — -save. */
+static void cmd_hvboot(const char *a, char *reply, size_t cap)
+{
+    settings_t *L = C->live;
+    if (*a) {
+        long v = 0;
+        if (strcmp(a, "off") != 0) {
+            char *e;
+            v = strtol(a, &e, 10);
+            while (*e == ' ' || *e == '\t') e++;
+            if (e == a || *e || v < 0 || v > (long)HV_MAX_SET_V) { snprintf(reply, cap, "-err hvboot"); return; }
+        }
+        L->hv_setpoint_v = (float)v;
+    }
+    if (L->hv_setpoint_v > 0.0f) snprintf(reply, cap, "-ok hvboot %ld", (long)(L->hv_setpoint_v + 0.5f));
+    else snprintf(reply, cap, "-ok hvboot off");
 }
 
 static void cmd_hvzero(char *reply, size_t cap)
@@ -328,6 +349,7 @@ bool svc_handle(const char *cmd, char *reply, size_t cap)
     const char *a;
     if (!C || !cap) return false;
     if ((a = args_of(cmd, "-hv")) != NULL)          cmd_hv(a, reply, cap);
+    else if ((a = args_of(cmd, "-hvboot")) != NULL) cmd_hvboot(a, reply, cap);
     else if ((a = args_of(cmd, "-hvzero")) != NULL) { if (*a) snprintf(reply, cap, "-err hvzero"); else cmd_hvzero(reply, cap); }
     else if ((a = args_of(cmd, "-hvk")) != NULL)    cmd_hvk(a, reply, cap);
     else if ((a = args_of(cmd, "-ptcal")) != NULL)  cmd_ptcal(a, reply, cap);

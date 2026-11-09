@@ -650,6 +650,31 @@ static void TabSettings()
     ImGui::TextDisabled("Эталон формы снят на ×4 — для спектрометрии оставлять ×4.");
 
     ImGui::Spacing(); ImGui::Separator();
+    Caption("Автозапуск ВВ при подаче питания (собранный блок)");
+    {
+        double hb = g_dev.gnum("hv_boot");
+        char b[96];
+        if (hb > 0) snprintf(b, sizeof b, "сейчас: %.0f В через ~5 с после старта", hb);
+        else snprintf(b, sizeof b, "сейчас: выключен — ВВ включается только командой");
+        ImGui::TextUnformatted(b);
+        static int s_hvboot = 0;
+        if (s_hvboot == 0 && g_dev.gnum("hv_set") > 0) s_hvboot = (int)(g_dev.gnum("hv_set") + 0.5);
+        ImGui::BeginDisabled(!conn);
+        ImGui::SetNextItemWidth(100);
+        ImGui::InputInt("В##hvboot", &s_hvboot, 0, 0);
+        if (s_hvboot < 0) s_hvboot = 0;
+        if (s_hvboot > 1200) s_hvboot = 1200;
+        ImGui::SameLine();
+        if (ImGui::Button("Включить автозапуск") && s_hvboot > 0) {
+            char c[32]; snprintf(c, sizeof c, "-hvboot %d", s_hvboot); g_dev.queue({ c, "-save" });
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Выключить автозапуск")) g_dev.queue({ "-hvboot off", "-save" });
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Сразу пишется во флеш. Перед вскрытием блока — выключить автозапуск и ВВ.");
+    }
+
+    ImGui::Spacing(); ImGui::Separator();
     ImGui::BeginDisabled(!conn);
     if (PrimaryButton("Сохранить во флеш (-save)", ImVec2(-1, 26))) g_dev.send_cmd("-save");
     if (ImGui::Button("Проверка тракта (-diag)", ImVec2(-1, 0))) g_dev.send_cmd("-diag");
@@ -858,6 +883,7 @@ struct Wiz {
     bool cal_sent = false; int cal_err0 = 0; double cal_k = 0;
     // итог
     bool saved = false; std::string report_path;
+    bool autohv = true; int hvboot_v = 0;      // автозапуск ВВ при подаче питания (-hvboot)
 };
 static Wiz g_wiz;
 
@@ -946,6 +972,8 @@ static void WizWriteReport()
     fprintf(f, "ВВ по пику (рабочее): %.0f В, пик %.1f\n", w.hv2_v, w.hv2_peak);
     fprintf(f, "Разрешение Cs-137 (%.0f с): пик %.2f, FWHM %.2f ± %.2f %%\n", w.fw_secs, w.fwr.peak, w.fwr.fwhm_pct, w.fwr.fwhm_err);
     if (w.cal_sent) fprintf(f, "Энергокалибровка (базовая, по Cs-137): E = %.6f · канал\n", w.cal_k);
+    if (w.hvboot_v > 0) fprintf(f, "Автозапуск ВВ при подаче питания: %d В\n", w.hvboot_v);
+    else fprintf(f, "Автозапуск ВВ: выключен (ВВ только командой)\n");
     fprintf(f, "Порог: %s; термокомпенсация: %s\n", g_dev.thr_codes == 0 ? "авто 5σ" : std::to_string(g_dev.thr_codes).c_str(),
             g_dev.tc_reply.empty() ? "не настроена" : g_dev.tc_reply.c_str());
     fclose(f);
@@ -1173,12 +1201,22 @@ static void WizStepBody(int s)
         break;
     }
     case 9: {
-        ImGui::TextWrapped("Сохранение всех настроек во флеш и отчёт о вводе в строй. Затем можно выключить ВВ, "
-                           "закрыть пульт и работать в BecqMoni (ВВ прибор включает при старте по сохранённой уставке "
-                           "только командой; рабочее ВВ записано в отчёт).");
+        ImGui::TextWrapped("Сохранение всех настроек во флеш и отчёт о вводе в строй. С автозапуском прибор сам "
+                           "включает рабочее ВВ через ~5 с после подачи питания (установление ~1.5 мин) — можно закрыть "
+                           "пульт и работать в BecqMoni. Без автозапуска ВВ включается только командой из пульта.");
         for (int i = 1; i < 9; i++) PassLine(WizDone(i), WIZ_STEPS[i]);
+        int hv_work = (int)((w.hv2_v > 0 ? w.hv2_v : g_dev.gnum("hv_set")) + 0.5);
+        {
+            char lb[96]; snprintf(lb, sizeof lb, "Автозапуск ВВ %d В при подаче питания (блок закрыт)", hv_work);
+            ImGui::Checkbox(lb, &w.autohv);
+        }
         ImGui::BeginDisabled(!conn || Busy() || g_dev.acquiring);
-        if (PrimaryButton("Сохранить во флеш и записать отчёт", ImVec2(-1, 26))) { g_dev.send_cmd("-save"); WizWriteReport(); w.saved = true; }
+        if (PrimaryButton("Сохранить во флеш и записать отчёт", ImVec2(-1, 26))) {
+            char c[32];
+            if (w.autohv && hv_work > 0) snprintf(c, sizeof c, "-hvboot %d", hv_work); else snprintf(c, sizeof c, "-hvboot off");
+            w.hvboot_v = (w.autohv && hv_work > 0) ? hv_work : 0;
+            g_dev.queue({ c, "-save" }); WizWriteReport(); w.saved = true;
+        }
         ImGui::EndDisabled();
         if (w.saved) PassLine(true, ("отчёт: " + w.report_path).c_str());
         ImGui::BeginDisabled(!conn || !g_dev.hv_on());

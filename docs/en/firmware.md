@@ -67,6 +67,7 @@ Service commands (response is a single line `-ok …` / `-err …`):
 | Command | Function |
 |---|---|
 | `-hv <0…1200>` / `-hv off` / `-hv` | HV setpoint, V / disable / query |
+| `-hvboot <V>` / `-hvboot off` / `-hvboot` | HV auto-start at power-up (closed unit): setpoint stored with `-save`; HV turns on ~5 s after start if reference and monitor are in range |
 | `-hvzero`, `-hvk [mV/V]` | HV monitor calibration: zero and gain |
 | `-ptcal <°C>` | Pt1000 calibration against reference temperature |
 | `-gst` | Instrument status in one line `key=value`: HV, reference, temperature, baseline, noise, load, live time |

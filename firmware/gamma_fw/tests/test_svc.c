@@ -102,7 +102,7 @@ static void test_vref_norm_and_recal(void)
     CHECK_NEAR(svc_vref_mv(&aux), 2507.0, 0.01);
     for (int i = 0; i < 10; i++) svc_aux_1s(&aux, &hv, raw_for_vref(2509.0f), NAN, NAN);
     CHECK_NEAR(svc_vref_mv(&aux), 2509.0 - 2.0 * pow(0.9, 10), 0.01);   /* τ 10 с */
-    CHECK(svc_aux_1s(&aux, &hv, raw_for_vref(2480.0f), NAN, NAN));      /* снова вне — перекалибровать */
+    CHECK(svc_aux_1s(&aux, &hv, raw_for_vref(2465.0f), NAN, NAN));      /* снова вне (±30) — перекалибровать */
     /* замер не пришёл — не в норме, но и не перекалибровка */
     CHECK(!svc_aux_1s(&aux, &hv, NAN, NAN, NAN));
     CHECK(!aux.vref_ok);
@@ -125,6 +125,50 @@ static void test_vref_trip_with_hv(void)
     CHECK(!hv_enabled(&hv));
     CHECK(hv_off_reason(&hv) && strstr(hv_off_reason(&hv), "VREF"));
     CHECK(strcmp(svc("-hv 500"), "-err vref") == 0);   /* и не включить, пока опора вне нормы */
+}
+
+/* ±30 мВ и одиночный выброс: GS474-0001 — 2512 по VREFINT, отдельные замеры за 2515 отказывали -hv */
+static void test_vref_outlier_no_block(void)
+{
+    reset();
+    run_aux(3, 2512.0f, 3296.0f, 1300.0f);
+    CHECK(svc_hv_allowed(&aux));
+    svc_aux_1s(&aux, &hv, raw_for_vref(2525.0f), NAN, NAN);          /* в новой норме */
+    CHECK(aux.vref_ok && svc_hv_allowed(&aux));
+    svc_aux_1s(&aux, &hv, raw_for_vref(2545.0f), NAN, NAN);          /* один выброс за край */
+    CHECK(!aux.vref_ok && svc_hv_allowed(&aux));
+    CHECK(strcmp(svc("-hv 500"), "-ok hv 500") == 0);                /* включается */
+    CHECK(svc_hv_allowed(&aux));
+    svc("-hv off");
+    for (int i = 0; i < 3; i++) svc_aux_1s(&aux, &hv, raw_for_vref(2545.0f), NAN, NAN);
+    CHECK(!svc_hv_allowed(&aux));                                     /* 3 подряд — нельзя */
+    CHECK(strcmp(svc("-hv 500"), "-err vref") == 0);
+    svc_aux_1s(&aux, &hv, raw_for_vref(2512.0f), NAN, NAN);
+    CHECK(svc_hv_allowed(&aux));
+}
+
+/* -hvboot: уставка автозапуска в live; -hv её не трогает, но отменяет автозапуск этого пуска */
+static void test_cmd_hvboot(void)
+{
+    reset();
+    CHECK(strcmp(svc("-hvboot"), "-ok hvboot off") == 0);            /* умолчание — выкл */
+    CHECK(strcmp(svc("-hvboot 564"), "-ok hvboot 564") == 0);
+    CHECK_NEAR(live.hv_setpoint_v, 564.0, 0.0);
+    CHECK(strcmp(svc("-hvboot"), "-ok hvboot 564") == 0);
+    CHECK(strcmp(svc("-hvboot 99999"), "-err hvboot") == 0);
+    CHECK(strcmp(svc("-hvboot 12abc"), "-err hvboot") == 0);
+    CHECK(strcmp(svc("-hvboot -5"), "-err hvboot") == 0);
+    CHECK_NEAR(live.hv_setpoint_v, 564.0, 0.0);                      /* ошибка не портит */
+    CHECK(!aux.hv_cmd_seen);
+    run_aux(3, 2507.0f, 3296.0f, 1300.0f);
+    CHECK(strcmp(svc("-hv 500"), "-ok hv 500") == 0);
+    CHECK(aux.hv_cmd_seen);
+    CHECK_NEAR(live.hv_setpoint_v, 564.0, 0.0);
+    char b[32];
+    CHECK(kv(svc("-gst"), "hv_boot", b, sizeof b) && strcmp(b, "564") == 0);
+    CHECK(strcmp(svc("-hvboot off"), "-ok hvboot off") == 0);
+    CHECK_NEAR(live.hv_setpoint_v, 0.0, 0.0);
+    CHECK(strcmp(svc("-hvboot 0"), "-ok hvboot off") == 0);
 }
 
 static void test_vdd_pt_filters(void)
@@ -371,6 +415,8 @@ int main(void)
     test_vref_math();
     test_vref_norm_and_recal();
     test_vref_trip_with_hv();
+    test_vref_outlier_no_block();
+    test_cmd_hvboot();
     test_vdd_pt_filters();
     test_mon_stale();
     test_stale_monitor_trips_hv();

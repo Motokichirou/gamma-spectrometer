@@ -16,9 +16,8 @@
 typedef struct {
     uint32_t magic, version, size;           /* size = sizeof(settings_t) */
     float hv_mon_zero_mv, hv_mon_k_mv_per_v; /* 2460, 1.640 */
-    float hv_setpoint_v;                     /* 0 */
-    uint8_t reserved_boot;                   /* было hv_on_at_boot: не используется, всегда 0 —
-                                                ВВ при старте не включается никогда */
+    float hv_setpoint_v;                     /* автозапуск ВВ после подачи питания, В (-hvboot); 0 — выкл */
+    uint8_t reserved_boot;                   /* было hv_on_at_boot: не используется, всегда 0 */
     float pt_rpu_ohm;                        /* 10024.5 */
     float tc_t0_c, tc_k1, tc_k2;             /* усиление ФЭУ относительно t0 = 1 + k1·dT + k2·dT²;
                                                 канал × 1/это (temp.h, tc_corr); 25, 0, 0 */

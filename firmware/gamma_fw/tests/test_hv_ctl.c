@@ -104,13 +104,13 @@ static void test_trim_converges(void)
     hv_set(&h, 1000.0f, 0);
     uint32_t now = 0; float out = 0;
     /* 70 с: рампа 10 с + выдержка/оценка скорости ≈ 18 с + подтверждение 2 с + интегратор τ ≈ 10 с */
-    run_model(&h, 0.916f, &now, 7000, &out);
+    run_model(&h, 0.916f, &now, 10000, &out);   /* 100 с: с зоной ±0.6 В интегратор сходится дольше */
     CHECK(hv_enabled(&h));
-    /* ±3 В мёртвой зоны + шаг ШИМ (0.4 В на CW): подход снизу встаёт на 997.0 ± шаг */
-    CHECK_NEAR(out, 1000.0, 3.5);
-    CHECK_NEAR(hv_mon_avg(&h), 1000.0, 3.5);
+    /* ±0.6 В мёртвой зоны + шаг ШИМ (0.4 В на CW): подход снизу встаёт на 999.4 ± шаг */
+    CHECK_NEAR(out, 1000.0, 1.0);
+    CHECK_NEAR(hv_mon_avg(&h), 1000.0, 1.0);
     /* точное значение 1000/0.916 − 1000 = 91.7; подход снизу останавливается на краю мёртвой зоны */
-    CHECK(hv_trim(&h) > 88.0f && hv_trim(&h) < 92.5f);
+    CHECK(hv_trim(&h) > 90.5f && hv_trim(&h) < 92.5f);
 }
 
 /* То же с шумом монитора ±10 В: подстройка сходится, ложных срабатываний нет. */
@@ -137,12 +137,12 @@ static void test_deadband(void)
     uint32_t now = 0;
     for (int i = 0; i < 1000; i++) { now += 10; hv_tick(&h, mon_mv_of(1000.0f), VDD, now); }
     CHECK_NEAR(hv_trim(&h), 0.0, 1e-6);
-    for (int i = 0; i < 3000; i++) { now += 10; hv_tick(&h, mon_mv_of(998.0f), VDD, now); }
-    CHECK_NEAR(hv_trim(&h), 0.0, 1e-6);           /* ошибка 2 В — внутри ±3 В */
-    for (int i = 0; i < 3000; i++) { now += 10; hv_tick(&h, mon_mv_of(1002.0f), VDD, now); }
+    for (int i = 0; i < 3000; i++) { now += 10; hv_tick(&h, mon_mv_of(999.6f), VDD, now); }
+    CHECK_NEAR(hv_trim(&h), 0.0, 1e-6);           /* ошибка 0.4 В — внутри ±0.6 В */
+    for (int i = 0; i < 3000; i++) { now += 10; hv_tick(&h, mon_mv_of(1000.4f), VDD, now); }
     CHECK_NEAR(hv_trim(&h), 0.0, 1e-6);
-    for (int i = 0; i < 1000; i++) { now += 10; hv_tick(&h, mon_mv_of(990.0f), VDD, now); }
-    CHECK(hv_trim(&h) > 0.0f);                    /* 10 В — уже правим */
+    for (int i = 0; i < 1000; i++) { now += 10; hv_tick(&h, mon_mv_of(998.0f), VDD, now); }
+    CHECK(hv_trim(&h) > 0.0f);                    /* 2 В — уже правим (раньше было внутри ±3 В) */
 }
 
 static void test_trim_rescale(void)
@@ -150,11 +150,11 @@ static void test_trim_rescale(void)
     hv_ctl_t h; hv_init(&h, ZERO, K);
     hv_set(&h, 1000.0f, 0);
     uint32_t now = 0; float out = 0;
-    /* коэффициент подобран так, чтобы подстройка встала на trim ≈ 98 (как на стенде 2026-11-05):
-       остановка на краю мёртвой зоны, r·(1000 + 98) = 997 */
+    /* коэффициент как на стенде 2026-11-05 (r·1098 = 997); с зоной ±0.6 В подстройка встаёт
+       на r·(1000 + t) ≈ 999.4 ⇒ t ≈ 100.6 */
     run_model(&h, 997.0f / 1098.0f, &now, 9000, &out);
     float t = hv_trim(&h);
-    CHECK(t > 96.0f && t < 99.5f);
+    CHECK(t > 99.5f && t < 101.5f);
     CHECK(hv_set(&h, 500.0f, now) == 0);
     CHECK_NEAR(hv_trim(&h), t * 0.5f, 1e-3);
     CHECK_NEAR(hv_setpoint(&h), 500.0, 1e-6);

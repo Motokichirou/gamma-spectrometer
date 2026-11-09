@@ -15,7 +15,7 @@
  * Учёт времени набора, живого времени и скоростей — core/acq.c; там же команды -smp, -noise, -osc.
  *
  * Задача 10 мс: adc_aux_poll → svc_aux_10ms (монитор, мВ; NaN — замер устарел) → hv_tick →
- * hvpwm_set, hv_enable_pin(hv_enabled). Задача 1 с: svc_aux_1s (VREF+ 2500 ± 15 мВ — иначе
+ * hvpwm_set, hv_enable_pin(hv_enabled). Задача 1 с: svc_aux_1s (VREF+ 2500 ± 30 мВ — иначе
  * ВВ не включается, при включённом — выкл; при выключенном — перекалибровка АЦП), +3.3V_D τ 60 с,
  * Pt1000 τ 10 с → термокомпенсация (det_set_gain) и T1 в -inf; скорости и загрузка ЦП (acq_tick_1s).
  *
@@ -26,7 +26,7 @@
  *
  * Task 12: настройки — страница 0x0801 F000 внутренней флеш (hw/flash_int + core/flashstore):
  * при старте загрузка (не прошла settings_valid — умолчания и flash=defaults в -gst; ВВ при старте
- * не включается никогда), запись — только из proto (settings_commit) и только при остановленном
+ * включается только по -hvboot: через HV_AUTO_MS, если опора и монитор в норме и не было -hv), запись — только из proto (settings_commit) и только при остановленном
  * наборе; p_commit это проверяет ещё раз. W25Q64 — в глубокий сон сразу после такта (hw/spiflash),
  * до любого включения ВВ.
  *
@@ -422,6 +422,30 @@ static void task_10ms(uint32_t now)
     hv_enable_pin(hv_enabled(&hv));
 }
 
+/* автозапуск ВВ собранного блока (-hvboot, SPEC §3): один раз за пуск, после HV_AUTO_MS, когда опора,
+   +3.3V_D и монитор в норме и калибровка монитора годна; ручная -hv до этого — отмена; не вышло за
+   HV_AUTO_GIVEUP_MS — сообщение и больше не пытаться. Отключившееся по защите ВВ сам не поднимает. */
+#define HV_AUTO_MS        5000u
+#define HV_AUTO_GIVEUP_MS 60000u
+static bool hv_auto_done;
+static void hv_autostart(uint32_t now)
+{
+    if (hv_auto_done || now < HV_AUTO_MS) return;
+    if (!(live.hv_setpoint_v > 0.0f) || aux.hv_cmd_seen || hv_enabled(&hv)) { hv_auto_done = true; return; }
+    char m[64];
+    if (aux_on && svc_hv_allowed(&aux) && hv_cal_ok(&hv)) {
+        hv_auto_done = true;
+        bool ok = hv_set(&hv, live.hv_setpoint_v, now) == 0;
+        if (ok) aux.hv_off_since_ms = now;
+        snprintf(m, sizeof m, ok ? "gamma_fw: hv auto %ld V\r\n" : "gamma_fw: hv auto FAIL\r\n",
+                 (long)(live.hv_setpoint_v + 0.5f));
+        proto_send_text(m);
+    } else if (now >= HV_AUTO_GIVEUP_MS) {
+        hv_auto_done = true;
+        proto_send_text("gamma_fw: hv auto skipped (vref/mon not ready)\r\n");
+    }
+}
+
 /* шаг 1 с: VREF+, +3.3V_D, Pt1000, термокомпенсация, скорости и загрузка ЦП, выдача спектра */
 static void task_1s(void)
 {
@@ -431,6 +455,7 @@ static void task_1s(void)
         sec_vrefint_new = sec_vbat_new = sec_pt_new = false;
         hv_set_vref(&hv, svc_vref_mv(&aux));
         if (!hv_enabled(&hv)) { hv_duty = 0; hvpwm_set(0); hv_enable_pin(false); }  /* выкл по VREF+ — сразу */
+        hv_autostart(millis());
         if (recal) {                           /* опора не устоялась к калибровке (SPEC §3.3) */
             adc_aux_recalibrate();
             sig_recal_pending = true;          /* ADC3 — ниже; в наборе — отложить до -sto */
@@ -480,7 +505,8 @@ int main(void)
     /* настройки: пусто/битые/другая версия/DBANK = 1 → умолчания (Review Focus 1) */
     bool fl_ok = flash_settings_load(&live);
     if (!fl_ok) settings_defaults(&live);
-    live.hv_setpoint_v = 0.0f;                 /* ВВ при старте не включается никогда (SPEC §3) */
+    /* уставка автозапуска (-hvboot): негодная — выкл; включение — в task_1s, не раньше HV_AUTO_MS */
+    if (!(live.hv_setpoint_v >= 0.0f && live.hv_setpoint_v <= HV_MAX_SET_V)) live.hv_setpoint_v = 0.0f;
     live.reserved_boot = 0;
     settings_seal(&live);
     if (live.tpl_valid) tpl_now = (const int16_t (*)[DET_NS])live.tpl;
