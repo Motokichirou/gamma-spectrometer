@@ -70,7 +70,7 @@
 #include <stdbool.h>
 #include "settings.h"
 
-#define PROTO_SERIAL        "GS474-0001"
+#define PROTO_SERIAL        "04740001"   /* GS474-0001: 40-е слово -cal, AtomSpectra требует hex */
 #define PROTO_CHUNK_CH      512u           /* каналов в кадре 0x01 */
 #define PROTO_PULSE_CHUNK   512u           /* отсчётов в кадре 0x02 */
 #define PROTO_THR_MAX       1000u          /* потолок -thr, коды АЦП */
