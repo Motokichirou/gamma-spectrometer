@@ -410,6 +410,67 @@ static void test_cmd_diag(void)
     CHECK(strcmp(svc("-diag"), "-err notready") == 0);
 }
 
+static void test_setup_roundtrip(void)
+{
+    reset();
+    CHECK(strcmp(svc("-setup res 1762800000 6.99 1190"), "-ok setup") == 0);
+    const char *r = svc("-setup");
+    CHECK(starts(r, "-ok setup "));
+    CHECK(strstr(r, "res=1762800000/6.99/1190.0") != NULL);
+    CHECK(strstr(r, "tpl=0 cal=0") != NULL);
+    CHECK(strcmp(svc("-setup chk 1762800001 1"), "-ok setup") == 0);
+    CHECK(strcmp(svc("-setup zero 1762800002"), "-ok setup") == 0);
+    CHECK(strcmp(svc("-setup hv 1762800003 755 1234.5"), "-ok setup") == 0);
+    CHECK(strcmp(svc("-setup tpl 1762800004"), "-ok setup") == 0);
+    CHECK(strcmp(svc("-setup done 1762800005"), "-ok setup") == 0);
+    r = svc("-setup");
+    CHECK(strstr(r, "chk=1762800001/1") != NULL);
+    CHECK(strstr(r, "zero=1762800002") != NULL);
+    CHECK(strstr(r, "hv=1762800003/755.0/1234.5") != NULL);
+    CHECK(strstr(r, "tplu=1762800004") != NULL);
+    CHECK(strstr(r, "done=1762800005") != NULL);
+    live.tpl_valid = 1; live.becq_valid = 1;
+    CHECK(strstr(svc("-setup"), "tpl=1 cal=1") != NULL);
+}
+
+static void test_setup_bad(void)
+{
+    reset();
+    CHECK(strcmp(svc("-setup res 0 6.99 1190"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup res 1762800000 0 1190"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup res 1762800000 101 1190"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup res 1762800000 6.99 0"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup res 1762800000 6.99 8192"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup hv 1762800000 2000 1190"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup chk 1762800000 2"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup zero 0"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup foo"), "-err setup") == 0);
+    CHECK(strcmp(svc("-setup zero 17628x"), "-err setup") == 0);
+    CHECK(live.setup.res_unix == 0 && live.setup.zero_unix == 0);   /* ошибка ничего не пишет */
+}
+
+static void test_setup_clr(void)
+{
+    reset();
+    svc("-setup res 1762800000 6.99 1190");
+    svc("-setup done 1762800005");
+    CHECK(strcmp(svc("-setup clr"), "-ok setup") == 0);
+    setup_rec_t z;
+    memset(&z, 0, sizeof z);
+    CHECK(memcmp(&live.setup, &z, sizeof z) == 0);
+}
+
+static void test_gst_saved(void)
+{
+    reset();
+    gst_stub.saved = 0;
+    CHECK(strstr(svc("-gst"), " saved=0 flash=") != NULL);
+    gst_stub.saved = 1;
+    CHECK(strstr(svc("-gst"), " saved=1 flash=") != NULL);
+    gst_stub.saved = -1;
+    CHECK(strstr(svc("-gst"), " saved=- flash=") != NULL);
+}
+
 int main(void)
 {
     test_vref_math();
@@ -427,5 +488,9 @@ int main(void)
     test_cmd_ptcal();
     test_cmd_gst();
     test_cmd_diag();
+    test_setup_roundtrip();
+    test_setup_bad();
+    test_setup_clr();
+    test_gst_saved();
     return T_DONE();
 }

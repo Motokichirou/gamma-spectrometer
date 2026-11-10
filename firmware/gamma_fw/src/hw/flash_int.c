@@ -105,6 +105,11 @@ static const uint8_t *op_page(void *ctx)
     return (const uint8_t *)FLASH_SETTINGS_ADDR;
 }
 
+const uint8_t *flash_settings_image(void)
+{
+    return flash_layout_ok() ? (const uint8_t *)FLASH_SETTINGS_ADDR : NULL;
+}
+
 bool flash_settings_load(settings_t *s)
 {
     if (!flash_layout_ok()) return false;       /* при DBANK = 1 адрес — дыра: чтение дало бы сбой шины */

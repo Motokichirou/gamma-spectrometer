@@ -221,6 +221,7 @@ static void cmd_gst(char *reply, size_t cap)
     putf(&o, "cpu", g.cpu_pct, 1);
     putu(&o, "lost", g.lost);
     putu(&o, "overrun", g.overrun);
+    put(&o, "saved", g.saved > 0 ? "1" : g.saved == 0 ? "0" : "-");
     put(&o, "flash", g.flash ? g.flash : "-");
     /* причина последнего выключения — последней: свободный текст с пробелами */
     if (hv_off_reason(h) && o.w + 10u < cap) {
@@ -327,6 +328,74 @@ static void cmd_hvk(const char *a, char *reply, size_t cap)
     snprintf(reply, cap, "-ok hvk %s", b);
 }
 
+/* строго: целое без знака > 0 и ничего после */
+static bool parse_unix(const char *p, uint32_t *out, const char **end)
+{
+    char *e;
+    if (*p < '0' || *p > '9') return false;
+    unsigned long long v = strtoull(p, &e, 10);
+    if (v == 0 || v > 0xFFFFFFFFull || (*e != 0 && *e != ' ' && *e != '	')) return false;
+    while (*e == ' ' || *e == '	') e++;
+    *out = (uint32_t)v;
+    *end = e;
+    return true;
+}
+/* число (float) из начала p, конец после пробелов */
+static bool parse_num(const char *p, float *out, const char **end)
+{
+    char *e;
+    if (!*p) return false;
+    double d = strtod(p, &e);
+    if (e == p || !isfinite(d) || (*e != 0 && *e != ' ' && *e != '	')) return false;
+    while (*e == ' ' || *e == '	') e++;
+    *out = (float)d;
+    *end = e;
+    return true;
+}
+
+/* -setup: запись о настройке (settings.setup). Без аргументов — прочитать. В ОЗУ; во флеш — -save. */
+static void cmd_setup(const char *a, char *reply, size_t cap)
+{
+    setup_rec_t *s = &C->live->setup;
+    if (!*a) {
+        char v[16], ch[16], rp[16], rc[16];
+        fmt_fix(v, sizeof v, s->hv_v, 1);
+        fmt_fix(ch, sizeof ch, s->hv_peak_ch, 1);
+        fmt_fix(rp, sizeof rp, s->res_fwhm_pct, 2);
+        fmt_fix(rc, sizeof rc, s->res_peak_ch, 1);
+        snprintf(reply, cap,
+                 "-ok setup tpl=%u cal=%u chk=%lu/%u zero=%lu hv=%lu/%s/%s tplu=%lu res=%lu/%s/%s done=%lu",
+                 C->live->tpl_valid ? 1u : 0u, C->live->becq_valid ? 1u : 0u,
+                 (unsigned long)s->chk_unix, s->chk_ok ? 1u : 0u, (unsigned long)s->zero_unix,
+                 (unsigned long)s->hv_unix, v, ch, (unsigned long)s->tpl_unix,
+                 (unsigned long)s->res_unix, rp, rc, (unsigned long)s->done_unix);
+        return;
+    }
+    setup_rec_t n = *s;
+    uint32_t u;
+    float f1, f2;
+    const char *e;
+    bool ok = false;
+    if (strcmp(a, "clr") == 0) { memset(&n, 0, sizeof n); ok = true; }
+    else if (strncmp(a, "chk ", 4) == 0 && parse_unix(a + 4, &u, &e) && (e[0] == '0' || e[0] == '1') && e[1] == 0) {
+        n.chk_unix = u; n.chk_ok = (uint8_t)(e[0] == '1'); ok = true;
+    }
+    else if (strncmp(a, "zero ", 5) == 0 && parse_unix(a + 5, &u, &e) && !*e) { n.zero_unix = u; ok = true; }
+    else if (strncmp(a, "tpl ", 4) == 0 && parse_unix(a + 4, &u, &e) && !*e) { n.tpl_unix = u; ok = true; }
+    else if (strncmp(a, "done ", 5) == 0 && parse_unix(a + 5, &u, &e) && !*e) { n.done_unix = u; ok = true; }
+    else if (strncmp(a, "hv ", 3) == 0 && parse_unix(a + 3, &u, &e) && parse_num(e, &f1, &e) &&
+             parse_num(e, &f2, &e) && !*e && f1 >= 0.0f && f1 <= 1500.0f && f2 >= 1.0f && f2 <= 8191.0f) {
+        n.hv_unix = u; n.hv_v = f1; n.hv_peak_ch = f2; ok = true;
+    }
+    else if (strncmp(a, "res ", 4) == 0 && parse_unix(a + 4, &u, &e) && parse_num(e, &f1, &e) &&
+             parse_num(e, &f2, &e) && !*e && f1 > 0.0f && f1 <= 100.0f && f2 >= 1.0f && f2 <= 8191.0f) {
+        n.res_unix = u; n.res_fwhm_pct = f1; n.res_peak_ch = f2; ok = true;
+    }
+    if (!ok) { snprintf(reply, cap, "-err setup"); return; }
+    *s = n;
+    snprintf(reply, cap, "-ok setup");
+}
+
 static void cmd_ptcal(const char *a, char *reply, size_t cap)
 {
     float t;
@@ -353,6 +422,7 @@ bool svc_handle(const char *cmd, char *reply, size_t cap)
     else if ((a = args_of(cmd, "-hvzero")) != NULL) { if (*a) snprintf(reply, cap, "-err hvzero"); else cmd_hvzero(reply, cap); }
     else if ((a = args_of(cmd, "-hvk")) != NULL)    cmd_hvk(a, reply, cap);
     else if ((a = args_of(cmd, "-ptcal")) != NULL)  cmd_ptcal(a, reply, cap);
+    else if ((a = args_of(cmd, "-setup")) != NULL)  cmd_setup(a, reply, cap);
     else if ((a = args_of(cmd, "-gst")) != NULL)    cmd_gst(reply, cap);
     else if ((a = args_of(cmd, "-diag")) != NULL)   cmd_diag(reply, cap);
     else return false;

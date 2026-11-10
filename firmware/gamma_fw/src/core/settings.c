@@ -123,7 +123,12 @@ bool settings_from_image(const uint8_t *img, settings_t *out)
 bool settings_same_as_image(const settings_t *live, const uint8_t *img)
 {
     if (!live || !img) return false;
-    settings_t t = *live;
-    settings_seal(&t);
-    return memcmp(&t, img, sizeof t) == 0;
+    /* без копии settings_t на стеке (≈ 1 КБ): тело и хвост — memcmp, crc — по live */
+    const size_t o = offsetof(settings_t, crc32);
+    uint32_t crc = calc_crc(live), icrc;
+    memcpy(&icrc, img + o, sizeof icrc);
+    if (crc != icrc) return false;
+    if (memcmp(live, img, o) != 0) return false;
+    return memcmp((const uint8_t *)live + o + sizeof crc, img + o + sizeof crc,
+                  sizeof(settings_t) - o - sizeof crc) == 0;
 }

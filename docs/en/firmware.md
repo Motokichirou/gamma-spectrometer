@@ -71,7 +71,8 @@ Service commands (response is a single line `-ok …` / `-err …`):
 | `-hvboot <V>` / `-hvboot off` / `-hvboot` | HV auto-start at power-up (closed unit): setpoint stored with `-save`; HV turns on ~5 s after start if reference and monitor are in range |
 | `-hvzero`, `-hvk [mV/V]` | HV monitor calibration: zero and gain |
 | `-ptcal <°C>` | Pt1000 calibration against reference temperature |
-| `-gst` | Instrument status in one line `key=value`: HV, reference, temperature, baseline, noise, load, live time |
+| `-setup [chk <unix> <0\|1> \| zero <unix> \| hv <unix> <V> <ch> \| tpl <unix> \| res <unix> <FWHM%> <ch> \| done <unix> \| clr]` | Instrument setup record (PC wizard). Bare — `-ok setup tpl=<0\|1> cal=<0\|1> chk=<unix>/<0\|1> zero=<unix> hv=<unix>/<V>/<ch> tplu=<unix> res=<unix>/<FWHM %>/<ch> done=<unix>`; with arguments — written to RAM (`-ok setup` / `-err setup`), to flash by `-save` |
+| `-gst` | Instrument status in one line `key=value`: HV, reference, temperature, baseline, noise, load, live time; `saved=1\|0\|-` — RAM settings equal to flash / not / unknown (before `flash=`) |
 | `-diag` | Signal chain node voltages and verdict against specs |
 | `-thr [codes]` | Detector threshold in ADC codes (0 — auto 5σ) |
 | `-opa [hs 0\|1 \| pga 2\|4\|8\|16]` | Shaper OPAMP mode and PGA gain (only outside acquisition, not written to flash) |

@@ -120,7 +120,7 @@ calculated over the **ASCII string** of words `0..9`, formatted as `%08X`
 | `39` | device identifier (serial number) |
 
 ```
-40240000\r\n00000000\r\n3FE00000\r\n…\r\n<CRC32>\r\n00000000\r\n…(×28)…\r\nGS474-0001\r\n
+40240000\r\n00000000\r\n3FE00000\r\n…\r\n<CRC32>\r\n00000000\r\n…(×28)…\r\n04740001\r\n
 ```
 
 Satisfies two consumers at once: **BecqMoni** (link check — second-to-last

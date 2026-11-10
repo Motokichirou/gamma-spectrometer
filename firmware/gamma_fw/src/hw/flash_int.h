@@ -20,6 +20,8 @@
 
 /* true — DBANK = 0 и флеш ≥ 128 КБ: страница настроек на месте */
 bool flash_layout_ok(void);
+/* Образ страницы настроек во флеш (sizeof(settings_t) байт); NULL — страницы нет (DBANK = 1). */
+const uint8_t *flash_settings_image(void);
 /* Читает страницу; true — settings_valid прошёл, *s заполнен; иначе false, *s не тронут. */
 bool flash_settings_load(settings_t *s);
 /* Стирание + запись двойными словами + сверка чтением (core/flashstore). Если на странице уже

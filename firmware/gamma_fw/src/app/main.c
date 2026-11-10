@@ -270,6 +270,8 @@ static void s_fill_gst(svc_gst_t *g)
     g->rej_budget = ds.rej_budget;
     g->pwm = hv_duty;
     g->flash = proto_flash_status();
+    const uint8_t *img = flash_settings_image();   /* тот же адрес, что читает flash_settings_load */
+    g->saved = img ? (settings_same_as_image(&live, img) ? 1 : 0) : -1;
 }
 /* Монитор ВВ в -diag — тот же, что в -gst (mon_mv: ADC2 ×256, сглаживание), а не свой разовый замер:
  * на узле монитора (110 кОм) наводка ≈ 159 кГц размахом ±64 кода (≈ ±40 мВ, замер 2026-11-06 при

@@ -1,6 +1,7 @@
 /* Тесты proto: команды BecqMoni и сервисные, отложенная запись, !boot, пакеты 0x01/0x02/0x04. */
 #define _CRT_SECURE_NO_WARNINGS
 #include <string.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "t.h"
@@ -199,6 +200,40 @@ static void test_cal_read_40_regs(void)
     char exp[16]; snprintf(exp, sizeof exp, "%08lX", (unsigned long)live.becq_words[2]);
     CHECK(eq(cmd("-cal 2"), exp));
     CHECK(eq(cmd("-cal 11 0"), "-err cal\r\n"));
+}
+
+/* AtomSpectra разбирает все 40 слов -cal как hex (Long.parseUnsignedLong(w, 16)) */
+static void test_cal_all_hex(void)
+{
+    for (int v = 0; v <= 1; v++) {
+        reset();
+        if (v) {
+            const double c[5] = { 1.5, 0.3456, 1e-6, 0, 0 };
+            becq_coef_to_words(2, c, live.becq_words);
+            live.becq_valid = 1;
+        }
+        const char *r = cmd("-cal");
+        CHECK(r != NULL);
+        if (!r) return;
+        int n = 0;
+        const char *p = r;
+        char last[32] = "";
+        while (*p) {
+            while (isspace((unsigned char)*p)) p++;
+            if (!*p) break;
+            int k = 0;
+            while (p[k] && !isspace((unsigned char)p[k])) {
+                CHECK(isxdigit((unsigned char)p[k]));
+                k++;
+            }
+            CHECK(k >= 1 && k <= 16);
+            snprintf(last, sizeof last, "%.*s", k < 31 ? k : 31, p);
+            n++;
+            p += k;
+        }
+        CHECK(n == 40);
+        CHECK(strcmp(last, "04740001") == 0);
+    }
 }
 
 static void test_cal_parse_strict(void)
@@ -646,6 +681,7 @@ int main(void)
     test_sta_sto_rst();
     test_inf_both_parsers();
     test_cal_read_40_regs();
+    test_cal_all_hex();
     test_cal_parse_strict();
     test_poll_stepwise();
     test_acq_stopped_commits();
