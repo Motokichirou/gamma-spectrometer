@@ -770,8 +770,24 @@ static void test_spectrum(void)
     CHECK(spectrum_total() == 0 && spectrum_get(1160) == 0);
 }
 
+/* канал спектра насыщается на 2^32−1, а не обнуляется (SPEC_logger.md §2.7) */
+static void test_spectrum_saturates(void)
+{
+    spectrum_clear();
+    uint32_t *s = (uint32_t *)spectrum_data();
+    s[100] = 0xFFFFFFFEu;
+    spectrum_add(100);
+    spectrum_add(100);
+    spectrum_add(100);
+    CHECK(spectrum_get(100) == 0xFFFFFFFFu);
+    spectrum_add(8192);                        /* вне диапазона — молча мимо */
+    CHECK(spectrum_get(8191) == 0u);
+    spectrum_clear();
+}
+
 int main(void)
 {
+    test_spectrum_saturates();
     test_amplitude_accuracy();
     test_low_energy();
     test_spike_rejected();

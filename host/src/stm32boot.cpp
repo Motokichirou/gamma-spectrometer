@@ -21,28 +21,31 @@ bool Boot::kick_firmware(const std::string& port, Log log)
     serialport::Serial s;
     if (!s.open(port, 600000)) { if (log) log("не открыть " + port); return false; }
     shproto::Parser p;
-    bool ok = false;
-    for (int attempt = 0; attempt < 3 && !ok; attempt++) {
-        const char* k = "!boot";
-        s.write((const uint8_t*)k, 5);
-        double t0 = now_ms();
-        uint8_t buf[512];
-        while (now_ms() - t0 < 500 && !ok) {
-            int n = s.read(buf, sizeof buf);
-            if (n > 0)
-                p.feed(buf, (size_t)n, [&](const shproto::Frame& f) {
-                    if (f.cmd == shproto::CMD_TEXT) {
-                        std::string t((const char*)f.payload.data(), f.payload.size());
-                        if (t.find("-ok boot") != std::string::npos) ok = true;
-                    }
-                });
-            else std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
+    bool ok = false, alive = false;
+    // "!boot" — ОДИН раз: повтор, ушедший уже загрузчику, сбивает его автоподстройку скорости по 0x7F
+    // (загрузчик залипает до сброса; найдено 2026-11-10 при входе во время набора). Во время набора
+    // ответ идёт за спектром из кольца UART — ждём дольше.
+    const char* k = "!boot";
+    s.write((const uint8_t*)k, 5);
+    double t0 = now_ms();
+    uint8_t buf[512];
+    while (now_ms() - t0 < 1500 && !ok) {
+        int n = s.read(buf, sizeof buf);
+        if (n > 0) {
+            alive = true;
+            p.feed(buf, (size_t)n, [&](const shproto::Frame& f) {
+                if (f.cmd == shproto::CMD_TEXT) {
+                    std::string t((const char*)f.payload.data(), f.payload.size());
+                    if (t.find("-ok boot") != std::string::npos) ok = true;
+                }
+            });
+        } else std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     s.close();
-    if (log) log(ok ? "прошивка ушла в загрузчик (ВВ выключено)" : "ответа «-ok boot» нет");
+    if (log) log(ok ? "прошивка ушла в загрузчик (ВВ выключено)"
+                    : alive ? "ответа «-ok boot» нет" : "прошивка молчит — пробую загрузчик напрямую");
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
-    return ok;
+    return ok || !alive;                       // молчит — возможно, загрузчик уже запущен
 }
 
 bool Boot::rx(uint8_t* buf, int n, int ms)

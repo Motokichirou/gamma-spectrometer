@@ -254,8 +254,25 @@ static void test_cmds(void)
     CHECK(strcmp(cmd("-smpl 2"), "<not acq>") == 0);
 }
 
+/* время набора дольше 49.7 сут (uint32 мс): с acq_fold_time раз в секунду (здесь — раз в сутки) не переполняется */
+static void test_long_time(void)
+{
+    det_stats_t st;
+    memset(&st, 0, sizeof st);
+    acq_t a;
+    acq_init(&a, 3466667u, &st);
+    uint32_t now = 123u;
+    acq_start(&a, now, &st);
+    for (int d = 0; d < 60; d++) { now += 86400000u; acq_fold_time(&a, now); }   /* millis заворачивается */
+    CHECK(acq_real_ms(&a, now) == 60ull * 86400000ull);
+    CHECK(acq_real_ms(&a, now + 500u) == 60ull * 86400000ull + 500u);
+    acq_stop(&a, now + 1000u, &st);
+    CHECK(acq_real_ms(&a, now + 99999u) == 60ull * 86400000ull + 1000u);
+}
+
 int main(void)
 {
+    test_long_time();
     test_time_and_dead();
     test_rates_cpu();
     test_fs_change();

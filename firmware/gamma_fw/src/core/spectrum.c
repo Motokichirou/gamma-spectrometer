@@ -14,7 +14,7 @@ void spectrum_clear(void)
 void spectrum_add(uint16_t ch)
 {
     if (ch < SPECTRUM_CHANNELS) {
-        spec[ch]++;
+        if (spec[ch] != 0xFFFFFFFFu) spec[ch]++;   /* насыщение, а не обнуление (SPEC_logger.md §2.7) */
         total++;
     }
 }

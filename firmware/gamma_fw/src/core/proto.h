@@ -118,6 +118,10 @@ void proto_send_text(const char *s);            /* произвольный те
 /* Температура для -inf (T1), °C; приложение обновляет раз в секунду. */
 void proto_set_temperature(float t_c);
 bool proto_acquiring(void);
+/* набор начат приложением, а не хостом (регистратор): выдача спектра и отложенная запись настроек — как при -sta */
+void proto_acq_started(void);
+/* произвольный кадр (регистратор: SHPROTO_CMD_LOG) — та же оговорка, что для proto_send_pulse */
+void proto_send_frame(uint8_t cmd, const uint8_t *p, size_t n);
 /* Состояние настроек во флеш для -gst:
  *   "none"     — приложение не сообщило, что во флеш (после proto_init);
  *   "defaults" — во флеш пусто или битые настройки, работаем на умолчаниях (proto_flash_defaults);

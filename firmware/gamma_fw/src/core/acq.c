@@ -41,7 +41,7 @@ void acq_stop(acq_t *a, uint32_t now_ms, const det_stats_t *st)
 {
     if (!a->run) return;
     account(a, st);
-    a->acc_ms += now_ms - a->since_ms;
+    a->acc_ms += (uint32_t)(now_ms - a->since_ms);
     a->run = false;
 }
 
@@ -65,9 +65,16 @@ void acq_tick_1s(acq_t *a, const det_stats_t *st, uint32_t busy_cyc, uint32_t wi
     if (a->run) account(a, st);
 }
 
-uint32_t acq_real_ms(const acq_t *a, uint32_t now_ms)
+uint64_t acq_real_ms(const acq_t *a, uint32_t now_ms)
 {
-    return a->acc_ms + (a->run ? now_ms - a->since_ms : 0u);
+    return a->acc_ms + (a->run ? (uint32_t)(now_ms - a->since_ms) : 0u);
+}
+
+void acq_fold_time(acq_t *a, uint32_t now_ms)
+{
+    if (!a->run) return;
+    a->acc_ms += (uint32_t)(now_ms - a->since_ms);
+    a->since_ms = now_ms;
 }
 
 float acq_dead_s(const acq_t *a, const det_stats_t *st)

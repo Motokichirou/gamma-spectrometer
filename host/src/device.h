@@ -4,6 +4,7 @@
 #pragma once
 #include "serial_win.h"
 #include "shproto.h"
+#include "logdump.h"
 #include <string>
 #include <vector>
 #include <deque>
@@ -120,6 +121,22 @@ public:
     // МНК: пик = a·(1 + k1·(T − t0) + k2·(T − t0)²); order 1 или 2. false — мало точек
     bool tc_fit(double t0, int order, double& k1, double& k2, double& rms_pct) const;
 
+    // ---- регистратор: выгрузка журнала ("-log list" → "-log read <сектор>" по каждой записи) ----
+    struct LogDump {
+        bool running = false, done = false;
+        int phase = 0;                       // 0 — список, 1 — чтение записей
+        uint32_t only_session = 0;           // 0 — все сессии
+        struct Item { uint32_t sector = 0, seq = 0, session = 0; };
+        std::vector<Item> items;
+        size_t idx = 0;
+        std::vector<logdump::Record> recs;
+        int bad = 0;
+        std::string msg;
+    } logd;
+    std::string log_status;                  // последний ответ "-ok log …" / "-err log …" (не list/read)
+    void logd_start(uint32_t only_session = 0);
+    void logd_abort();
+
 private:
     serialport::Serial serial_;
     shproto::Parser parser_;
@@ -140,4 +157,9 @@ private:
     std::vector<uint16_t> raw_cur_;
     int raw_got_ = 0, raw_total_ = 0; bool raw_wait_ = false; double raw_t_ = 0;
     bool tc_capture_old_ = false; double tc_last_gst_ = -1;
+    void logd_tick(double now);
+    bool logd_wait_ = false, logd_list_done_ = false, logd_rec_done_ = false, logd_rec_err_ = false;
+    double logd_t_ = 0;
+    std::vector<uint8_t> logd_buf_;
+    uint32_t logd_total_ = 0, logd_got_ = 0;
 };

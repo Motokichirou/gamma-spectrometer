@@ -2,6 +2,8 @@
 #include "device.h"
 #include <chrono>
 #include <cstdio>
+#include <cstring>
+#include <algorithm>
 #include <cstdlib>
 #include <cmath>
 
@@ -149,6 +151,7 @@ void Device::poll()
     if (hvp.running) hvp_tick(now);
     if (raw.running) raw_tick(now);
     if (tc.running)  tc_tick(now);
+    if (logd.running) logd_tick(now);
     if (q_wait_ && now - q_t_ > 2.0) { q_wait_ = false; queue_errors++; queue_last_err = "нет ответа"; }
     if (!q_wait_ && !q_.empty()) {
         send_cmd(q_.front(), true);
@@ -181,6 +184,20 @@ void Device::on_text(const std::string& t0)
         gst_rx_ = now_sec();
         return;
     }
+    if (starts(t, "-log rec ")) {                     // строка списка журнала — без лога
+        if (logd.running && logd.phase == 0) {
+            unsigned long s = 0, q = 0, ss = 0;
+            if (sscanf(t.c_str(), "-log rec %lu %lu %lu", &s, &q, &ss) == 3 &&
+                (!logd.only_session || logd.only_session == ss))
+                logd.items.push_back({ (uint32_t)s, (uint32_t)q, (uint32_t)ss });
+        }
+        return;
+    }
+    if (starts(t, "-ok log list") && t.find("begin") == std::string::npos) { logd_list_done_ = true; return; }
+    if (starts(t, "-ok log list begin") || starts(t, "-ok log read begin")) return;
+    if (starts(t, "-ok log read")) { logd_rec_done_ = true; return; }
+    if (starts(t, "-err log read") || (logd.running && starts(t, "-err log"))) { logd_rec_err_ = true; logd_list_done_ = true; log_add(3, t); return; }
+    if (starts(t, "-ok log") || starts(t, "-err log")) log_status = t;
     if (raw_wait_ && (starts(t, "-ok osc raw") || starts(t, "-err"))) {   // порция для эталона — без лога
         raw_wait_ = false;
         if (starts(t, "-ok osc raw") && raw_total_ == tpl_blk && raw_got_ == tpl_blk) raw.blocks.push_back(raw_cur_);
@@ -252,6 +269,18 @@ void Device::on_frame(const shproto::Frame& f)
             for (int i = 0; i < n && idx + i < (int)raw_cur_.size(); i++)
                 raw_cur_[idx + i] = (uint16_t)(p[4 + 2 * i] | (p[5 + 2 * i] << 8));
             raw_got_ += n;
+        }
+    } else if (f.cmd == 0x05) {                       // кусок записи журнала регистратора
+        const auto& p = f.payload;
+        if (logd.running && logd.phase == 1 && p.size() >= 10) {
+            uint32_t off = p[2] | (p[3] << 8) | (p[4] << 16) | ((uint32_t)p[5] << 24);
+            uint32_t tot = p[6] | (p[7] << 8) | (p[8] << 16) | ((uint32_t)p[9] << 24);
+            if (tot <= LOGREC_HDR_PAGE + LOGREC_PAYLOAD_MAX) {
+                if (logd_buf_.size() != tot) logd_buf_.assign(tot, 0xFF);
+                logd_total_ = tot;
+                size_t n = p.size() - 10;
+                if (off + n <= tot) { memcpy(logd_buf_.data() + off, p.data() + 10, n); logd_got_ += (uint32_t)n; }
+            }
         }
     } else if (f.cmd == shproto::CMD_SPECTRUM) {
         const auto& p = f.payload;
@@ -652,4 +681,75 @@ bool Device::tc_fit(double t0, int order, double& k1, double& k2, double& rms_pc
     for (auto& p : tc.pts) { double d = p.t - t0, f = c[0] + c[1] * d + (m == 3 ? c[2] * d * d : 0); s += (p.peak - f) * (p.peak - f) / (f * f); }
     rms_pct = 100.0 * sqrt(s / tc.pts.size());
     return true;
+}
+
+// ================= регистратор: выгрузка журнала =================
+
+void Device::logd_start(uint32_t only_session)
+{
+    logd = LogDump();
+    logd.running = true;
+    logd.only_session = only_session;
+    logd_wait_ = false;
+    logd_list_done_ = logd_rec_done_ = logd_rec_err_ = false;
+    logd.msg = "читаю список записей…";
+}
+
+void Device::logd_abort()
+{
+    if (!logd.running) return;
+    logd.running = false;
+    logd.msg = "выгрузка прервана";
+}
+
+void Device::logd_tick(double now)
+{
+    if (logd.phase == 0) {
+        if (!logd_wait_) { send_cmd("-log list", true); logd_wait_ = true; logd_t_ = now; return; }
+        if (logd_list_done_) {
+            logd_wait_ = false;
+            if (logd_rec_err_) { logd.running = false; logd.msg = "прибор не отдал список (" + log_status + ")"; return; }
+            std::sort(logd.items.begin(), logd.items.end(), [](const LogDump::Item& a, const LogDump::Item& b) { return a.seq < b.seq; });
+            logd.phase = 1;
+            logd.idx = 0;
+            return;
+        }
+        if (now - logd_t_ > 60.0) { logd.running = false; logd.msg = "нет ответа на -log list"; }
+        return;
+    }
+    // чтение записей по одной
+    if (logd_wait_) {
+        bool fin = logd_rec_done_ || logd_rec_err_;
+        if (!fin && now - logd_t_ < 15.0) return;
+        logd_wait_ = false;
+        logdump::Record r;
+        const auto& it = logd.items[logd.idx];
+        if (fin && !logd_rec_err_ && logd_total_ && logd_got_ + (LOGREC_HDR_PAGE - sizeof(logrec_hdr_t)) >= logd_total_) {
+            if (!logdump::parse(logd_buf_, it.sector, r)) logd.bad++;
+        } else {
+            r.sector = it.sector; r.raw = logd_buf_; r.err = fin ? "ошибка чтения" : "нет ответа"; logd.bad++;
+        }
+        logd.recs.push_back(std::move(r));
+        logd.idx++;
+    }
+    if (logd.idx >= logd.items.size()) {
+        logd.running = false;
+        logd.done = true;
+        char b[96];
+        snprintf(b, sizeof b, "выгружено записей: %zu, испорчено %d", logd.recs.size(), logd.bad);
+        logd.msg = b;
+        log_add(0, "регистратор: " + logd.msg);
+        return;
+    }
+    char c[40];
+    snprintf(c, sizeof c, "-log read %u", logd.items[logd.idx].sector);
+    logd_buf_.clear();
+    logd_total_ = logd_got_ = 0;
+    logd_rec_done_ = logd_rec_err_ = false;
+    send_cmd(c, true);
+    logd_wait_ = true;
+    logd_t_ = now;
+    char b[64];
+    snprintf(b, sizeof b, "читаю запись %zu из %zu…", logd.idx + 1, logd.items.size());
+    logd.msg = b;
 }

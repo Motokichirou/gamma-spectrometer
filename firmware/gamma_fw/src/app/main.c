@@ -69,6 +69,12 @@
 #include "dac_test.h"
 #include "flash_int.h"
 #include "spiflash.h"
+#include "spi1.h"
+#include "logger.h"
+
+#ifndef FW_TAG
+#define FW_TAG "dev"
+#endif
 
 #define OSC_MAX       64u                       /* окон -osc за раз (CCM: 64·32·2 = 4 КБ) */
 #define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
@@ -184,6 +190,7 @@ static bool p_commit(const settings_t *s)
 }
 static void p_acq_start(void)
 {
+    logger_event(LOGF_HOST_STA);
     if (!dac_mode) det_set_thr(&det, live.thr_codes);   /* авто-порог: σ при старте набора */
     if (osc_on) {                              /* выдача окон блокирует цикл — при наборе нельзя */
         osc_stop();
@@ -194,11 +201,13 @@ static void p_acq_start(void)
 }
 static void p_acq_stop(void)
 {
+    logger_event(LOGF_HOST_STO);
     det_stats_t ds = stats();
     acq_stop(&acq, millis(), &ds);
 }
 static void p_acq_clear(void)
 {
+    logger_event(LOGF_HOST_RST);
     spectrum_clear();
     det_stats_t ds = stats();
     acq_clear(&acq, millis(), &ds);
@@ -211,13 +220,17 @@ static void p_boot(void)
     hv_off(&hv, "boot");
     hvpwm_set(0);
     hv_enable_pin(false);
+    /* во время набора в кольце UART до 8 КБ спектра (≈ 140 мс при 600 000): дослать их ДО ответа, иначе
+       boot_enter_system (ждёт 50 мс) сбросит USART раньше, чем уйдёт "-ok boot", хост повторит "!boot"
+       уже загрузчику — тот по чужому байту настроит скорость и не узнает 0x7F (найдено 2026-11-10) */
+    uart_flush(300u);
     proto_send_text("-ok boot\r\n");
     boot_enter_system();
 }
 static void p_status(proto_status_t *st)
 {
     det_stats_t ds = stats();
-    st->elapsed_s = acq_real_ms(&acq, millis()) / 1000u;
+    st->elapsed_s = (uint32_t)(acq_real_ms(&acq, millis()) / 1000u);
     st->cpu_x10 = acq.cpu_x10;
     st->cps = acq.cps_acc;                     /* принятые за последнюю секунду */
     st->invalid = acq_invalid(&acq, &ds);      /* отбракованные за набор с -rst */
@@ -272,6 +285,51 @@ static bool s_diag(svc_diag_t *d)
     return true;
 }
 static const svc_ctx_t svc_ctx = { &hv, &live, &aux, p_millis, s_fill_gst, s_diag };
+
+/* ---- регистратор (core/logger.c, SPEC_logger.md) ---- */
+static float tc_gain_now = 1.0f;               /* множитель термокомпенсации, отданный детектору */
+/* начало сессии: набор с нуля, как -rst + -sta, но без пометок «команда хоста» */
+static void l_acq_begin(void)
+{
+    if (!dac_mode) det_set_thr(&det, live.thr_codes);
+    if (osc_on) osc_stop();
+    spectrum_clear();
+    det_stats_t ds = stats();
+    uint32_t now = millis();
+    acq_clear(&acq, now, &ds);
+    acq_start(&acq, now, &ds);
+    proto_acq_started();
+}
+static void l_snap(log_snap_t *s)
+{
+    det_stats_t ds = stats();
+    uint32_t now = millis();
+    s->real_ms = acq_real_ms(&acq, now);
+    double dead_ms = (double)acq_dead_s(&acq, &ds) * 1000.0;
+    s->live_ms = (double)s->real_ms > dead_ms ? s->real_ms - (uint64_t)dead_ms : 0u;
+    s->base = det_baseline(&det);
+    s->sigma = det_sigma(&det);
+    s->vref_mv = aux.vref_now_mv;
+    s->vdd_mv = aux.vdd_mv;
+    s->rej_shape = ds.rej_shape;
+    s->rej_width = ds.rej_width;
+    s->rej_pile = ds.rej_pileup;
+    s->rej_budget = ds.rej_budget;
+    s->overrun = adc_sig_overrun();
+    s->lost = adc_sig_lost();
+    s->tc_t0 = live.tc_t0_c;
+    s->tc_k1 = live.tc_k1;
+    s->tc_k2 = live.tc_k2;
+    s->tc_gain = tc_gain_now;
+    float hs = hv_setpoint(&hv);
+    s->hv_set_v = hs > 0.0f ? (uint16_t)(hs + 0.5f) : 0u;
+    s->acq_running = acq.run;
+}
+static const uint32_t *l_spectrum(void) { return spectrum_data(); }
+static const logger_port_t lport = {
+    &spi1_w25, p_millis, l_spectrum, l_acq_begin, l_snap, proto_send_text, proto_send_frame, p_tx_free,
+    FW_TAG, PROTO_SERIAL
+};
 
 /* ---- сигнальный тракт (core/acq.c) ---- */
 static bool a_acquiring(void) { return acq.run; }
@@ -384,6 +442,7 @@ static const dact_ctx_t dact_ctx = { d_start, dac_test_stop, dac_test_busy, dac_
 static void p_service(const char *cmd, char *reply, size_t cap)
 {
     if (svc_handle(cmd, reply, cap)) return;
+    if (logger_handle(cmd, reply, cap)) return;
     if (acq_handle(&acq_ctx, cmd, reply, cap)) return;
     if (dact_handle(&dact_ctx, cmd, reply, cap)) return;
     /* иначе ответ пуст — proto ответит -err unknown */
@@ -470,14 +529,29 @@ static void task_1s(void)
     }
     pt_state_t pst;
     float raw = aux.pt_raw;                    /* сглаженный τ 10 с; NaN — ещё нет → без поправки */
-    det_set_gain(&det, tc_corr_raw(raw, live.pt_rpu_ohm, live.tc_t0_c, live.tc_k1, live.tc_k2, &pst));
-    if (pst == PT_OK) proto_set_temperature(pt_temp_c(pt_resistance(raw, live.pt_rpu_ohm)));
+    tc_gain_now = tc_corr_raw(raw, live.pt_rpu_ohm, live.tc_t0_c, live.tc_k1, live.tc_k2, &pst);
+    det_set_gain(&det, tc_gain_now);
+    float t_now = NAN;
+    if (pst == PT_OK) { t_now = pt_temp_c(pt_resistance(raw, live.pt_rpu_ohm)); proto_set_temperature(t_now); }
+    acq_fold_time(&acq, millis());
     {   /* скорости и загрузка ЦП за секунду */
         det_stats_t ds = stats();
         uint32_t c = cycles();
         acq_tick_1s(&acq, &ds, busy_cyc, c - tick_cyc);
         tick_cyc = c;
         busy_cyc = 0;
+    }
+    {   /* телеметрия секунды — регистратору */
+        log_tel_t lt;
+        float hs = hv_setpoint(&hv);
+        lt.temp_c = t_now;
+        lt.hv_out_v = hv_mon_avg(&hv);
+        lt.hv_on = hv_enabled(&hv);
+        lt.hv_set_v = hs > 0.0f ? (uint16_t)(hs + 0.5f) : 0u;
+        lt.vref_ok = aux.vref_ok;
+        lt.cps_in = acq.cps_in;
+        lt.cps_acc = acq.cps_acc;
+        logger_tick_1s(&lt);
     }
     proto_tick_1s();
 }
@@ -515,6 +589,8 @@ int main(void)
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     svc_aux_init(&aux, adc_aux_vrefint_cal());
     svc_init(&svc_ctx);
+    spi1_init();                               /* флешка: из сна spiflash_sleep() — в работу регистратора */
+    logger_init(&lport);
     det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
     det_init(&det, &cfg, tpl_now, emit);
     spectrum_clear();
@@ -548,6 +624,7 @@ int main(void)
         while ((n = uart_rx(rb, sizeof rb)) != 0)
             proto_rx(rb, n);                   /* "!boot" отсюда не возвращается */
         proto_poll();
+        logger_poll(millis());                 /* регистратор: не больше одной операции с флешкой */
         if (dac_test_finished()) {
             char m[32];
             snprintf(m, sizeof m, "-ok dac done %u\r\n", (unsigned)dac_test_done());

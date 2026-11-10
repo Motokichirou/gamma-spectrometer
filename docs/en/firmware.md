@@ -67,6 +67,7 @@ Service commands (response is a single line `-ok …` / `-err …`):
 | Command | Function |
 |---|---|
 | `-hv <0…1200>` / `-hv off` / `-hv` | HV setpoint, V / disable / query |
+| `-log` / `-log on <period_s> [delay_s]` / `-log off` / `-log start` / `-log stop` / `-log time <unix>` / `-log erase` / `-log list` / `-log read <sector>` | Logger: spectra and telemetry recorded to the W25Q64 flash without a PC (auto-start at power-up, ring journal, download with gammapult). Spec — `firmware/board_g474cb/SPEC_logger.md` |
 | `-hvboot <V>` / `-hvboot off` / `-hvboot` | HV auto-start at power-up (closed unit): setpoint stored with `-save`; HV turns on ~5 s after start if reference and monitor are in range |
 | `-hvzero`, `-hvk [mV/V]` | HV monitor calibration: zero and gain |
 | `-ptcal <°C>` | Pt1000 calibration against reference temperature |

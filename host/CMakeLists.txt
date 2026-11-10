@@ -57,7 +57,11 @@ set(GAMMA_CORE
   src/tpl_learn.cpp
   src/stm32boot.cpp
   src/fwflash.cpp
-  src/peakfit.cpp)
+  src/peakfit.cpp
+  src/logdump.cpp
+  ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c)
+# формат записи регистратора — общий с прошивкой: logrec.c собирается как C++
+set_source_files_properties(${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c PROPERTIES LANGUAGE CXX)
 
 # Встроенный образ прошивки gamma_fw (для прошивки голого прибора из пульта). Собирается заранее:
 # firmware/gamma_fw/build.sh. Нет файла — пульт шьёт только из выбранного .bin.
@@ -84,7 +88,7 @@ add_executable(gammapult WIN32
   ${GAMMA_CORE})
 target_link_libraries(gammapult PRIVATE
   imgui implot d3d11 dxgi d3dcompiler dwmapi)
-target_include_directories(gammapult PRIVATE ${CMAKE_BINARY_DIR}/gen)
+target_include_directories(gammapult PRIVATE ${CMAKE_BINARY_DIR}/gen ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core)
 add_dependencies(gammapult fw_embed)
 if(MSVC)
   target_link_options(gammapult PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
@@ -96,6 +100,6 @@ add_executable(gammapult_com
   src/entry.cpp
   ${GAMMA_CORE})
 target_compile_definitions(gammapult_com PRIVATE GAMMAPULT_CONSOLE)
-target_include_directories(gammapult_com PRIVATE ${CMAKE_BINARY_DIR}/gen)
+target_include_directories(gammapult_com PRIVATE ${CMAKE_BINARY_DIR}/gen ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core)
 add_dependencies(gammapult_com fw_embed)
 set_target_properties(gammapult_com PROPERTIES OUTPUT_NAME gammapult SUFFIX ".com")

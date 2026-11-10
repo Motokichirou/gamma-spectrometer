@@ -15,7 +15,7 @@
   `python -I firmware/gamma_fw/tools/gfw.py flash firmware/gamma_fw/gamma_fw.bin`.
   Прошивка получает `!boot`, выключает ВВ и уходит в системный загрузчик (USART1 через FT231X).
 - **Сервис:** `python -I firmware/gamma_fw/tools/gfw.py cmd -- "-gst"`. Команды: `-diag`, `-hv <В>` / `-hv off`,
-  `-hvboot <В>|off` (автозапуск ВВ собранного блока),
+  `-hvboot <В>|off` (автозапуск ВВ собранного блока), `-log …` (регистратор во флешку W25Q64, `board_g474cb/SPEC_logger.md`),
   `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`, `-noise`, `-smp`, `-opa`, `-dac`, `-osc`, `-tplw/-tplok/-tplclr`,
   `-tc`, `-save`, `-defaults`.
 - **Эталоны формы:** `tools/tpl_pmt.py collect|build` — эталон с реального тракта (ФЭУ под ВВ, источник);

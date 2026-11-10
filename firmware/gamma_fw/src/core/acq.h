@@ -48,7 +48,8 @@ typedef struct {
     uint16_t cpu_x10;
     /* набор */
     bool     run;
-    uint32_t since_ms, acc_ms;     /* реальное время: начало текущего отрезка, накоплено */
+    uint32_t since_ms;             /* реальное время: начало текущего отрезка (millis) */
+    uint64_t acc_ms;               /* накоплено (64 бита: набор дольше 49.7 сут, SPEC_logger.md §2.7) */
     double   dead_s;               /* мёртвое время набора, учтённое к a_prev */
     uint32_t invalid;              /* отбракованные за набор, учтённые к a_prev */
     det_stats_t a_prev;            /* счётчики на момент последнего учёта набора */
@@ -65,7 +66,9 @@ void acq_stop(acq_t *a, uint32_t now_ms, const det_stats_t *st);
 void acq_clear(acq_t *a, uint32_t now_ms, const det_stats_t *st);   /* -rst: время и счёт с нуля */
 /* busy_cyc — такты обработки сигнала за окно, win_cyc — такты окна (0 — загрузка 0) */
 void acq_tick_1s(acq_t *a, const det_stats_t *st, uint32_t busy_cyc, uint32_t win_cyc);
-uint32_t acq_real_ms(const acq_t *a, uint32_t now_ms);
+uint64_t acq_real_ms(const acq_t *a, uint32_t now_ms);
+/* раз в секунду: идущий отрезок — в накопленное (отрезок длиннее 49.7 сут не переполнит millis) */
+void     acq_fold_time(acq_t *a, uint32_t now_ms);
 float    acq_dead_s(const acq_t *a, const det_stats_t *st);           /* с текущим отрезком */
 float    acq_live_s(const acq_t *a, uint32_t now_ms, const det_stats_t *st);
 uint32_t acq_invalid(const acq_t *a, const det_stats_t *st);

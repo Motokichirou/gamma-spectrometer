@@ -8,8 +8,9 @@ TC=/c/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.exter
 CM=../gamma_stage1/Drivers/CMSIS
 F="-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard"
 SRCS=$(find src -name '*.c' | sort)
+FWTAG=$(git rev-parse --short HEAD 2>/dev/null || echo dev)
 $TC/arm-none-eabi-gcc $F -std=gnu11 -O2 -g -Wall -Wextra -fno-math-errno -ffunction-sections -fdata-sections \
-  -DSTM32G474xx -DDET_GUARD=40u ${EXTRA:-} -Isrc/core -Isrc/hw -I$CM/Include -I$CM/Device/ST/STM32G4xx/Include \
+  -DSTM32G474xx -DDET_GUARD=40u -DFW_TAG=\"$FWTAG\" ${EXTRA:-} -Isrc/core -Isrc/hw -I$CM/Include -I$CM/Device/ST/STM32G4xx/Include \
   $SRCS startup_stm32g474xx.s -T gamma_fw.ld \
   --specs=nano.specs --specs=nosys.specs -Wl,--gc-sections -Wl,--no-warn-rwx-segments \
   -Wl,-Map=${OUT:-gamma_fw}.map -o ${OUT:-gamma_fw}.elf -lm

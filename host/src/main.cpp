@@ -24,6 +24,8 @@
 #include "tpl_learn.h"
 #include "fwflash.h"
 #include "peakfit.h"
+#include "logdump.h"
+#include <filesystem>
 #include <ctime>
 #include <cstdlib>
 #include "theme.h"
@@ -768,6 +770,161 @@ static void TabTemplate()
     ImGui::EndDisabled();
 }
 
+// ---- Регистратор: автономные записи во флешку прибора (SPEC_logger.md) ----
+static int   g_lg_period = 600, g_lg_delay = 120;
+static char  g_lg_dir[260] = "";
+static bool  g_lg_erase_ok = false;
+static int   g_lg_sess_idx = 0;
+static float g_lg_lo = 300, g_lg_hi = 6000;
+static std::string g_lg_msg;
+static double g_lg_poll_t = 0;
+
+static std::string LogDefaultDir()
+{
+    std::filesystem::path base;
+    if (const wchar_t* up = _wgetenv(L"USERPROFILE")) base = std::filesystem::path(up) / L"Documents";
+    else base = std::filesystem::current_path();
+    time_t t = time(nullptr); struct tm lt; localtime_s(&lt, &t);
+    char n[48]; strftime(n, sizeof n, "gammapult_log_%Y%m%d_%H%M", &lt);
+    std::string u8 = (base / n).u8string();
+    return u8;
+}
+
+static void TabLogger()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    Device::LogDump& D = g_dev.logd;
+    ImGui::TextWrapped("Прибор сам набирает спектр и каждые N минут пишет во внутреннюю флешку запись: накопленный "
+                       "спектр, температуру Pt1000, ВВ, загрузку. Питание — от пауэрбанка, компьютер не нужен. "
+                       "Потом выгрузка сюда: термокомпенсация по прогреву/остыванию, сложение долгих наборов.");
+    // состояние — раз в 3 с, пока вкладка открыта
+    double now = ImGui::GetTime();
+    if (conn && !D.running && now - g_lg_poll_t > 3.0) { g_dev.send_cmd("-log", true); g_lg_poll_t = now; }
+    ImGui::PushFont(font_mono);
+    ImGui::TextWrapped("%s", g_dev.log_status.empty() ? "—" : g_dev.log_status.c_str());
+    ImGui::PopFont();
+
+    Caption("Автозапуск после подачи питания");
+    ImGui::SetNextItemWidth(90); ImGui::InputInt("период, с", &g_lg_period, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90); ImGui::InputInt("выдержка, с", &g_lg_delay, 0, 0);
+    if (g_lg_period < 60) g_lg_period = 60;
+    if (g_lg_period > 86400) g_lg_period = 86400;
+    if (g_lg_delay < 0) g_lg_delay = 0;
+    if (g_lg_delay > 7200) g_lg_delay = 7200;
+    ImGui::BeginDisabled(!conn || D.running);
+    if (ImGui::Button("Включить автозапуск")) { char c[48]; snprintf(c, sizeof c, "-log on %d %d", g_lg_period, g_lg_delay); g_dev.send_cmd(c); }
+    ImGui::SameLine();
+    if (ImGui::Button("Выключить")) g_dev.send_cmd("-log off");
+    ImGui::SameLine();
+    if (ImGui::Button("Синхронизировать время")) { char c[48]; snprintf(c, sizeof c, "-log time %lld", (long long)time(nullptr)); g_dev.send_cmd(c); }
+    if (ImGui::Button("Начать сессию сейчас")) g_dev.send_cmd("-log start");
+    ImGui::SameLine();
+    if (ImGui::Button("Остановить сессию")) g_dev.send_cmd("-log stop");
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Выдержка — после включения: ВВ встаёт ~1.5 мин, ФЭУ устанавливается 30–60 мин.");
+
+    Caption("Выгрузка");
+    if (!g_lg_dir[0]) { std::string d = LogDefaultDir(); strncpy(g_lg_dir, d.c_str(), sizeof g_lg_dir - 1); }
+    ImGui::SetNextItemWidth(-1); ImGui::InputText("##lgdir", g_lg_dir, sizeof g_lg_dir);
+    ImGui::BeginDisabled(!conn || D.running);
+    if (PrimaryButton("Выгрузить журнал", ImVec2(-1, 26))) { g_lg_msg.clear(); g_dev.logd_start(0); }
+    ImGui::EndDisabled();
+    if (D.running) {
+        float fr = D.items.empty() ? 0.0f : (float)D.idx / (float)D.items.size();
+        ImGui::ProgressBar(fr, ImVec2(-1, 0), D.msg.c_str());
+        if (ImGui::Button("Прервать")) g_dev.logd_abort();
+    } else if (!D.msg.empty()) ImGui::TextDisabled("%s", D.msg.c_str());
+    static bool written = false;
+    if (D.running) written = false;
+    if (D.done && !written) {
+        written = true;
+        std::string err;
+        if (logdump::write_dir(g_lg_dir, D.recs, (int)g_lg_lo, (int)g_lg_hi, err))
+            g_lg_msg = std::string("сохранено: ") + g_lg_dir + (err.empty() ? "" : " — " + err);
+        else g_lg_msg = "ошибка: " + err;
+        g_lg_sess_idx = 0;
+    }
+    if (!g_lg_msg.empty()) ImGui::TextWrapped("%s", g_lg_msg.c_str());
+
+    // разбор выгруженного
+    auto sess = logdump::sessions(D.recs);
+    if (!sess.empty()) {
+        Caption("Сессия");
+        if (g_lg_sess_idx >= (int)sess.size()) g_lg_sess_idx = (int)sess.size() - 1;
+        std::string lbl = std::to_string(sess[g_lg_sess_idx]);
+        ImGui::SetNextItemWidth(120);
+        if (ImGui::BeginCombo("##lgsess", lbl.c_str())) {
+            for (int i = 0; i < (int)sess.size(); i++) {
+                auto ss = logdump::session(D.recs, sess[i]);
+                char b[96];
+                snprintf(b, sizeof b, "%u — %zu записей, %.1f ч", sess[i], ss.size(), ss.empty() ? 0.0 : ss.back()->h.t_end_ms / 3.6e6);
+                if (ImGui::Selectable(b, i == g_lg_sess_idx)) g_lg_sess_idx = i;
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(60); ImGui::InputFloat("##lglo", &g_lg_lo, 0, 0, "%.0f");
+        ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
+        ImGui::SetNextItemWidth(60); ImGui::InputFloat("окно пика", &g_lg_hi, 0, 0, "%.0f");
+        auto s = logdump::session(D.recs, sess[g_lg_sess_idx]);
+        static std::vector<logdump::PeakPt> pk;
+        static uint32_t pk_sess = 0xFFFFFFFFu; static float pk_lo = -1, pk_hi = -1; static size_t pk_n = 0;
+        if (pk_sess != sess[g_lg_sess_idx] || pk_lo != g_lg_lo || pk_hi != g_lg_hi || pk_n != D.recs.size()) {
+            pk = logdump::peaks(s, (int)g_lg_lo, (int)g_lg_hi);
+            pk_sess = sess[g_lg_sess_idx]; pk_lo = g_lg_lo; pk_hi = g_lg_hi; pk_n = D.recs.size();
+        }
+        static std::vector<double> tx, py, ty;
+        tx.clear(); py.clear(); ty.clear();
+        for (auto& p : pk) if (p.ok) { tx.push_back(p.t_mid_s / 3600.0); py.push_back(p.peak); ty.push_back(std::isfinite(p.temp) ? p.temp : NAN); }
+        if (!tx.empty() && ImPlot::BeginPlot("##lgplot", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            ImPlot::SetupAxes("ч", "пик, канал", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+            ImPlot::SetupAxis(ImAxis_Y2, "°C", ImPlotAxisFlags_AuxDefault | ImPlotAxisFlags_AutoFit);
+            ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 2.5f, c_trace, 1.0f, c_trace);
+            ImPlot::PlotLine("пик", tx.data(), py.data(), (int)tx.size());
+            ImPlot::SetAxes(ImAxis_X1, ImAxis_Y2);
+            ImPlot::SetNextLineStyle(c_warn);
+            ImPlot::PlotLine("T", tx.data(), ty.data(), (int)tx.size());
+            ImPlot::EndPlot();
+        }
+        ImGui::BeginDisabled(pk.empty());
+        if (ImGui::Button("В термокомпенсацию")) {
+            g_dev.tc.pts.clear();
+            int skip = 0;
+            for (auto& p : pk) {
+                bool bad = !p.ok || !std::isfinite(p.temp) || (p.flags & (LOGF_HOST_RST | LOGF_HOST_STO | LOGF_HV_TRIP | LOGF_TC_ON))
+                         || (std::isfinite(p.temp_span) && p.temp_span > 1.0);
+                if (bad) { skip++; continue; }
+                g_dev.tc.pts.push_back({ p.temp, p.peak, p.sigma, p.n });
+            }
+            g_lg_msg = "во вкладку «Термо» передано точек: " + std::to_string(g_dev.tc.pts.size()) +
+                       " (пропущено " + std::to_string(skip) + ": события хоста, ВВ, поправка прибора включена или T менялась > 1 °C за интервал)";
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Сложить с выравниванием (CSV)")) {
+            std::vector<double> sum; std::string msg;
+            if (logdump::aligned_sum(s, (int)g_lg_lo, (int)g_lg_hi, sum, msg)) {
+                std::filesystem::path pth = std::filesystem::u8path(g_lg_dir);
+                std::error_code ec; std::filesystem::create_directories(pth, ec);
+                char n[48]; snprintf(n, sizeof n, "sum_aligned_s%u.csv", sess[g_lg_sess_idx]);
+                FILE* f = _wfopen((pth / n).wstring().c_str(), L"w");
+                if (f) { fprintf(f, "channel,count\n"); for (size_t i = 0; i < sum.size(); i++) fprintf(f, "%zu,%.0f\n", i, sum[i]); fclose(f); g_lg_msg = msg + " → " + n; }
+                else g_lg_msg = "не открыть файл в папке выгрузки";
+            } else g_lg_msg = msg;
+        }
+        ImGui::EndDisabled();
+    }
+
+    Caption("Стирание");
+    ImGui::Checkbox("да, стереть весь журнал", &g_lg_erase_ok);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!conn || D.running || !g_lg_erase_ok);
+    if (DangerButton("Стереть журнал")) { g_dev.send_cmd("-log erase"); g_lg_erase_ok = false; }
+    ImGui::EndDisabled();
+}
+
 static void TabThermo()
 {
     using namespace theme;
@@ -841,6 +998,7 @@ static void PanelService(ImVec2 pos, ImVec2 size)
         if (ImGui::BeginTabItem("Калибровки"))   { TabCalib();    ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Эталон"))       { TabTemplate(); ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Термо"))        { TabThermo();   ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("Регистратор"))  { TabLogger();   ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Настройки"))    { TabSettings(); ImGui::EndTabItem(); }
         ImGui::EndTabBar();
     }
@@ -1300,7 +1458,7 @@ static void MenuBar()
     }
     if (ImGui::MenuItem("Справка")) g_open_help = true;
 
-    const char* hint = "gamma_fw · shproto 600000 8N1 · gammapult v0.5.0";
+    const char* hint = "gamma_fw · shproto 600000 8N1 · gammapult v0.6.0";
     ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(hint).x - 14);
     ImGui::TextDisabled("%s", hint);
     ImGui::EndMainMenuBar();

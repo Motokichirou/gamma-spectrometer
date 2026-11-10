@@ -9,11 +9,15 @@
 //   gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]   (запись термокомпенсации)
 //   gammapult tpl collect --port COMx [--n 2000] --out raw.bin   (сырые порции uint16 × 8192 подряд)
 //   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
+//   gammapult log status|on P [D]|off|start|stop|time|erase --yes --port COMx   (регистратор, SPEC_logger.md)
+//   gammapult log dump --port COMx --out <папка> [--session N] [--lo 300 --hi 6000] [--thermo] [--sum]
 #include "device.h"
 #include "tpl_learn.h"
 #include "fwflash.h"
 #include "peakfit.h"
 #include "host_app.h"
+#include "logdump.h"
+#include <ctime>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -22,6 +26,7 @@
 #include <chrono>
 #include <thread>
 #include <cmath>
+#include <filesystem>
 
 static std::string opt(int argc, char** argv, const char* key, const char* def = "")
 {
@@ -29,6 +34,8 @@ static std::string opt(int argc, char** argv, const char* key, const char* def =
         if (strcmp(argv[i], key) == 0) return argv[i + 1];
     return def;
 }
+
+static bool starts_with_ok(const std::string& s) { return s.rfind("-ok", 0) == 0; }
 
 static void pump(Device& d, double sec)
 {
@@ -60,7 +67,11 @@ static void usage()
            "  gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
-           "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n");
+           "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n"
+           "  gammapult log status|off|start|stop|time --port COMx      (регистратор: состояние/управление)\n"
+           "  gammapult log on <период_с> [выдержка_с] --port COMx     (автозапуск регистратора)\n"
+           "  gammapult log erase --yes --port COMx                   (стереть журнал)\n"
+           "  gammapult log dump --port COMx --out <папка> [--session N] [--lo 300 --hi 6000] [--thermo] [--sum]\n");
 }
 
 int run_cli(int argc, char** argv)
@@ -294,6 +305,87 @@ int run_cli(int argc, char** argv)
             fclose(f);
             printf("%s -> %s\n", dev.raw.msg.c_str(), out.c_str());
         }
+    } else if (sub == "log") {
+        std::string a2 = argc >= 3 ? argv[2] : "status";
+        auto has = [&](const char* k) { for (int i = 1; i < argc; i++) if (strcmp(argv[i], k) == 0) return true; return false; };
+        auto ask = [&](const std::string& c, double secs) {
+            dev.log_status.clear();
+            dev.send_cmd(c, true);
+            for (double t = 0; t < secs && dev.log_status.empty(); t += 0.05) pump(dev, 0.05);
+            printf("%s\n", dev.log_status.empty() ? "нет ответа" : dev.log_status.c_str());
+            return starts_with_ok(dev.log_status);
+        };
+        if (a2 == "status")      rc = ask("-log", 2) ? 0 : 3;
+        else if (a2 == "off")    rc = ask("-log off", 2) ? 0 : 3;
+        else if (a2 == "start")  rc = ask("-log start", 2) ? 0 : 3;
+        else if (a2 == "stop")   rc = ask("-log stop", 2) ? 0 : 3;
+        else if (a2 == "on") {
+            std::string c = "-log on";
+            if (argc >= 4 && argv[3][0] != '-') c += std::string(" ") + argv[3];
+            if (argc >= 5 && argv[4][0] != '-') c += std::string(" ") + argv[4];
+            rc = ask(c, 2) ? 0 : 3;
+        } else if (a2 == "time") {
+            char c[48]; snprintf(c, sizeof c, "-log time %lld", (long long)time(nullptr));
+            rc = ask(c, 2) ? 0 : 3;
+        } else if (a2 == "erase") {
+            if (!has("--yes")) { printf("стирание журнала необратимо — добавь --yes\n"); rc = 1; }
+            else {
+                rc = ask("-log erase", 2) ? 0 : 3;
+                if (!rc) {                       // ждать конца стирания (≈ 20 с)
+                    for (int i = 0; i < 120; i++) { pump(dev, 0.5); dev.log_status.clear(); dev.send_cmd("-log", true); pump(dev, 0.3);
+                        if (!dev.log_status.empty() && dev.log_status.find("erasing") == std::string::npos) break; }
+                    printf("%s\n", dev.log_status.c_str());
+                }
+            }
+        } else if (a2 == "dump") {
+            std::string out = opt(argc, argv, "--out");
+            if (out.empty()) { printf("нужен --out <папка>\n"); dev.disconnect(); return 1; }
+            uint32_t only = (uint32_t)atoi(opt(argc, argv, "--session", "0").c_str());
+            int lo = atoi(opt(argc, argv, "--lo", "300").c_str()), hi = atoi(opt(argc, argv, "--hi", "6000").c_str());
+            dev.logd_start(only);
+            std::string last;
+            while (dev.logd.running) {
+                pump(dev, 0.1);
+                if (dev.logd.msg != last) { last = dev.logd.msg; printf("  %s\r", last.c_str()); fflush(stdout); }
+            }
+            printf("\n%s\n", dev.logd.msg.c_str());
+            std::string err;
+            if (!dev.logd.done) rc = 4;
+            else if (!logdump::write_dir(out, dev.logd.recs, lo, hi, err)) { printf("ошибка: %s\n", err.c_str()); rc = 3; }
+            else {
+                printf("выгружено в %s%s%s\n", out.c_str(), err.empty() ? "" : " — ", err.c_str());
+                for (uint32_t sid : logdump::sessions(dev.logd.recs)) {
+                    auto s = logdump::session(dev.logd.recs, sid);
+                    double t0 = logdump::temp_c(s.front()->h.t_start_c100), t1 = logdump::temp_c(s.back()->h.t_end_c100);
+                    printf("  сессия %u: записей %zu, %.1f ч, T %.2f → %.2f °C\n", sid, s.size(), s.back()->h.t_end_ms / 3.6e6, t0, t1);
+                    if (has("--thermo")) {   // пик против температуры → k1/k2 тем же МНК, что вкладка «Термо»
+                        auto pk = logdump::peaks(s, lo, hi);
+                        dev.tc.pts.clear();
+                        for (auto& p : pk)
+                            if (p.ok && std::isfinite(p.temp) && !(p.flags & (LOGF_HOST_RST | LOGF_HOST_STO | LOGF_HV_TRIP | LOGF_TC_ON))
+                                && (!std::isfinite(p.temp_span) || p.temp_span <= 1.0))
+                                dev.tc.pts.push_back({ p.temp, p.peak, p.sigma, p.n });
+                        double tmn = 1e9, tmx = -1e9, tm = 0;
+                        for (auto& q : dev.tc.pts) { tm += q.t; if (q.t < tmn) tmn = q.t; if (q.t > tmx) tmx = q.t; }
+                        if (!dev.tc.pts.empty()) tm /= dev.tc.pts.size();
+                        double k1, k2, rms;
+                        printf("    термо: точек %zu, T %.2f…%.2f °C\n", dev.tc.pts.size(), tmn, tmx);
+                        if (dev.tc_fit(25.0, 1, k1, k2, rms)) printf("    линейно (t0 25): k1 %.4e /°C (%.3f %%/°C), остаток %.3f %%\n", k1, 100 * k1, rms);
+                        if (dev.tc_fit(25.0, 2, k1, k2, rms)) printf("    квадратично (t0 25): k1 %.4e, k2 %.4e, остаток %.3f %%  → -tc 25 %.6g %.6g\n", k1, k2, rms, k1, k2);
+                        (void)tm;
+                    }
+                    if (has("--sum")) {
+                        std::vector<double> sum; std::string msg;
+                        if (logdump::aligned_sum(s, lo, hi, sum, msg)) {
+                            char n[64]; snprintf(n, sizeof n, "/sum_aligned_s%u.csv", sid);
+                            FILE* f = _wfopen(std::filesystem::u8path(out + n).wstring().c_str(), L"w");
+                            if (f) { fprintf(f, "channel,count\n"); for (int i = 0; i < (int)sum.size(); i++) fprintf(f, "%d,%.0f\n", i, sum[i]); fclose(f); }
+                            printf("    %s → sum_aligned_s%u.csv\n", msg.c_str(), sid);
+                        } else printf("    сложение: %s\n", msg.c_str());
+                    }
+                }
+            }
+        } else { usage(); rc = 1; }
     } else if (sub == "cmd") {
         std::string c = opt(argc, argv, "--send");
         if (c.empty()) { printf("нужен --send \"...\"\n"); dev.disconnect(); return 1; }

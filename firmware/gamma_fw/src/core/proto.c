@@ -52,6 +52,8 @@ static void send_frame(uint8_t cmd, const uint8_t *p, size_t n)
     if (P && P->tx) P->tx(txbuf, m);
 }
 
+void proto_send_frame(uint8_t cmd, const uint8_t *p, size_t n) { send_frame(cmd, p, n); }
+
 void proto_send_text(const char *s)
 {
     send_frame(SHPROTO_CMD_TEXT, (const uint8_t *)s, strlen(s));
@@ -340,6 +342,8 @@ void proto_init(const proto_port_t *port, settings_t *live)
     out_step = OUT_IDLE;
 }
 
+void proto_acq_started(void) { acquiring = true; }
+
 void proto_acq_stopped(void)
 {
     acquiring = false;
@@ -382,7 +386,7 @@ void proto_poll(void)
         const uint32_t *spec = spectrum_data();
         put16(pl, (uint16_t)off);
         for (uint32_t i = 0; i < PROTO_CHUNK_CH; i++)
-            put32(pl + 2 + 4 * i, spec[off + i] & SPECTRUM_MASK);
+            put32(pl + 2 + 4 * i, spec[off + i] > SPECTRUM_MASK ? SPECTRUM_MASK : spec[off + i]);   /* насыщение 27 бит */
         send_frame(SHPROTO_CMD_HISTOGRAM, pl, 2u + 4u * PROTO_CHUNK_CH);
         out_step++;
         return;
