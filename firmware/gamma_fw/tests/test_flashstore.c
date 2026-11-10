@@ -123,7 +123,7 @@ static void test_load_rejects(void)
     CHECK(!fstore_load(img, &out));
 
     settings_t v = s;                                            /* старая/новая версия структуры */
-    v.version = SETTINGS_VERSION + 1u;
+    v.version = 3u;                                              /* ни v1, ни v2 */
     settings_seal(&v);
     memcpy(img, &v, sizeof v);
     CHECK(!fstore_load(img, &out));
@@ -180,6 +180,80 @@ static void test_save_failures(void)
     CHECK(!fstore_save(&s, &bad));
 }
 
+/* замороженная копия раскладки settings_t версии 1 (как на приборе до v2) */
+typedef struct {
+    uint32_t magic, version, size;
+    float hv_mon_zero_mv, hv_mon_k_mv_per_v;
+    float hv_setpoint_v;
+    uint8_t reserved_boot;
+    float pt_rpu_ohm;
+    float tc_t0_c, tc_k1, tc_k2;
+    uint16_t thr_codes;
+    uint32_t becq_words[11];
+    uint8_t becq_valid;
+    int16_t tpl[64][7];
+    uint8_t tpl_valid;
+    uint8_t reserved[5];
+    uint32_t crc32;
+} v1_t;
+
+static void mk_v1(v1_t *v, int tpl_valid)
+{
+    memset(v, 0, sizeof *v);
+    v->magic = SETTINGS_MAGIC; v->version = 1; v->size = (uint32_t)sizeof *v;
+    v->hv_mon_zero_mv = 2469.7f; v->hv_mon_k_mv_per_v = 1.633f; v->hv_setpoint_v = 565.0f;
+    v->pt_rpu_ohm = 10024.5f; v->tc_t0_c = 25.0f; v->tc_k1 = 0.001f; v->tc_k2 = 0.0f;
+    v->thr_codes = 7; v->becq_valid = 1; v->becq_words[0] = 0x12345678u;
+    v->tpl_valid = (uint8_t)tpl_valid; v->tpl[3][2] = -1234;
+    v->crc32 = crc32_zip((const uint8_t *)v, offsetof(v1_t, crc32));
+}
+
+static void test_migrate_v1(void)
+{
+    uint8_t img[PAGE];
+    v1_t v; settings_t out;
+
+    mk_v1(&v, 1);
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    memset(&out, 0, sizeof out);
+    CHECK(fstore_load(img, &out));
+    CHECK_NEAR(out.hv_mon_zero_mv, 2469.7, 1e-3);
+    CHECK_NEAR(out.hv_mon_k_mv_per_v, 1.633, 1e-6);
+    CHECK_NEAR(out.hv_setpoint_v, 565.0, 1e-6);
+    CHECK_NEAR(out.pt_rpu_ohm, 10024.5, 1e-3);
+    CHECK_NEAR(out.tc_k1, 0.001, 1e-9);
+    CHECK_NEAR(out.tc_t0_c, 25.0, 1e-6);
+    CHECK(out.thr_codes == 7);
+    CHECK(out.becq_valid == 1 && out.becq_words[0] == 0x12345678u);
+    CHECK(out.tpl_valid == 1 && out.tpl[3][2] == -1234);
+    CHECK(out.version == 2u && settings_valid(&out));
+    CHECK(out.setup.done_unix == SETUP_DONE_UNKNOWN);
+    CHECK(out.setup.chk_unix == 0 && out.setup.hv_unix == 0 && out.setup.res_unix == 0);
+
+    mk_v1(&v, 0);                                   /* эталона нет — «не настроен» */
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    CHECK(fstore_load(img, &out));
+    CHECK(out.setup.done_unix == 0 && out.thr_codes == 7 && out.tpl_valid == 0);
+
+    mk_v1(&v, 1);                                   /* битый CRC v1 */
+    v.crc32 ^= 1u;
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    CHECK(!fstore_load(img, &out));
+}
+
+static void test_same_as_image(void)
+{
+    nor_blank();
+    settings_t live;
+    sample(&live);
+    CHECK(fstore_save(&live, &ops));
+    CHECK(settings_same_as_image(&live, nor.mem));
+    live.setup.res_fwhm_pct = 7.1f;                 /* без settings_seal */
+    CHECK(!settings_same_as_image(&live, nor.mem));
+    settings_seal(&live);                           /* запечатан, но в флеш не записан */
+    CHECK(!settings_same_as_image(&live, nor.mem));
+}
+
 int main(void)
 {
     test_load_blank();
@@ -188,5 +262,7 @@ int main(void)
     test_load_rejects();
     test_save_unsealed_refused();
     test_save_failures();
+    test_migrate_v1();
+    test_same_as_image();
     return T_DONE();
 }

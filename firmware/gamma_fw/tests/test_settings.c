@@ -43,7 +43,7 @@ static void test_changed_then_sealed(void)
 static void test_version_mismatch(void)
 {
     settings_t s; settings_defaults(&s);
-    s.version = 2; settings_seal(&s);   /* CRC верен, версия чужая */
+    s.version = 3; settings_seal(&s);   /* CRC верен, версия чужая */
     CHECK(!settings_valid(&s));
 }
 
@@ -62,6 +62,16 @@ static void test_size_fits_page(void)
     CHECK(offsetof(settings_t, crc32) + 4 == sizeof(settings_t));   /* crc — последним, без хвоста */
 }
 
+static void test_v2_layout(void)
+{
+    settings_t s; settings_defaults(&s);
+    CHECK(sizeof(settings_t) % 8 == 0);
+    CHECK(sizeof(settings_t) <= 4096);
+    CHECK(SETTINGS_VERSION == 2u);
+    CHECK(s.setup.done_unix == 0);
+    CHECK(settings_valid(&s));
+}
+
 static void test_crc32_zip(void)
 {
     CHECK(crc32_zip((const uint8_t *)"123456789", 9) == 0xCBF43926u);
@@ -75,6 +85,7 @@ int main(void)
     test_version_mismatch();
     test_blank_flash();
     test_size_fits_page();
+    test_v2_layout();
     test_crc32_zip();
     return T_DONE();
 }

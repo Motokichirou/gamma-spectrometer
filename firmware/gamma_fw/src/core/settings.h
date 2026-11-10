@@ -11,7 +11,18 @@
 #include <stdbool.h>
 
 #define SETTINGS_MAGIC   0x47534631u   /* "GSF1" */
-#define SETTINGS_VERSION 1u
+#define SETTINGS_VERSION 2u
+#define SETUP_DONE_UNKNOWN 1u   /* done_unix: настроен до появления записи, дата неизвестна */
+
+/* Запись о настройке прибора (мастер на PC): что и когда сделано; 0 в *_unix — не делалось. */
+typedef struct {
+    uint32_t chk_unix;  uint8_t chk_ok; uint8_t pad_[3];   /* «Проверка электроники» */
+    uint32_t zero_unix;                                    /* «Ноль монитора ВВ» */
+    uint32_t hv_unix;   float hv_v;   float hv_peak_ch;    /* последний подбор ВВ (шаги 4 и 6) */
+    uint32_t tpl_unix;                                     /* эталон загружен мастером */
+    uint32_t res_unix;  float res_fwhm_pct; float res_peak_ch;
+    uint32_t done_unix;                                    /* «Сохранение и отчёт»; 1 = настроен до учёта */
+} setup_rec_t;
 
 typedef struct {
     uint32_t magic, version, size;           /* size = sizeof(settings_t) */
@@ -26,7 +37,8 @@ typedef struct {
     uint8_t becq_valid;
     int16_t tpl[64][7];                      /* эталон с реального тракта (Q14) */
     uint8_t tpl_valid;
-    uint8_t reserved[5];                     /* до кратности 8: флеш пишется двойными словами */
+    setup_rec_t setup;                       /* запись о настройке */
+    uint8_t reserved[8];            /* до кратности 8: флеш пишется двойными словами */
     uint32_t crc32;                          /* по всем байтам до crc32; последнее поле */
 } settings_t;
 /* sizeof(settings_t) кратен 8 и ≤ страницы 4 КБ — проверяется при сборке в settings.c */
@@ -37,6 +49,13 @@ void settings_defaults(settings_t *s);
 bool settings_valid(const settings_t *s);
 /* Пересчитать crc32. */
 void settings_seal(settings_t *s);
+
+/* Образ страницы флеш → настройки: v2 как есть (settings_valid), v1 — перенос всех полей,
+   setup пустой (done_unix = SETUP_DONE_UNKNOWN, если у v1 были эталон и калибровка BecqMoni).
+   false — образ пустой/битый/чужой; *out не тронут. */
+bool settings_from_image(const uint8_t *img, settings_t *out);
+/* live (с пересчитанным crc) совпадает с образом байт в байт; live не меняется. */
+bool settings_same_as_image(const settings_t *live, const uint8_t *img);
 
 /* CRC-32 zip: poly 0x04C11DB7 reflected, init/xorout 0xFFFFFFFF. */
 uint32_t crc32_zip(const uint8_t *p, size_t n);

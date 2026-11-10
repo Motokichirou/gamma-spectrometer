@@ -8,7 +8,7 @@ static uint32_t rd32(const uint8_t *p)
 }
 
 /* Проверка прямо по образу, побайтно (без копии settings_t на стеке ~1 КБ: запись зовётся
-   из глубины proto_rx, стек 4 КБ) — то же, что settings_valid. */
+   из глубины proto_rx, стек 4 КБ) — то же, что settings_valid (только текущая версия). */
 static bool img_valid(const uint8_t *img)
 {
     if (rd32(img + offsetof(settings_t, magic)) != SETTINGS_MAGIC) return false;
@@ -19,9 +19,8 @@ static bool img_valid(const uint8_t *img)
 
 bool fstore_load(const uint8_t *img, settings_t *out)
 {
-    if (!img || !img_valid(img)) return false;
-    memcpy(out, img, sizeof *out);             /* побайтно: образ может быть не выровнен под float */
-    return true;
+    if (!img) return false;
+    return settings_from_image(img, out);      /* v2 как есть, v1 с переносом полей */
 }
 
 bool fstore_save(const settings_t *s, const fstore_ops_t *ops)
