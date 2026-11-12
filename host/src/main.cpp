@@ -39,6 +39,8 @@
 #include "ui_panels.h"
 #include "i18n.h"
 
+using theme::px;   // размеры раскладки при 100 % → пиксели (× масштаб интерфейса)
+
 // --- DirectX 11 ---
 static ID3D11Device*           g_pd3dDevice = nullptr;
 static ID3D11DeviceContext*    g_pd3dDeviceContext = nullptr;
@@ -117,10 +119,10 @@ static void StatusDot(const ImVec4& col)
 {
     ImVec2 p = ImGui::GetCursorScreenPos();
     float  h = ImGui::GetTextLineHeight();
-    float  r = 4.5f;
-    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + r + 1, p.y + h * 0.5f),
+    float  r = px(4.5f);
+    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + r + px(1), p.y + h * 0.5f),
                                                 r, theme::U32(col));
-    ImGui::Dummy(ImVec2(r * 2 + 7, h));
+    ImGui::Dummy(ImVec2(r * 2 + px(7), h));
     ImGui::SameLine();
 }
 
@@ -170,7 +172,7 @@ static ImVec4 StateColor()
 static void KV(const char* k, const char* v, const ImVec4* col = nullptr)
 {
     Caption(k);
-    ImGui::SameLine(130);
+    ImGui::SameLine(px(130));
     ImGui::PushFont(theme::font_mono);
     if (col) ImGui::PushStyleColor(ImGuiCol_Text, *col);
     ImGui::TextUnformatted(v);
@@ -231,7 +233,7 @@ void PanelConnection(ImVec2 pos, ImVec2 size)
     ImGui::Spacing();
 
     if (!busy) {
-        if (PrimaryButton(Lbl("conn.connect", "ovconn").c_str(), ImVec2(-1, 26)) && !g_dev.ports.empty())
+        if (PrimaryButton(Lbl("conn.connect", "ovconn").c_str(), ImVec2(-1, px(26))) && !g_dev.ports.empty())
             g_dev.connect(g_dev.ports[g_port_sel]);
         if (ImGui::Button(Lbl("conn.refresh", "ovref").c_str(), ImVec2(-1, 0))) {
             g_dev.refresh_ports();
@@ -240,9 +242,9 @@ void PanelConnection(ImVec2 pos, ImVec2 size)
     } else {
         ImGui::BeginDisabled(Busy());
         if (!g_dev.acquiring) {
-            if (PrimaryButton(Lbl("adv.ov.start", "ovsta").c_str(), ImVec2(-1, 26))) g_dev.start();
+            if (PrimaryButton(Lbl("adv.ov.start", "ovsta").c_str(), ImVec2(-1, px(26)))) g_dev.start();
         } else {
-            if (DangerButton(Lbl("adv.ov.stop", "ovsto").c_str(), ImVec2(-1, 26))) g_dev.stop();
+            if (DangerButton(Lbl("adv.ov.stop", "ovsto").c_str(), ImVec2(-1, px(26)))) g_dev.stop();
         }
         if (ImGui::Button(Lbl("adv.ov.reset", "ovrst").c_str(), ImVec2(-1, 0))) g_dev.reset_spectrum();
         ImGui::EndDisabled();
@@ -276,7 +278,7 @@ void PanelTelemetry(ImVec2 pos, ImVec2 size)
     char cb[24]; snprintf(cb, sizeof(cb), "%u", g_dev.cps);
     ImGui::PushFont(font_mono_big);
     ImGui::PushStyleColor(ImGuiCol_Text, g_dev.acquiring ? c_accent : c_text_strong);
-    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(cb).x - 50);
+    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(cb).x - px(50));
     ImGui::TextUnformatted(cb);
     ImGui::PopStyleColor(); ImGui::PopFont();
     ImGui::SameLine(); Caption(T("adv.tele.cps"));
@@ -337,10 +339,10 @@ void PanelHV(ImVec2 pos, ImVec2 size)
     }
     ImGui::BeginDisabled(!conn);
     if (hv) {
-        if (DangerButton(Lbl("adv.hv.kill", "hvkill").c_str(), ImVec2(-1, 28))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
+        if (DangerButton(Lbl("adv.hv.kill", "hvkill").c_str(), ImVec2(-1, px(28)))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
     } else {
         ImGui::BeginDisabled(true);
-        ImGui::Button(Lbl("adv.hv.kill", "hvkill").c_str(), ImVec2(-1, 28));
+        ImGui::Button(Lbl("adv.hv.kill", "hvkill").c_str(), ImVec2(-1, px(28)));
         ImGui::EndDisabled();
     }
     // поле уставки — из прибора, один раз на подключение (иначе «Установить» при включённом ВВ
@@ -355,7 +357,7 @@ void PanelHV(ImVec2 pos, ImVec2 size)
             synced = true;
         }
     }
-    ImGui::SetNextItemWidth(90);
+    ImGui::SetNextItemWidth(px(90));
     ImGui::InputInt(Lbl("adv.hv.unit", "hvset").c_str(), &g_hv_set, 10, 50);
     if (g_hv_set < 0) g_hv_set = 0;
     if (g_hv_set > 1200) g_hv_set = 1200;
@@ -371,12 +373,12 @@ void PanelHV(ImVec2 pos, ImVec2 size)
     if (ImGui::BeginPopupModal((std::string(T("adv.hv.confirm_title")) + "###hvconfirm").c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text(T("adv.hv.confirm_q"), g_hv_set);
         ImGui::TextDisabled("%s", T("adv.hv.confirm_note"));
-        if (PrimaryButton(Lbl("adv.hv.on", "hvon").c_str(), ImVec2(120, 0))) {
+        if (PrimaryButton(Lbl("adv.hv.on", "hvon").c_str(), ImVec2(px(120), 0))) {
             char c[32]; snprintf(c, sizeof c, "-hv %d", g_hv_set); g_dev.send_cmd(c);
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button(Lbl("adv.cancel", "hvcancel").c_str(), ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+        if (ImGui::Button(Lbl("adv.cancel", "hvcancel").c_str(), ImVec2(px(120), 0))) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 
@@ -386,13 +388,13 @@ void PanelHV(ImVec2 pos, ImVec2 size)
     Device::HvPeak& h = g_dev.hvp;
     float f;
     ImGui::BeginDisabled(h.running);
-    ImGui::SetNextItemWidth(80); f = (float)h.target; if (ImGui::InputFloat(Lbl("adv.hv.target", "hvtg").c_str(), &f, 0, 0, "%.0f")) h.target = f;
-    ImGui::SetNextItemWidth(60); f = (float)h.lo; if (ImGui::InputFloat("##lo", &f, 0, 0, "%.0f")) h.lo = f;
+    ImGui::SetNextItemWidth(px(80)); f = (float)h.target; if (ImGui::InputFloat(Lbl("adv.hv.target", "hvtg").c_str(), &f, 0, 0, "%.0f")) h.target = f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)h.lo; if (ImGui::InputFloat("##lo", &f, 0, 0, "%.0f")) h.lo = f;
     ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
-    ImGui::SetNextItemWidth(60); f = (float)h.hi; if (ImGui::InputFloat(Lbl("adv.peak_win", "hvhi").c_str(), &f, 0, 0, "%.0f")) h.hi = f;
-    ImGui::SetNextItemWidth(60); f = (float)h.count; if (ImGui::InputFloat(Lbl("adv.hv.count", "hvcnt").c_str(), &f, 0, 0, "%.0f")) h.count = f < 100 ? 100 : f;
-    ImGui::SetNextItemWidth(60); f = (float)h.timeout; if (ImGui::InputFloat(Lbl("adv.hv.timeout", "hvtmo").c_str(), &f, 0, 0, "%.0f")) h.timeout = f < 10 ? 10 : f;
-    ImGui::SetNextItemWidth(60); f = (float)h.gain_exp; if (ImGui::InputFloat(Lbl("adv.hv.gain_exp", "hvexp").c_str(), &f, 0, 0, "%.1f")) h.gain_exp = f < 2 ? 2 : f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)h.hi; if (ImGui::InputFloat(Lbl("adv.peak_win", "hvhi").c_str(), &f, 0, 0, "%.0f")) h.hi = f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)h.count; if (ImGui::InputFloat(Lbl("adv.hv.count", "hvcnt").c_str(), &f, 0, 0, "%.0f")) h.count = f < 100 ? 100 : f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)h.timeout; if (ImGui::InputFloat(Lbl("adv.hv.timeout", "hvtmo").c_str(), &f, 0, 0, "%.0f")) h.timeout = f < 10 ? 10 : f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)h.gain_exp; if (ImGui::InputFloat(Lbl("adv.hv.gain_exp", "hvexp").c_str(), &f, 0, 0, "%.1f")) h.gain_exp = f < 2 ? 2 : f;
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!conn || g_dev.lin.running);
     if (!h.running) {
@@ -422,19 +424,19 @@ void PanelSpectrum(ImVec2 pos, ImVec2 size)
     ImGui::TextUnformatted(T("adv.spec.header"));
     ImGui::PopStyleColor(); ImGui::PopFont();
 
-    float rx = ImGui::GetWindowWidth() - 8 - 88;
+    float rx = ImGui::GetWindowWidth() - px(8 + 88);
     ImGui::SameLine(rx);
     auto seg = [&](const char* lbl, bool active) {
         if (active) {
             ImGui::PushStyleColor(ImGuiCol_Button, c_accent);
             ImGui::PushStyleColor(ImGuiCol_Text, c_on_accent);
         }
-        bool r = ImGui::Button(lbl, ImVec2(42, 0));
+        bool r = ImGui::Button(lbl, ImVec2(px(42), 0));
         if (active) ImGui::PopStyleColor(2);
         return r;
     };
     if (seg(Lbl("wiz.plot.lin", "speclin").c_str(), !g_log_scale)) g_log_scale = false;
-    ImGui::SameLine(0, 2);
+    ImGui::SameLine(0, px(2));
     if (seg(Lbl("wiz.plot.log", "speclog").c_str(), g_log_scale)) g_log_scale = true;
     ImGui::Separator();
 
@@ -506,7 +508,7 @@ void PanelConsole(ImVec2 pos, ImVec2 size)
     }
     ImGui::PopFont();
 
-    ImGui::BeginChild("log", ImVec2(0, -30), true);
+    ImGui::BeginChild("log", ImVec2(0, px(-30)), true);
     ImGui::PushFont(font_mono);
     for (const auto& l : g_dev.log) {
         ImVec4 col; const char* pre;
@@ -525,7 +527,7 @@ void PanelConsole(ImVec2 pos, ImVec2 size)
     ImGui::PopFont();
     ImGui::EndChild();
 
-    ImGui::SetNextItemWidth(-78);
+    ImGui::SetNextItemWidth(px(-78));
     bool enter = ImGui::InputText("##cmd", g_cmd_buf, sizeof(g_cmd_buf),
                                   ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
@@ -545,14 +547,14 @@ void TabSelftest()
     ImGui::SetNextItemWidth(-1);
     ImGui::BeginDisabled(L.running);
     ImGui::InputText("##codes", g_lin_codes, sizeof g_lin_codes);
-    ImGui::SetNextItemWidth(80); ImGui::InputInt(Lbl("adv.lin.n", "linn").c_str(), &g_lin_n, 0, 0);
-    ImGui::SetNextItemWidth(80); ImGui::InputInt(Lbl("adv.lin.period", "linper").c_str(), &g_lin_period, 0, 0);
+    ImGui::SetNextItemWidth(px(80)); ImGui::InputInt(Lbl("adv.lin.n", "linn").c_str(), &g_lin_n, 0, 0);
+    ImGui::SetNextItemWidth(px(80)); ImGui::InputInt(Lbl("adv.lin.period", "linper").c_str(), &g_lin_period, 0, 0);
     ImGui::EndDisabled();
     if (g_lin_n < 100) g_lin_n = 100;
     if (g_lin_period < 45) g_lin_period = 45;
     ImGui::BeginDisabled(!conn || g_dev.hvp.running || g_dev.hv_on());   // самотест ЦАП — только без ВВ
     if (!L.running) {
-        if (PrimaryButton(Lbl("adv.lin.run", "linrun").c_str(), ImVec2(-1, 26))) {
+        if (PrimaryButton(Lbl("adv.lin.run", "linrun").c_str(), ImVec2(-1, px(26)))) {
             std::vector<int> codes;
             const char* p = g_lin_codes;
             while (*p) {
@@ -563,7 +565,7 @@ void TabSelftest()
             }
             g_dev.lin_start(codes, g_lin_n, g_lin_period);
         }
-    } else if (DangerButton(Lbl("adv.abort", "linrun").c_str(), ImVec2(-1, 26))) g_dev.lin_abort();
+    } else if (DangerButton(Lbl("adv.abort", "linrun").c_str(), ImVec2(-1, px(26)))) g_dev.lin_abort();
     ImGui::EndDisabled();
     DimWrapped(T("adv.lin.note"));
     if (!L.msg.empty()) {
@@ -596,7 +598,7 @@ void TabSelftest()
             ar.push_back((float)((p.ch - (L.k * p.code + L.b)) / p.ch * 100.0));
         }
         Caption(T("adv.lin.dev_caption"));
-        if (ImPlot::BeginPlot("##linres", ImVec2(-1, 140), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+        if (ImPlot::BeginPlot("##linres", ImVec2(-1, px(140)), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
             ImPlot::SetupAxes(T("adv.lin.col_code"), "%", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
             ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_trace2, 1.0f, c_trace2);
             ImPlot::PlotLine("##dev", ax.data(), ar.data(), (int)ax.size());
@@ -620,7 +622,7 @@ void TabCalib()
     if (ImGui::Button(Lbl("adv.sens.zero_btn", "senszero").c_str(), ImVec2(-1, 0))) g_dev.send_cmd("-hvzero");
     ImGui::EndDisabled();
     DimWrapped(T("adv.sens.k_note"));
-    ImGui::SetNextItemWidth(90); ImGui::InputFloat(Lbl("adv.sens.meas", "sensmeas").c_str(), &g_mon_meas_v, 0, 0, "%.1f");
+    ImGui::SetNextItemWidth(px(90)); ImGui::InputFloat(Lbl("adv.sens.meas", "sensmeas").c_str(), &g_mon_meas_v, 0, 0, "%.1f");
     ImGui::BeginDisabled(!conn || !hv || g_mon_meas_v < 100);
     if (ImGui::Button(Lbl("adv.sens.remember", "sensrem").c_str(), ImVec2(-1, 0))) {
         g_mon_rec_mv = (float)g_dev.gnum("mon_mv");
@@ -644,7 +646,7 @@ void TabCalib()
     Caption("Pt1000");
     snprintf(b, sizeof b, T("adv.sens.pt_fmt"), g_dev.gstr("pt").c_str(), g_dev.gnum("pt_rpu"), g_dev.gnum("pt_raw"));
     ImGui::PushFont(font_mono); ImGui::TextUnformatted(b); ImGui::PopFont();
-    ImGui::SetNextItemWidth(80); ImGui::InputFloat(Lbl("wiz.check.ptref", "sensptref").c_str(), &g_pt_ref, 0, 0, "%.2f");
+    ImGui::SetNextItemWidth(px(80)); ImGui::InputFloat(Lbl("wiz.check.ptref", "sensptref").c_str(), &g_pt_ref, 0, 0, "%.2f");
     ImGui::BeginDisabled(!conn || g_pt_ref < 0 || g_pt_ref > 60);
     if (ImGui::Button(Lbl("adv.sens.pt_btn", "sensptcal").c_str(), ImVec2(-1, 0))) {
         char c[48]; snprintf(c, sizeof c, "-ptcal %.2f", g_pt_ref); g_dev.send_cmd(c);
@@ -660,7 +662,7 @@ void TabDetector()
     using namespace theme;
     bool conn = g_dev.connected();
     Caption(T("adv.det.thr"));
-    ImGui::SetNextItemWidth(80); ImGui::InputInt("##thr", &g_thr, 0, 0);
+    ImGui::SetNextItemWidth(px(80)); ImGui::InputInt("##thr", &g_thr, 0, 0);
     if (g_thr < 0) g_thr = 0;
     if (g_thr > 1000) g_thr = 1000;
     ImGui::SameLine();
@@ -677,7 +679,7 @@ void TabDetector()
     const char* pg[] = { "×2", T("adv.det.pga4"), "×8", "×16" };
     const int pv[] = { 2, 4, 8, 16 };
     int sel = g_pga == 2 ? 0 : g_pga == 8 ? 2 : g_pga == 16 ? 3 : 1;
-    ImGui::SetNextItemWidth(140);
+    ImGui::SetNextItemWidth(px(140));
     if (ImGui::Combo("##pga", &sel, pg, 4)) g_pga = pv[sel];
     ImGui::SameLine();
     ImGui::BeginDisabled(!conn || g_dev.acquiring);
@@ -687,7 +689,7 @@ void TabDetector()
 
     ImGui::Spacing(); ImGui::Separator();
     ImGui::BeginDisabled(!conn);
-    if (PrimaryButton(Lbl("adv.det.save", "detsave").c_str(), ImVec2(-1, 26))) g_dev.send_cmd("-save");
+    if (PrimaryButton(Lbl("adv.det.save", "detsave").c_str(), ImVec2(-1, px(26)))) g_dev.send_cmd("-save");
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!conn || g_dev.hv_on());
     if (DangerButton(Lbl("adv.det.defaults", "detdef").c_str(), ImVec2(-1, 0))) g_dev.send_cmd("-defaults");
@@ -710,7 +712,7 @@ void TabHvBoot()
     static int s_hvboot = 0;
     if (s_hvboot == 0 && g_dev.gnum("hv_set") > 0) s_hvboot = (int)(g_dev.gnum("hv_set") + 0.5);
     ImGui::BeginDisabled(!conn);
-    ImGui::SetNextItemWidth(100);
+    ImGui::SetNextItemWidth(px(100));
     ImGui::InputInt(Lbl("adv.hv.unit", "hvboot").c_str(), &s_hvboot, 0, 0);
     if (s_hvboot < 0) s_hvboot = 0;
     if (s_hvboot > 1200) s_hvboot = 1200;
@@ -743,7 +745,7 @@ void TabTemplate()
     bool conn = g_dev.connected();
     Device::RawRun& R = g_dev.raw;
     ImGui::TextWrapped("%s", T("adv.tpl.intro"));
-    ImGui::SetNextItemWidth(90);
+    ImGui::SetNextItemWidth(px(90));
     ImGui::BeginDisabled(R.running);
     ImGui::InputInt(Lbl("adv.tpl.blocks", "tplblk").c_str(), &g_tpl_blocks, 100, 500);
     ImGui::EndDisabled();
@@ -751,8 +753,8 @@ void TabTemplate()
     if (g_tpl_blocks > 6000) g_tpl_blocks = 6000;
     ImGui::BeginDisabled(!conn || g_dev.lin.running || g_dev.hvp.running || g_dev.tc.running || g_tpl_state == 1);
     if (!R.running) {
-        if (PrimaryButton(Lbl("adv.tpl.collect", "tplcol").c_str(), ImVec2(-1, 26))) { g_tpl_state = 0; g_tpl_loaded = false; g_dev.raw_start(g_tpl_blocks); }
-    } else if (DangerButton(Lbl("adv.tpl.collect_abort", "tplcol").c_str(), ImVec2(-1, 26))) g_dev.raw_abort();
+        if (PrimaryButton(Lbl("adv.tpl.collect", "tplcol").c_str(), ImVec2(-1, px(26)))) { g_tpl_state = 0; g_tpl_loaded = false; g_dev.raw_start(g_tpl_blocks); }
+    } else if (DangerButton(Lbl("adv.tpl.collect_abort", "tplcol").c_str(), ImVec2(-1, px(26)))) g_dev.raw_abort();
     ImGui::EndDisabled();
     if (R.running || !R.blocks.empty()) {
         float fr = R.target ? (float)R.blocks.size() / R.target : 0.0f;
@@ -791,7 +793,7 @@ void TabTemplate()
             for (int p = 0; p < tpl::NPH; p++) for (int j = 0; j < tpl::NS; j++) {
                 xs[k] = (float)(j - tpl::IPK) - (float)p / tpl::NPH; ys[k] = g_tpl_res.q[p][j] / (float)tpl::QMAX; k++;
             }
-            if (ImPlot::BeginPlot("##tplshape", ImVec2(-1, 130), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+            if (ImPlot::BeginPlot("##tplshape", ImVec2(-1, px(130)), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
                 ImPlot::SetupAxes(T("adv.tpl.axis"), "", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
                 ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 1.5f, c_trace, 1.0f, c_trace);
                 ImPlot::PlotScatter("##shape", xs, ys, k);
@@ -854,9 +856,9 @@ void TabLogger()
     ImGui::PopFont();
 
     Caption(T("adv.lg.auto"));
-    ImGui::SetNextItemWidth(90); ImGui::InputInt(Lbl("adv.lg.period", "lgper").c_str(), &g_lg_period, 0, 0);
+    ImGui::SetNextItemWidth(px(90)); ImGui::InputInt(Lbl("adv.lg.period", "lgper").c_str(), &g_lg_period, 0, 0);
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(90); ImGui::InputInt(Lbl("adv.lg.delay", "lgdel").c_str(), &g_lg_delay, 0, 0);
+    ImGui::SetNextItemWidth(px(90)); ImGui::InputInt(Lbl("adv.lg.delay", "lgdel").c_str(), &g_lg_delay, 0, 0);
     if (g_lg_period < 60) g_lg_period = 60;
     if (g_lg_period > 86400) g_lg_period = 86400;
     if (g_lg_delay < 0) g_lg_delay = 0;
@@ -877,7 +879,7 @@ void TabLogger()
     if (!g_lg_dir[0]) { std::string d = LogDefaultDir(); strncpy(g_lg_dir, d.c_str(), sizeof g_lg_dir - 1); }
     ImGui::SetNextItemWidth(-1); ImGui::InputText("##lgdir", g_lg_dir, sizeof g_lg_dir);
     ImGui::BeginDisabled(!conn || D.running);
-    if (PrimaryButton(Lbl("adv.lg.dump_btn", "lgdump").c_str(), ImVec2(-1, 26))) { g_lg_msg.clear(); g_dev.logd_start(0); }
+    if (PrimaryButton(Lbl("adv.lg.dump_btn", "lgdump").c_str(), ImVec2(-1, px(26)))) { g_lg_msg.clear(); g_dev.logd_start(0); }
     ImGui::EndDisabled();
     if (D.running) {
         float fr = D.items.empty() ? 0.0f : (float)D.idx / (float)D.items.size();
@@ -902,7 +904,7 @@ void TabLogger()
         Caption(T("adv.lg.session"));
         if (g_lg_sess_idx >= (int)sess.size()) g_lg_sess_idx = (int)sess.size() - 1;
         std::string lbl = std::to_string(sess[g_lg_sess_idx]);
-        ImGui::SetNextItemWidth(120);
+        ImGui::SetNextItemWidth(px(120));
         if (ImGui::BeginCombo("##lgsess", lbl.c_str())) {
             for (int i = 0; i < (int)sess.size(); i++) {
                 auto ss = logdump::session(D.recs, sess[i]);
@@ -913,9 +915,9 @@ void TabLogger()
             ImGui::EndCombo();
         }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(60); ImGui::InputFloat("##lglo", &g_lg_lo, 0, 0, "%.0f");
+        ImGui::SetNextItemWidth(px(60)); ImGui::InputFloat("##lglo", &g_lg_lo, 0, 0, "%.0f");
         ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
-        ImGui::SetNextItemWidth(60); ImGui::InputFloat(Lbl("adv.peak_win", "lghi").c_str(), &g_lg_hi, 0, 0, "%.0f");
+        ImGui::SetNextItemWidth(px(60)); ImGui::InputFloat(Lbl("adv.peak_win", "lghi").c_str(), &g_lg_hi, 0, 0, "%.0f");
         auto s = logdump::session(D.recs, sess[g_lg_sess_idx]);
         static std::vector<logdump::PeakPt> pk;
         static uint32_t pk_sess = 0xFFFFFFFFu; static float pk_lo = -1, pk_hi = -1; static size_t pk_n = 0;
@@ -926,7 +928,7 @@ void TabLogger()
         static std::vector<double> tx, py, ty;
         tx.clear(); py.clear(); ty.clear();
         for (auto& p : pk) if (p.ok) { tx.push_back(p.t_mid_s / 3600.0); py.push_back(p.peak); ty.push_back(std::isfinite(p.temp) ? p.temp : NAN); }
-        if (!tx.empty() && ImPlot::BeginPlot("##lgplot", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+        if (!tx.empty() && ImPlot::BeginPlot("##lgplot", ImVec2(-1, px(170)), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
             ImPlot::SetupAxes(T("adv.lg.ax_h"), T("adv.lg.ax_peak"), ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
             ImPlot::SetupAxis(ImAxis_Y2, "°C", ImPlotAxisFlags_AuxDefault | ImPlotAxisFlags_AutoFit);
             ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
@@ -984,14 +986,14 @@ void TabThermo()
     ImGui::EndDisabled();
     float f;
     ImGui::BeginDisabled(TR.running);
-    ImGui::SetNextItemWidth(70); f = (float)TR.secs; if (ImGui::InputFloat(Lbl("adv.tc.secs", "tcsecs").c_str(), &f, 0, 0, "%.0f")) TR.secs = f < 20 ? 20 : f;
-    ImGui::SetNextItemWidth(60); f = (float)TR.lo; if (ImGui::InputFloat("##tlo", &f, 0, 0, "%.0f")) TR.lo = f;
+    ImGui::SetNextItemWidth(px(70)); f = (float)TR.secs; if (ImGui::InputFloat(Lbl("adv.tc.secs", "tcsecs").c_str(), &f, 0, 0, "%.0f")) TR.secs = f < 20 ? 20 : f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)TR.lo; if (ImGui::InputFloat("##tlo", &f, 0, 0, "%.0f")) TR.lo = f;
     ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
-    ImGui::SetNextItemWidth(60); f = (float)TR.hi; if (ImGui::InputFloat(Lbl("adv.peak_win", "tchi").c_str(), &f, 0, 0, "%.0f")) TR.hi = f;
+    ImGui::SetNextItemWidth(px(60)); f = (float)TR.hi; if (ImGui::InputFloat(Lbl("adv.peak_win", "tchi").c_str(), &f, 0, 0, "%.0f")) TR.hi = f;
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!conn || g_dev.lin.running || g_dev.hvp.running || g_dev.raw.running);
     if (!TR.running) {
-        if (PrimaryButton(Lbl("adv.tc.start", "tcrun").c_str(), ImVec2(-1, 26))) g_dev.tc_start();
+        if (PrimaryButton(Lbl("adv.tc.start", "tcrun").c_str(), ImVec2(-1, px(26)))) g_dev.tc_start();
     } else {
         if (ImGui::Button(Lbl("adv.tc.stop", "tcrun").c_str(), ImVec2(-1, 0))) g_dev.tc_stop(true);
     }
@@ -1004,13 +1006,13 @@ void TabThermo()
         double tmin = 1e9, tmax = -1e9;
         for (auto& p : TR.pts) { tx.push_back((float)p.t); ty.push_back((float)p.peak); if (p.t < tmin) tmin = p.t; if (p.t > tmax) tmax = p.t; }
         ImGui::Text(T("adv.tc.pts"), TR.pts.size(), tmin, tmax);
-        if (ImPlot::BeginPlot("##tcplot", ImVec2(-1, 140), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+        if (ImPlot::BeginPlot("##tcplot", ImVec2(-1, px(140)), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
             ImPlot::SetupAxes("°C", T("adv.peak"), ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
             ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, c_trace2, 1.0f, c_trace2);
             ImPlot::PlotScatter("##pk", tx.data(), ty.data(), (int)tx.size());
             ImPlot::EndPlot();
         }
-        ImGui::SetNextItemWidth(70); ImGui::InputFloat("t0, °C", &g_tc_t0, 0, 0, "%.1f");
+        ImGui::SetNextItemWidth(px(70)); ImGui::InputFloat("t0, °C", &g_tc_t0, 0, 0, "%.1f");
         ImGui::SameLine();
         if (ImGui::SmallButton(Lbl("adv.tc.mean", "tcmean").c_str())) { double s = 0; for (auto& p : TR.pts) s += p.t; g_tc_t0 = (float)(s / TR.pts.size()); }
         ImGui::RadioButton(Lbl("adv.tc.lin", "tclin").c_str(), &g_tc_order, 1); ImGui::SameLine(); ImGui::RadioButton(Lbl("adv.tc.quad", "tcquad").c_str(), &g_tc_order, 2);
@@ -1050,10 +1052,10 @@ static void DrawHelp()
 
     ImVec2 c = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(720, 600), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(px(720), px(600)), ImGuiCond_Appearing);
     char title[64]; snprintf(title, sizeof title, "%s###help", T("status.help"));
     if (!ImGui::BeginPopupModal(title, nullptr)) return;
-    ImGui::BeginChild("helpbody", ImVec2(0, -36), false);
+    ImGui::BeginChild("helpbody", ImVec2(0, px(-36)), false);
 
     static const char* const sections[][2] = {
         { "help.h.purpose", "help.purpose" },
@@ -1081,7 +1083,7 @@ static void DrawHelp()
 
     ImGui::EndChild();
     ImGui::Separator();
-    if (ImGui::Button(Lbl("help.close", "helpclose").c_str(), ImVec2(110, 0))) ImGui::CloseCurrentPopup();
+    if (ImGui::Button(Lbl("help.close", "helpclose").c_str(), ImVec2(px(110), 0))) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -1105,12 +1107,53 @@ static void DrawApp()
 
 // ================= main =================
 
+// DPI окна: монитор, на котором оно стоит (Per-Monitor-V2)
+static unsigned g_dpi = 96;
+
+static unsigned WindowDpi(HWND hwnd)
+{
+    float k = ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd);   // внутри GetDpiForWindow / GetDpiForMonitor
+    return k > 0.0f ? (unsigned)std::lround(k * 96.0f) : 96u;
+}
+
+// Процесс — Per-Monitor-V2 DPI-aware (иначе Windows растягивает окно картинкой и текст мылится).
+// Функция есть с Windows 10 1703; на старых системах — запасной путь бэкенда ImGui.
+static void EnableDpiAwareness()
+{
+    typedef BOOL (WINAPI *SetCtxFn)(HANDLE);
+    HMODULE u32 = ::GetModuleHandleW(L"user32.dll");
+    SetCtxFn f = u32 ? (SetCtxFn)(void*)::GetProcAddress(u32, "SetProcessDpiAwarenessContext") : nullptr;
+    if (!f || !f((HANDLE)-4))                 // -4 = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+        ImGui_ImplWin32_EnableDpiAwareness();
+}
+
+// Рабочая область монитора, на котором окно
+static RECT MonitorWork(HWND hwnd)
+{
+    MONITORINFO mi = { sizeof(mi) };
+    RECT r = { 0, 0, 1920, 1080 };
+    if (::GetMonitorInfoW(::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi)) r = mi.rcWork;
+    return r;
+}
+
+// Пересборка шрифтов и стиля под масштаб — только между кадрами (до NewFrame)
+static void RebuildScale(ImGuiIO& io)
+{
+    float k = ui_total_scale(g_ui.ui_scale, g_dpi);
+    io.Fonts->Clear();
+    theme::LoadFonts(io, k);
+    theme::ApplyScale(k);
+    ImGui_ImplDX11_InvalidateDeviceObjects();   // текстуру атласа бэкенд создаст заново в NewFrame
+}
+
 int run_gui()
 {
-    {   // язык интерфейса из %APPDATA%\gammapult\gammapult.ini (нет файла: русский)
+    EnableDpiAwareness();
+    {   // язык и масштаб из %APPDATA%\gammapult\gammapult.ini (нет файла: русский, 130 %)
         AppCfg cfg;
         appcfg_load(cfg);
         i18n_set(cfg.lang);
+        g_ui.ui_scale = cfg.scale;
     }
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
                        GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
@@ -1119,6 +1162,17 @@ int run_gui()
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"GammaPult - service console",
                                 WS_OVERLAPPEDWINDOW, 60, 40, 1440, 920,
                                 nullptr, nullptr, wc.hInstance, nullptr);
+    {   // размер окна: 1440×920 при 100 % × итоговый масштаб, но не больше рабочей области монитора
+        g_dpi = WindowDpi(hwnd);
+        float k = ui_total_scale(g_ui.ui_scale, g_dpi);
+        RECT wa = MonitorWork(hwnd);
+        int ww = wa.right - wa.left, wh = wa.bottom - wa.top;
+        int w = (int)(1440 * k), h = (int)(920 * k);
+        if (w > ww * 95 / 100) w = ww * 95 / 100;
+        if (h > wh * 95 / 100) h = wh * 95 / 100;
+        ::SetWindowPos(hwnd, nullptr, wa.left + (ww - w) / 2, wa.top + (wh - h) / 2, w, h,
+                       SWP_NOZORDER | SWP_NOACTIVATE);
+    }
     if (!CreateDeviceD3D(hwnd)) {
         CleanupDeviceD3D();
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
@@ -1133,12 +1187,10 @@ int run_gui()
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    theme::LoadFonts(io);
-    theme::ApplyStyle();
-    theme::ApplyPlotStyle();
-
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    g_ui.scale_req = false;
+    RebuildScale(io);                          // шрифты и стиль под ui_scale × dpi/96 (после Init бэкенда DX11)
 
     g_dev.refresh_ports();
     if (!g_dev.ports.empty()) g_port_sel = (int)g_dev.ports.size() - 1;   // мост FT231X обычно последний
@@ -1155,6 +1207,10 @@ int run_gui()
 
         g_dev.poll();
 
+        if (g_ui.scale_req) {                  // A−/A+ или смена DPI монитора: между кадрами
+            g_ui.scale_req = false;
+            RebuildScale(io);
+        }
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -1245,6 +1301,24 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             CreateRenderTarget();
         }
         return 0;
+    case WM_DPICHANGED: {                       // окно ушло на монитор с другим DPI
+        g_dpi = HIWORD(wParam) ? HIWORD(wParam) : 96;
+        const RECT* r = (const RECT*)lParam;    // предложенный Windows прямоугольник
+        ::SetWindowPos(hWnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top,
+                       SWP_NOZORDER | SWP_NOACTIVATE);
+        g_ui.scale_req = true;
+        return 0;
+    }
+    case WM_GETMINMAXINFO: {                    // минимум 900×600 при 100 % × масштаб, не больше 90 % монитора
+        MINMAXINFO* mm = (MINMAXINFO*)lParam;
+        float k = ui_total_scale(g_ui.ui_scale, g_dpi);
+        RECT wa = MonitorWork(hWnd);
+        int mw = (int)(900 * k), mh = (int)(600 * k);
+        int lw = (wa.right - wa.left) * 9 / 10, lh = (wa.bottom - wa.top) * 9 / 10;
+        mm->ptMinTrackSize.x = mw < lw ? mw : lw;
+        mm->ptMinTrackSize.y = mh < lh ? mh : lh;
+        return 0;
+    }
     case WM_SYSCOMMAND:
         if ((wParam & 0xfff0) == SC_KEYMENU) return 0;
         break;

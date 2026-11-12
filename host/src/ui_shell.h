@@ -3,6 +3,7 @@
 #pragma once
 #include <string>
 #include "devstate.h"
+#include "appcfg.h"
 
 class Device;
 extern Device g_dev;                 // сессия связи с прибором (определена в main.cpp)
@@ -16,6 +17,8 @@ struct Ui {
     int adv_page = Overview;         // AdvPage
     std::string flash_port;          // порт для шага «Прошивка»: главный экран кладёт его перед ui_go(Wizard, Flash)
     bool help_req = false;           // строка состояния просит открыть справку (окно справки рисует main.cpp)
+    float ui_scale = UI_SCALE_DEF;   // масштаб интерфейса из gammapult.ini (итог = ui_scale × dpi/96)
+    bool scale_req = true;           // пересобрать шрифты и стиль перед следующим кадром (main.cpp)
 };
 extern Ui g_ui;
 
@@ -24,5 +27,6 @@ extern Ui g_ui;
 void ui_go(ds::Mode m, ds::Step s = ds::Step::N);
 
 void  DrawShell();                   // верхняя полоса + строка состояния
+void  ui_save_cfg();                 // язык и масштаб в gammapult.ini (appcfg)
 float TopBarHeight();
 float StatusBarHeight();

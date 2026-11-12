@@ -31,6 +31,9 @@ static const I18nEntry k_table[] = {
     { "status.saved",       "Всё сохранено",                  "All saved" },
     { "status.unsaved",     "! Настройки не сохранены в прибор", "! Settings not saved to the device" },
     { "status.help",        "Справка",                        "Help" },
+    { "status.scale_down",  "A−",                             "A−" },
+    { "status.scale_up",    "A+",                             "A+" },
+    { "status.scale_tip",   "Масштаб %d %%",                  "Scale %d %%" },
 
     // ---- экран подключения ----
     { "conn.title",         "Подключите прибор",              "Connect the device" },
@@ -303,8 +306,8 @@ static const I18nEntry k_table[] = {
     { "wiz.tpl.v_ax_y",       "доля максимума",               "fraction of maximum" },
     { "wiz.tpl.v_pulses",     "Одиночные",                    "Single pulses" },
     { "wiz.tpl.v_tpl",        "Эталон (общая форма)",         "Template (common shape)" },
-    { "wiz.tpl.v_tpl_note",   "Эталон: общая форма по всем фазам до поправки масштаба строк. Невязка %.2f %%, размах фотопика по фазам %.2f %% → %.2f %%.",
-                              "Template: common shape over all phases, before per-row scale correction. Residual %.2f %%, photopeak spread over phases %.2f %% → %.2f %%." },
+    { "wiz.tpl.v_tpl_note",   "Эталон: общая форма по всем 64 фазам, на графике сглажена по фазе (в прибор пишется без сглаживания). Невязка %.2f %%, размах фотопика по фазам %.2f %% → %.2f %%.",
+                              "Template: common shape over all 64 phases, smoothed over phase for display (written to the device unsmoothed). Residual %.2f %%, photopeak spread over phases %.2f %% → %.2f %%." },
     { "wiz.tpl.v_raw",        "Последняя порция АЦП: одиночных %d (зелёные), отбраковано %d (красные: наложения, вне окна 100…1200, упор)",
                               "Last ADC block: %d single (green), %d rejected (red: pile-up, outside 100…1200, clipped)" },
     { "wiz.tpl.v_tape",       "Лента: тишина между импульсами вырезана, время не в масштабе. Прибор пишет сигнал кусками по 2.4 мс, стык кусков отмечен чертой, показана часть кусков.",

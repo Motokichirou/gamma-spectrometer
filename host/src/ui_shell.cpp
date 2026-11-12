@@ -12,10 +12,19 @@ Ui g_ui;
 
 static const char* APP_NAME    = "gammapult";
 static const char* APP_VERSION = "v0.6.0";
-static const float TOP_H = 52.0f, STATUS_H = 28.0f;
+// высоты полос при 100 %; в пикселях — × theme::scale()
+static const float TOP_H_100 = 52.0f, STATUS_H_100 = 28.0f;
 
-float TopBarHeight()    { return TOP_H; }
-float StatusBarHeight() { return STATUS_H; }
+float TopBarHeight()    { return theme::px(TOP_H_100); }
+float StatusBarHeight() { return theme::px(STATUS_H_100); }
+
+void ui_save_cfg()
+{
+    AppCfg cfg;
+    cfg.lang = i18n_get();
+    cfg.scale = g_ui.ui_scale;
+    appcfg_save(cfg);
+}
 
 void ui_go(ds::Mode m, ds::Step s)
 {
@@ -45,15 +54,15 @@ static void Chip(const char* text, const ImVec4& fg, const ImVec4& bg, const ImV
     using namespace theme;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 ts = ImGui::CalcTextSize(text);
-    float h = ImGui::GetFrameHeight(), padx = 10.0f, r = 4.5f;
-    float dotw = dot == Dot::None ? 0.0f : 2 * r + 7.0f;
+    float h = ImGui::GetFrameHeight(), padx = px(10.0f), r = px(4.5f);
+    float dotw = dot == Dot::None ? 0.0f : 2 * r + px(7.0f);
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImVec2 q(p.x + 2 * padx + dotw + ts.x, p.y + h);
     dl->AddRectFilled(p, q, U32(bg), 2.0f);
     dl->AddRect(p, q, U32(border), 2.0f);
     float cx = p.x + padx + r, cy = p.y + h * 0.5f;
     if (dot == Dot::On)  dl->AddCircleFilled(ImVec2(cx, cy), r, U32(c_ok));
-    if (dot == Dot::Off) dl->AddCircle(ImVec2(cx, cy), r - 1.0f, U32(c_text_dim), 0, 2.0f);
+    if (dot == Dot::Off) dl->AddCircle(ImVec2(cx, cy), r - px(1.0f), U32(c_text_dim), 0, px(2.0f));
     dl->AddText(ImVec2(p.x + padx + dotw, p.y + (h - ts.y) * 0.5f), U32(fg), text);
     ImGui::Dummy(ImVec2(q.x - p.x, h));
 }
@@ -72,7 +81,7 @@ static bool SegButton(const char* label, bool on, const ImVec2& sz = ImVec2(0, 0
     bool r = ImGui::Button(label, sz);
     if (on) {
         ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(a.x, b.y - 2.0f), b, U32(c_accent));
+        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(a.x, b.y - px(2.0f)), b, U32(c_accent));
     }
     ImGui::PopStyleColor(nc);
     return r;
@@ -122,9 +131,12 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
 {
     using namespace theme;
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, (30.0f - ImGui::GetFontSize()) * 0.5f));
-    float fh = ImGui::GetFontSize() + 2.0f * ImGui::GetStyle().FramePadding.y;   // FramePadding уже 30 px
-    BeginBar("##topbar", vp->Pos, ImVec2(vp->Size.x, TOP_H), ImVec2(14.0f, (TOP_H - fh) * 0.5f));
+    const float TOP_H = TopBarHeight();
+    float pady = (px(30.0f) - ImGui::GetFontSize()) * 0.5f;
+    if (pady < px(2.0f)) pady = px(2.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(px(12.0f), pady));
+    float fh = ImGui::GetFontSize() + 2.0f * ImGui::GetStyle().FramePadding.y;   // кнопка 30 px при 100 %
+    BeginBar("##topbar", vp->Pos, ImVec2(vp->Size.x, TOP_H), ImVec2(px(14.0f), (TOP_H - fh) * 0.5f));
     {
         ImDrawList* dl = ImGui::GetWindowDrawList();
         ImVec2 wp = ImGui::GetWindowPos();
@@ -133,10 +145,10 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
         // имя и версия
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(c_text_strong, "%s", APP_NAME);
-        ImGui::SameLine(0, 6);
+        ImGui::SameLine(0, px(6));
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(c_text_dim, "%s", APP_VERSION);
-        ImGui::SameLine(0, 18);
+        ImGui::SameLine(0, px(18));
 
         // прибор и порт
         if (s.connected) {
@@ -149,7 +161,7 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
 
         // высокое напряжение
         if (s.connected) {
-            ImGui::SameLine(0, 10);
+            ImGui::SameLine(0, px(10));
             char b[96];
             if (!HvKnown(s))   Chip(T("top.hv_unknown"), c_text_dim, BgApp(), c_border, Dot::None);
             else if (tb.hv_chip_on) {
@@ -158,7 +170,7 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
             } else             Chip(T("top.hv_off"), c_text_dim, BgApp(), c_border, Dot::None);
         }
         if (tb.kill_visible) {
-            ImGui::SameLine(0, 10);
+            ImGui::SameLine(0, px(10));
             if (KillButton(T("top.kill_hv"))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
         }
 
@@ -166,9 +178,9 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
         const char* lw = T("top.wizard");
         const char* la = T("top.advanced");
         const char* ld = T("top.disconnect");
-        float gap = 8.0f;
+        float gap = px(8.0f);
         float w = ButtonW(lw) + ButtonW(la) + ButtonW(ld) + 2 * gap;
-        ImGui::SameLine(ImGui::GetWindowWidth() - 14.0f - w);
+        ImGui::SameLine(ImGui::GetWindowWidth() - px(14.0f) - w);
         ImGui::BeginDisabled(!tb.modes_enabled);
         if (SegButton(lw, tb.wiz_on)) ui_go(tb.wiz_on ? ds::Mode::Home : ds::Mode::Wizard);
         ImGui::SameLine(0, gap);
@@ -185,7 +197,7 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
 
 static void Span(const char* text, const ImVec4& col, bool first = false)
 {
-    if (!first) ImGui::SameLine(0, 22.0f);
+    if (!first) ImGui::SameLine(0, theme::px(22.0f));
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(col, "%s", text);
 }
@@ -195,10 +207,11 @@ static void DrawStatusBar(const ds::Snapshot& s)
     using namespace theme;
     ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::PushFont(font_small);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 3.0f));
-    float fh = ImGui::GetFontSize() + 6.0f;
+    const float STATUS_H = StatusBarHeight();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(px(10.0f), px(3.0f)));
+    float fh = ImGui::GetFontSize() + 2.0f * px(3.0f);
     BeginBar("##statusbar", ImVec2(vp->Pos.x, vp->Pos.y + vp->Size.y - STATUS_H),
-             ImVec2(vp->Size.x, STATUS_H), ImVec2(14.0f, (STATUS_H - fh) * 0.5f));
+             ImVec2(vp->Size.x, STATUS_H), ImVec2(px(14.0f), (STATUS_H - fh) * 0.5f));
     {
         ImVec2 wp = ImGui::GetWindowPos();
         ImGui::GetWindowDrawList()->AddLine(wp, ImVec2(wp.x + vp->Size.x, wp.y), U32(c_border));
@@ -225,12 +238,36 @@ static void DrawStatusBar(const ds::Snapshot& s)
             Span(b, c_text_dim);
         }
 
-        // справа: язык и справка
+        // справа: масштаб, язык и справка
+        const char* lsd = T("status.scale_down");
+        const char* lsu = T("status.scale_up");
         const char* lru = T("top.lang_ru");
         const char* len = T("top.lang_en");
         const char* lh  = T("status.help");
-        float w = ButtonW(lru) + ButtonW(len) + ButtonW(lh) + 14.0f;
-        ImGui::SameLine(ImGui::GetWindowWidth() - 14.0f - w);
+        float w = ButtonW(lsd) + ButtonW(lsu) + px(14.0f) +
+                  ButtonW(lru) + ButtonW(len) + ButtonW(lh) + px(14.0f);
+        ImGui::SameLine(ImGui::GetWindowWidth() - px(14.0f) - w);
+        {
+            float want_s = g_ui.ui_scale;
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+            ImGui::BeginDisabled(g_ui.ui_scale <= UI_SCALE_MIN + 0.001f);
+            if (ImGui::Button(lsd)) want_s = ui_scale_step(g_ui.ui_scale, -1);
+            ImGui::EndDisabled();
+            bool hov = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(g_ui.ui_scale >= UI_SCALE_MAX - 0.001f);
+            if (ImGui::Button(lsu)) want_s = ui_scale_step(g_ui.ui_scale, +1);
+            ImGui::EndDisabled();
+            hov = hov || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);
+            ImGui::PopStyleVar();
+            if (hov) ImGui::SetTooltip(T("status.scale_tip"), (int)std::lround(g_ui.ui_scale * 100.0f));
+            if (std::fabs(want_s - g_ui.ui_scale) > 0.001f) {
+                g_ui.ui_scale = want_s;
+                g_ui.scale_req = true;          // атлас пересоберёт main.cpp перед следующим кадром
+                ui_save_cfg();
+            }
+        }
+        ImGui::SameLine(0, px(14.0f));
         Lang cur = i18n_get();
         Lang want = cur;
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
@@ -240,10 +277,9 @@ static void DrawStatusBar(const ds::Snapshot& s)
         ImGui::PopStyleVar();
         if (want != cur) {
             i18n_set(want);
-            AppCfg cfg; cfg.lang = want;
-            appcfg_save(cfg);
+            ui_save_cfg();
         }
-        ImGui::SameLine(0, 14.0f);
+        ImGui::SameLine(0, px(14.0f));
         if (ImGui::Button(lh)) g_ui.help_req = true;
     }
     ImGui::End();

@@ -1,9 +1,10 @@
 // appcfg.cpp — настройки пульта в %APPDATA%\gammapult\gammapult.ini (строки key=value).
-// Неизвестные ключи и битые строки пропускаются: язык остаётся по умолчанию.
+// Неизвестные ключи и битые строки пропускаются: язык и масштаб остаются по умолчанию.
 #include "appcfg.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <windows.h>
 
 std::string appcfg_default_path()
@@ -11,6 +12,25 @@ std::string appcfg_default_path()
     const char* a = std::getenv("APPDATA");
     std::string dir = a && *a ? std::string(a) : std::string(".");
     return dir + "\\gammapult\\gammapult.ini";
+}
+
+float appcfg_clamp_scale(float s)
+{
+    if (!(s == s)) return UI_SCALE_DEF;                 // NaN
+    return s < UI_SCALE_MIN ? UI_SCALE_MIN : s > UI_SCALE_MAX ? UI_SCALE_MAX : s;
+}
+
+float ui_total_scale(float ui, unsigned dpi)
+{
+    if (dpi < 96) dpi = 96;                             // 0 — DPI неизвестен
+    if (dpi > 480) dpi = 480;
+    return appcfg_clamp_scale(ui) * (float)dpi / 96.0f;
+}
+
+float ui_scale_step(float ui, int dir)
+{
+    float g = std::round(appcfg_clamp_scale(ui) * 10.0f) / 10.0f;
+    return appcfg_clamp_scale(g + (dir > 0 ? 0.1f : dir < 0 ? -0.1f : 0.0f));
 }
 
 static void trim_(std::string& s)
@@ -35,6 +55,10 @@ bool appcfg_load(AppCfg& cfg, const std::string& path)
         if (k == "lang") {
             if (v == "ru") cfg.lang = Lang::Ru;
             else if (v == "en") cfg.lang = Lang::En;
+        } else if (k == "scale") {
+            char* end = nullptr;
+            float x = v.empty() ? NAN : std::strtof(v.c_str(), &end);
+            if (end && *end == 0 && std::isfinite(x)) cfg.scale = appcfg_clamp_scale(x);
         }
     }
     std::fclose(f);
@@ -47,7 +71,8 @@ bool appcfg_save(const AppCfg& cfg, const std::string& path)
     if (sl != std::string::npos) CreateDirectoryA(path.substr(0, sl).c_str(), nullptr);  // уже есть — не ошибка
     FILE* f = std::fopen(path.c_str(), "wb");
     if (!f) return false;
-    bool ok = std::fprintf(f, "lang=%s\r\n", cfg.lang == Lang::En ? "en" : "ru") > 0;
+    bool ok = std::fprintf(f, "lang=%s\r\nscale=%.2f\r\n", cfg.lang == Lang::En ? "en" : "ru",
+                           (double)appcfg_clamp_scale(cfg.scale)) > 0;
     ok = std::fclose(f) == 0 && ok;
     return ok;
 }

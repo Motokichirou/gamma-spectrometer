@@ -22,9 +22,18 @@ extern ImFont *font_mono_time; // моно крупнее: время набор
 extern ImFont *font_mono_big;  // моно крупно: cps
 extern ImFont *font_title;     // Segoe UI Semibold 22 px: заголовки главного экрана
 
-void LoadFonts(ImGuiIO& io);
-void ApplyStyle();       // ImGuiStyle + цвета
-void ApplyPlotStyle();   // ImPlotStyle + цвета
+// Масштаб интерфейса: итог = ui_scale × dpi/96 (appcfg.h, ui_total_scale). Шрифты набираются
+// сразу нужного размера (без FontGlobalScale), стиль и раскладка — через px().
+float scale();                                // текущий итоговый масштаб (1 — 96 dpi, 100 %)
+inline float px(float v) { return v * scale(); }
+inline ImVec2 px(float x, float y) { return ImVec2(x * scale(), y * scale()); }
+
+void LoadFonts(ImGuiIO& io, float scale);     // атлас: размеры 15/13/14/20/34/22 × scale
+void ApplyStyle();       // ImGuiStyle + цвета (размеры — для 100 %)
+void ApplyPlotStyle();   // ImPlotStyle + цвета (размеры — для 100 %)
+// Сброс стилей к исходным, ApplyStyle/ApplyPlotStyle и ×scale (не копится при повторных вызовах).
+// Атлас не трогает: шрифты пересобирает вызывающий (LoadFonts) между кадрами.
+void ApplyScale(float scale);
 
 inline ImU32 U32(const ImVec4& v) { return ImGui::ColorConvertFloat4ToU32(v); }
 

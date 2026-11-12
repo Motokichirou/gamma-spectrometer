@@ -31,9 +31,12 @@ using namespace theme;
 
 namespace {
 
-const float RAIL_W = 270.0f;      // рейка шагов (макет: .rail 270 px)
-const float FOOT_H = 52.0f;       // полоса навигации внизу
-const float PAD = 18.0f;
+// размеры при 100 %; в пикселях — × масштаб интерфейса (theme::px)
+float RAIL_W() { return px(270.0f); }   // рейка шагов (макет: .rail 270 px)
+// полоса навигации внизу: промежуток, черта, отступ 8, кнопка 34, низ 10 (при 100 %) — из фактического стиля,
+// иначе при крупном масштабе кнопки срезаются строкой состояния
+float FOOT_H() { return 2.0f * ImGui::GetStyle().ItemSpacing.y + 1.0f + px(8.0f + 34.0f + 10.0f); }
+float PAD()    { return px(18.0f); }
 
 struct Wiz {
     // прошивка
@@ -262,7 +265,7 @@ bool AccentButton(const char* label, const ImVec2& sz)
 // действие шага: акцентное, пока шаг не пройден (одна главная кнопка на экран)
 bool ActionButton(const char* label, bool primary)
 {
-    ImVec2 sz(ImGui::CalcTextSize(label).x + 44.0f, 36.0f);
+    ImVec2 sz(ImGui::CalcTextSize(label).x + px(44.0f), px(36.0f));
     return primary ? AccentButton(label, sz) : ImGui::Button(label, sz);
 }
 
@@ -284,7 +287,7 @@ void CheckIcon(ImDrawList* dl, ImVec2 p, float s, ImU32 col)
 {
     ImVec2 pts[3] = { ImVec2(p.x + s * 0.12f, p.y + s * 0.53f), ImVec2(p.x + s * 0.38f, p.y + s * 0.78f),
                       ImVec2(p.x + s * 0.88f, p.y + s * 0.22f) };
-    dl->AddPolyline(pts, 3, col, 0, 2.0f);
+    dl->AddPolyline(pts, 3, col, 0, px(2.0f));
 }
 
 // строка итога с признаком: галочка — норма, «!» — нет (не только цвет). Галочка рисуется:
@@ -294,8 +297,8 @@ void PassLine(bool ok, const std::string& text)
     float lh = ImGui::GetTextLineHeight();
     if (ok) {
         ImVec2 p = ImGui::GetCursorScreenPos();
-        CheckIcon(ImGui::GetWindowDrawList(), ImVec2(p.x, p.y + (lh - 13) * 0.5f), 13, U32(c_ok));
-        ImGui::Dummy(ImVec2(14, lh));
+        CheckIcon(ImGui::GetWindowDrawList(), ImVec2(p.x, p.y + (lh - px(13)) * 0.5f), px(13), U32(c_ok));
+        ImGui::Dummy(ImVec2(px(14), lh));
     } else {
         ImGui::PushStyleColor(ImGuiCol_Text, c_warn);
         ImGui::TextUnformatted("!");
@@ -310,7 +313,7 @@ bool BeginBox(const char* id, bool you)
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, you ? c_warn_bg : c_child);
     ImGui::PushStyleColor(ImGuiCol_Border,  you ? c_warn : c_border);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 14));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(px(16), px(14)));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     bool r = ImGui::BeginChild(id, ImVec2(-1, 0),
                                ImGuiChildFlags_Border | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY,
@@ -556,7 +559,7 @@ void BodyFlash(bool primary)
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(T("wiz.flash.port"));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(160);
+    ImGui::SetNextItemWidth(px(160));
     ImGui::BeginDisabled(conn || w.fl_state == 1);
     if (ImGui::BeginCombo("##wport", w.port_sel < 0 ? T("conn.no_ports") : ports[w.port_sel].c_str())) {
         for (int i = 0; i < (int)ports.size(); i++)
@@ -573,7 +576,7 @@ void BodyFlash(bool primary)
     ImGui::EndDisabled();
     if (!conn && w.fl_state != 1 && w.port_sel >= 0) {
         ImGui::SameLine();
-        if (ImGui::Button(T("wiz.flash.connect"), ImVec2(0, 36))) g_dev.connect(ports[w.port_sel]);
+        if (ImGui::Button(T("wiz.flash.connect"), ImVec2(0, px(36)))) g_dev.connect(ports[w.port_sel]);
     }
     if (w.fl_state == 1) ImGui::ProgressBar((float)w.fl_prog, ImVec2(-1, 0));
     {
@@ -654,7 +657,7 @@ void BodyHv(ds::Step s, bool primary)
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(T("wiz.hv.start_v"));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(110);
+        ImGui::SetNextItemWidth(px(110));
         ImGui::BeginDisabled(h.running);
         ImGui::InputFloat("##wstartv", &w.start_v, 10, 50, "%.0f");
         ImGui::EndDisabled();
@@ -768,14 +771,14 @@ void ResPlot()
     // переключатели над графиком
     auto seg = [&](const char* lbl, bool active) {
         if (active) { ImGui::PushStyleColor(ImGuiCol_Button, c_accent); ImGui::PushStyleColor(ImGuiCol_Text, c_on_accent); }
-        bool r = ImGui::Button(lbl, ImVec2(48, 0));
+        bool r = ImGui::Button(lbl, ImVec2(px(48), 0));
         if (active) ImGui::PopStyleColor(2);
         return r;
     };
     if (seg(T("wiz.plot.lin"), !w.fw_log)) w.fw_log = false;
-    ImGui::SameLine(0, 2);
+    ImGui::SameLine(0, px(2));
     if (seg(T("wiz.plot.log"), w.fw_log)) w.fw_log = true;
-    ImGui::SameLine(0, 16);
+    ImGui::SameLine(0, px(16));
     ImGui::BeginDisabled(pk <= 0);
     if (ImGui::Button(T("wiz.plot.to_peak"))) { w.fw_view_full = false; w.fw_view_req++; }
     ImGui::EndDisabled();
@@ -787,7 +790,7 @@ void ResPlot()
     w.fw_view_done[inst] = w.fw_view_req;
 
     ImPlot::GetInputMap().Pan = ImGuiMouseButton_Left;
-    if (!ImPlot::BeginPlot("##resplot", ImVec2(-1, 280), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) return;
+    if (!ImPlot::BeginPlot("##resplot", ImVec2(-1, px(280)), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) return;
     ImPlot::SetupAxis(ImAxis_X1, T("wiz.plot.channel"));
     ImPlot::SetupAxis(ImAxis_Y1, T("wiz.plot.counts"), ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_RangeFit);
     if (w.fw_log) ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
@@ -839,7 +842,7 @@ void BodyRes(bool primary)
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(T("wiz.res.count"));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(140);
+    ImGui::SetNextItemWidth(px(140));
     ImGui::BeginDisabled(run);
     ImGui::InputInt("##wcount", &w.fw_count, 1000, 5000);
     ImGui::EndDisabled();
@@ -1001,13 +1004,13 @@ void Body(ds::Step s, bool embedded)
         ImGui::PopFont();
     }
     Para(c_text, Fmt(StepKey(s, "desc"), target).c_str());   // у hv/hv2 в описании канал %d
-    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Dummy(ImVec2(0, px(6)));
 
     if (!conn && s != ds::Step::Flash) {                       // без связи — только прошивка
         Para(c_warn, (std::string("! ") + T("wiz.no_link")).c_str());
         ImGui::Spacing();
         std::string go = Fmt(T("wiz.prereq.go"), StepKey(ds::Step::Flash, "title"));
-        if (AccentButton(go.c_str(), ImVec2(0, 36))) ui_go(ds::Mode::Wizard, ds::Step::Flash);
+        if (AccentButton(go.c_str(), ImVec2(0, px(36)))) ui_go(ds::Mode::Wizard, ds::Step::Flash);
         return;
     }
     int pre = ds::step_prereq(snap, s);
@@ -1016,7 +1019,7 @@ void Body(ds::Step s, bool embedded)
         Para(c_warn, (std::string("! ") + Fmt(T("wiz.prereq.missing"), StepKey(ps, "title"))).c_str());
         ImGui::Spacing();
         std::string go = Fmt(T("wiz.prereq.go"), StepKey(ps, "title"));
-        if (AccentButton(go.c_str(), ImVec2(0, 36))) ui_go(ds::Mode::Wizard, ps);
+        if (AccentButton(go.c_str(), ImVec2(0, px(36)))) ui_go(ds::Mode::Wizard, ps);
         return;
     }
 
@@ -1029,9 +1032,9 @@ void Body(ds::Step s, bool embedded)
         ImGui::TextWrapped("%s", StepKey(s, "you"));
     }
     EndBox();
-    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::Dummy(ImVec2(0, px(2)));
     Small(c_text_dim, StepKey(s, "need"));
-    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Dummy(ImVec2(0, px(6)));
 
     bool done = ds::step_done(snap, s);
     if (done) {
@@ -1065,18 +1068,18 @@ void Body(ds::Step s, bool embedded)
     EndBox();
 
     // если не получается
-    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Dummy(ImVec2(0, px(4)));
     Small(c_text_dim, StepKey(s, "hint"));
 
     // технические подробности
-    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Dummy(ImVec2(0, px(4)));
     if (ImGui::CollapsingHeader((std::string(T("wiz.more")) + "###wmore").c_str())) {   // ID не зависит от языка
         ImGui::PushFont(font_small);
         Para(c_text_dim, Fmt(StepKey(s, "more"), target).c_str());
         ImGui::PopFont();
         if (s == ds::Step::Check) {
             if (!w.diag_text.empty()) Small(c_text_dim, w.diag_text.c_str());
-            ImGui::SetNextItemWidth(80); ImGui::InputFloat(T("wiz.check.ptref"), &w.pt_ref, 0, 0, "%.2f");
+            ImGui::SetNextItemWidth(px(80)); ImGui::InputFloat(T("wiz.check.ptref"), &w.pt_ref, 0, 0, "%.2f");
             ImGui::SameLine();
             ImGui::BeginDisabled(!conn || g_dev.gstr("pt", "-") != "ok");
             if (ImGui::Button(T("wiz.check.ptcal"))) { char c[48]; snprintf(c, sizeof c, "-ptcal %.2f", w.pt_ref); g_dev.send_cmd(c); }
@@ -1087,31 +1090,31 @@ void Body(ds::Step s, bool embedded)
             ImGui::AlignTextToFramePadding();
             ImGui::TextUnformatted(T("wiz.hv.window"));
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(70); float lo = (float)h.lo; if (ImGui::InputFloat("##wlo", &lo, 0, 0, "%.0f")) h.lo = lo;
+            ImGui::SetNextItemWidth(px(70)); float lo = (float)h.lo; if (ImGui::InputFloat("##wlo", &lo, 0, 0, "%.0f")) h.lo = lo;
             ImGui::SameLine(); ImGui::TextUnformatted("…"); ImGui::SameLine();
-            ImGui::SetNextItemWidth(70); float hi = (float)h.hi; if (ImGui::InputFloat("##whi", &hi, 0, 0, "%.0f")) h.hi = hi;
+            ImGui::SetNextItemWidth(px(70)); float hi = (float)h.hi; if (ImGui::InputFloat("##whi", &hi, 0, 0, "%.0f")) h.hi = hi;
             ImGui::BeginDisabled(h.running);
-            ImGui::SetNextItemWidth(90); float cn = (float)h.count;
+            ImGui::SetNextItemWidth(px(90)); float cn = (float)h.count;
             if (ImGui::InputFloat(T("wiz.hv.count"), &cn, 0, 0, "%.0f")) h.count = cn < 100 ? 100 : cn;
-            ImGui::SetNextItemWidth(90); float tm = (float)h.timeout;
+            ImGui::SetNextItemWidth(px(90)); float tm = (float)h.timeout;
             if (ImGui::InputFloat(T("wiz.hv.timeout"), &tm, 0, 0, "%.0f")) h.timeout = tm < 10 ? 10 : tm;
             ImGui::EndDisabled();
         }
         if (s == ds::Step::Tpl) {
             ImGui::BeginDisabled(w.tpl_phase == 1);
-            ImGui::SetNextItemWidth(90);
+            ImGui::SetNextItemWidth(px(90));
             if (ImGui::InputInt(T("wiz.tpl.target_lbl"), &w.tpl_target, 0, 0)) {
                 if (w.tpl_target < tpl::NPH * 10) w.tpl_target = tpl::NPH * 10;
                 if (w.tpl_target > 100000) w.tpl_target = 100000;
             }
-            ImGui::SetNextItemWidth(90);
+            ImGui::SetNextItemWidth(px(90));
             if (ImGui::InputFloat((std::string(T("wiz.res.timeout_lbl")) + "##tpltm").c_str(), &w.tpl_timeout, 0, 0, "%.0f") && w.tpl_timeout < 30)
                 w.tpl_timeout = 30;
             ImGui::EndDisabled();
         }
         if (s == ds::Step::Res) {
             ImGui::BeginDisabled(w.fw_phase == 1);
-            ImGui::SetNextItemWidth(90);
+            ImGui::SetNextItemWidth(px(90));
             if (ImGui::InputFloat(T("wiz.res.timeout_lbl"), &w.fw_timeout, 0, 0, "%.0f") && w.fw_timeout < 30) w.fw_timeout = 30;
             ImGui::EndDisabled();
         }
@@ -1122,11 +1125,11 @@ void Body(ds::Step s, bool embedded)
 void Rail(const ds::Snapshot& snap)
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, c_child);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 14));
-    ImGui::BeginChild("##rail", ImVec2(RAIL_W, 0), ImGuiChildFlags_Border | ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, px(14)));
+    ImGui::BeginChild("##rail", ImVec2(RAIL_W(), 0), ImGuiChildFlags_Border | ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
-    ImGui::SetCursorPosX(16);
+    ImGui::SetCursorPosX(px(16));
     ImGui::PushFont(font_small);
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
     ImGui::TextUnformatted(T("wiz.title"));
@@ -1138,21 +1141,21 @@ void Rail(const ds::Snapshot& snap)
         ds::Step st = (ds::Step)i;
         bool d = ds::step_done(snap, st), cur = st == g_ui.wiz_step;
         std::string res = d ? HomeStepResult(snap, st) : std::string();
-        float h = res.empty() ? 34.0f : 50.0f;
+        float h = px(res.empty() ? 34.0f : 50.0f);
         ImGui::PushID(i);
         ImGui::PushStyleColor(ImGuiCol_Header, c_accent_sel);
         if (ImGui::Selectable("##st", cur, 0, ImVec2(0, h))) g_ui.wiz_step = st;
         ImGui::PopStyleColor();
         ImGui::PopID();
         ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-        if (cur) dl->AddRectFilled(a, ImVec2(a.x + 3, b.y), U32(c_accent));
-        float ty = a.y + 8;
+        if (cur) dl->AddRectFilled(a, ImVec2(a.x + px(3), b.y), U32(c_accent));
+        float ty = a.y + px(8);
         char n[8]; snprintf(n, sizeof n, "%d", i + 1);
-        dl->AddText(ImVec2(a.x + 16, ty), U32(cur ? c_accent : c_text_dim), n);
-        dl->AddText(ImVec2(a.x + 40, ty), U32(cur || d ? c_text : c_text_dim), StepKey(st, "short"));
-        if (d) CheckIcon(dl, ImVec2(b.x - 30, ty + 1), 15, U32(c_ok));
+        dl->AddText(ImVec2(a.x + px(16), ty), U32(cur ? c_accent : c_text_dim), n);
+        dl->AddText(ImVec2(a.x + px(40), ty), U32(cur || d ? c_text : c_text_dim), StepKey(st, "short"));
+        if (d) CheckIcon(dl, ImVec2(b.x - px(30), ty + px(1)), px(15), U32(c_ok));
         if (!res.empty())
-            dl->AddText(font_small, font_small->FontSize, ImVec2(a.x + 40, ty + ImGui::GetTextLineHeight() + 2), U32(c_text_dim), res.c_str());
+            dl->AddText(font_small, font_small->FontSize, ImVec2(a.x + px(40), ty + ImGui::GetTextLineHeight() + px(2)), U32(c_text_dim), res.c_str());
     }
     ImGui::EndChild();
 }
@@ -1171,7 +1174,7 @@ void TplPulsePlots(const tpl::Result* res)
     Small(c_text_dim, Fmt(T("wiz.tpl.v_over"), (int)v.ring.size()).c_str());
     static float xs[tpl::VW];
     for (int i = 0; i < tpl::VW; i++) xs[i] = (float)(i - tpl::VPRE);
-    if (ImPlot::BeginPlot("##tplover", ImVec2(-1, 220), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+    if (ImPlot::BeginPlot("##tplover", ImVec2(-1, px(220)), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
         ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_x"));
         ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_y"));
         ImPlot::SetupAxisLimits(ImAxis_X1, -tpl::VPRE, tpl::VPOST, ImPlotCond_Once);
@@ -1215,7 +1218,7 @@ keep:
     ImGui::Spacing();
     Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)cur.ok_x.size(), (int)cur.bad_x.size()).c_str());
     Small(c_text_dim, T("wiz.tpl.v_tape"));
-    if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle | ImPlotFlags_NoInputs)) {
+    if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, px(170)), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle | ImPlotFlags_NoInputs)) {
         ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_n"));
         ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_code"));
         ImPlot::SetupAxisLimits(ImAxis_X1, tp.pos, tp.pos + TAPE_WIN, ImPlotCond_Always);
@@ -1293,18 +1296,18 @@ void DrawWizard(ImVec2 pos, ImVec2 size)
 
     ImGui::BeginChild("##wmain", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
     // тело шага с прокруткой
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(PAD + 8, PAD));
-    ImGui::BeginChild("##wbody", ImVec2(0, -FOOT_H), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(PAD() + px(8), PAD()));
+    ImGui::BeginChild("##wbody", ImVec2(0, -FOOT_H()), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleVar();
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 820.0f);   // строки не шире 820 px (макет: max-width 760)
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + px(820.0f));   // строки не шире 820 px при 100 % (макет: max-width 760)
     Body(s, false);
     ImGui::PopTextWrapPos();
     ImGui::EndChild();
 
     // навигация: «Выйти из мастера», «Назад», «Остановить» (пока идёт процесс) … «Дальше»
     ImGui::Separator();
-    ImGui::SetCursorPos(ImVec2(PAD, ImGui::GetCursorPosY() + 8));
-    const float BH = 34.0f;
+    ImGui::SetCursorPos(ImVec2(PAD(), ImGui::GetCursorPosY() + px(8)));
+    const float BH = px(34.0f);
     bool leave = ImGui::Button(T("wiz.exit"), ImVec2(0, BH));
     ImGui::SameLine();
     ImGui::BeginDisabled(s == ds::Step::Flash);
@@ -1316,8 +1319,8 @@ void DrawWizard(ImVec2 pos, ImVec2 size)
     }
     bool last = s == ds::Step::Save;
     const char* nx = T(last ? "wiz.finish" : "wiz.next");
-    float nw = ImGui::CalcTextSize(nx).x + 48.0f;
-    ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - nw - PAD);
+    float nw = ImGui::CalcTextSize(nx).x + px(48.0f);
+    ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - nw - PAD());
     bool done = ds::step_done(snap, s);
     ImGui::BeginDisabled(!done);
     bool next = done ? AccentButton(nx, ImVec2(nw, BH)) : ImGui::Button(nx, ImVec2(nw, BH));

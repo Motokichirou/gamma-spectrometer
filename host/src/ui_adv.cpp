@@ -15,10 +15,11 @@ namespace {
 
 using namespace theme;
 
-const float NAV_W   = 250.0f;   // навигация
-const float TELE_W  = 330.0f;   // колонка телеметрии
-const float TITLE_H = 52.0f;    // полоса заголовка страницы
-const float GAP     = 5.0f;
+// размеры при 100 %; в пикселях — × масштаб интерфейса (theme::px), см. DrawAdvanced
+const float NAV_W_100   = 250.0f;   // навигация
+const float TELE_W_100  = 330.0f;   // колонка телеметрии
+const float TITLE_H_100 = 52.0f;    // полоса заголовка страницы
+const float GAP_100     = 5.0f;
 const int   LOG_N   = 12;       // строк журнала в колонке
 
 // ключи заголовков страниц, в порядке AdvPage
@@ -58,28 +59,28 @@ void SmallHeader(const char* s)
 // навигация: группы и пункты; выбранный — подложка и полоса акцента слева
 void Nav(ImVec2 pos, ImVec2 size)
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 12));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, px(0, 12));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, c_child);
     BeginFixed("##advnav", pos, size);
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
     ImDrawList* dl = ImGui::GetWindowDrawList();
     for (const NavGroup& g : k_groups) {
-        ImGui::Dummy(ImVec2(0, 6));
-        ImGui::SetCursorPosX(16);
+        ImGui::Dummy(px(0, 6));
+        ImGui::SetCursorPosX(px(16));
         SmallHeader(T(g.key));
-        ImGui::Dummy(ImVec2(0, 2));
+        ImGui::Dummy(px(0, 2));
         for (int p = g.first; p <= g.last; p++) {
             bool sel = g_ui.adv_page == p;
             ImGui::PushID(p);
             ImGui::PushStyleColor(ImGuiCol_Header, c_accent_sel);
-            if (ImGui::Selectable("##nav", sel, 0, ImVec2(0, 30))) g_ui.adv_page = p;
+            if (ImGui::Selectable("##nav", sel, 0, px(0, 30))) g_ui.adv_page = p;
             ImGui::PopStyleColor();
             ImGui::PopID();
             ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-            if (sel) dl->AddRectFilled(a, ImVec2(a.x + 3, b.y), U32(c_accent));
+            if (sel) dl->AddRectFilled(a, ImVec2(a.x + px(3), b.y), U32(c_accent));
             float ty = a.y + (b.y - a.y - ImGui::GetTextLineHeight()) * 0.5f;
-            dl->AddText(ImVec2(a.x + 18, ty), U32(sel ? c_text_strong : c_text), T(k_page_key[p]));
+            dl->AddText(ImVec2(a.x + px(18), ty), U32(sel ? c_text_strong : c_text), T(k_page_key[p]));
         }
     }
     ImGui::End();
@@ -88,7 +89,7 @@ void Nav(ImVec2 pos, ImVec2 size)
 // заголовок страницы
 void Title(ImVec2 pos, ImVec2 size, int page)
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(18, 12));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, px(18, 12));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     BeginFixed("##advtitle", pos, size, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
     ImGui::PopStyleVar(2);
@@ -104,7 +105,7 @@ void Title(ImVec2 pos, ImVec2 size, int page)
 template <class F>
 void TabPage(const char* id, ImVec2 pos, ImVec2 size, F body)
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 14));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, px(16, 14));
     BeginFixed(id, pos, size);
     ImGui::PopStyleVar();
     body();
@@ -147,6 +148,7 @@ void DrawAdvanced(ImVec2 pos, ImVec2 size)
     int page = g_ui.adv_page;
     if (page < 0 || page >= AdvN) page = g_ui.adv_page = Overview;
 
+    const float NAV_W = px(NAV_W_100), TELE_W = px(TELE_W_100), TITLE_H = px(TITLE_H_100), GAP = px(GAP_100);
     bool tele = page != Console;                     // консоль — во всю ширину
     float x0 = pos.x + NAV_W;
     float pw = size.x - NAV_W - (tele ? TELE_W : 0.0f);
@@ -160,7 +162,7 @@ void DrawAdvanced(ImVec2 pos, ImVec2 size)
 
     switch (page) {
     case Overview:
-        PanelConnection(cp, ImVec2(cs.x < 460 ? cs.x : 460, cs.y));
+        PanelConnection(cp, ImVec2(cs.x < px(460) ? cs.x : px(460), cs.y));
         break;
     case Spectrum:
         PanelSpectrum(cp, cs);
@@ -208,7 +210,7 @@ void DrawAdvanced(ImVec2 pos, ImVec2 size)
     if (tele) {
         float rx = pos.x + size.x - TELE_W;
         float th = size.y * 0.55f;
-        if (th < 330) th = 330;
+        if (th < px(330)) th = px(330);
         PanelTelemetry(ImVec2(rx, pos.y + GAP), ImVec2(TELE_W - GAP, th));
         CmdLog(ImVec2(rx, pos.y + GAP + th + GAP), ImVec2(TELE_W - GAP, size.y - th - 3 * GAP));
     }

@@ -44,8 +44,12 @@ ImVec4 c_child         = tk(tok.panel);
 ImFont *font_ui = nullptr, *font_small = nullptr, *font_mono = nullptr,
        *font_mono_time = nullptr, *font_mono_big = nullptr, *font_title = nullptr;
 
-void LoadFonts(ImGuiIO& io)
+static float g_scale = 1.0f;
+float scale() { return g_scale; }
+
+void LoadFonts(ImGuiIO& io, float k)
 {
+    if (!(k > 0.0f)) k = 1.0f;
     const char* SEGOE   = "C:\\Windows\\Fonts\\segoeui.ttf";
     const char* CONSOLA = "C:\\Windows\\Fonts\\consola.ttf";
     static const ImWchar ranges[] = {
@@ -60,22 +64,23 @@ void LoadFonts(ImGuiIO& io)
     };
     const ImWchar* cyr = ranges;
 
-    font_ui = io.Fonts->AddFontFromFileTTF(SEGOE, 15.0f, nullptr, cyr);
+    font_ui = io.Fonts->AddFontFromFileTTF(SEGOE, 15.0f * k, nullptr, cyr);
     if (!font_ui) {                       // нет системного шрифта — дефолт на всё (ASCII)
-        ImFont* d = io.Fonts->AddFontDefault();
+        ImFontConfig dc; dc.SizePixels = 13.0f * k;
+        ImFont* d = io.Fonts->AddFontDefault(&dc);
         font_ui = font_small = font_mono = font_mono_time = font_mono_big = font_title = d;
         return;
     }
-    font_small     = io.Fonts->AddFontFromFileTTF(SEGOE,   13.0f, nullptr, cyr);
+    font_small     = io.Fonts->AddFontFromFileTTF(SEGOE,   13.0f * k, nullptr, cyr);
     if (!font_small) font_small = font_ui;
-    font_mono      = io.Fonts->AddFontFromFileTTF(CONSOLA, 14.0f, nullptr, cyr);
+    font_mono      = io.Fonts->AddFontFromFileTTF(CONSOLA, 14.0f * k, nullptr, cyr);
     if (!font_mono) font_mono = font_ui;
-    font_mono_time = io.Fonts->AddFontFromFileTTF(CONSOLA, 20.0f, nullptr, cyr);
+    font_mono_time = io.Fonts->AddFontFromFileTTF(CONSOLA, 20.0f * k, nullptr, cyr);
     if (!font_mono_time) font_mono_time = font_mono;
-    font_mono_big  = io.Fonts->AddFontFromFileTTF(CONSOLA, 34.0f, nullptr, cyr);
+    font_mono_big  = io.Fonts->AddFontFromFileTTF(CONSOLA, 34.0f * k, nullptr, cyr);
     if (!font_mono_big) font_mono_big = font_mono;
-    font_title     = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisb.ttf", 22.0f, nullptr, cyr);
-    if (!font_title) font_title = io.Fonts->AddFontFromFileTTF(SEGOE, 22.0f, nullptr, cyr);
+    font_title     = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisb.ttf", 22.0f * k, nullptr, cyr);
+    if (!font_title) font_title = io.Fonts->AddFontFromFileTTF(SEGOE, 22.0f * k, nullptr, cyr);
     if (!font_title) font_title = font_ui;
 }
 
@@ -158,6 +163,25 @@ void ApplyPlotStyle()
     c[ImPlotCol_TitleText]  = c_text;
     c[ImPlotCol_InlayText]  = c_text_dim;
     c[ImPlotCol_Line]       = c_trace;
+}
+
+void ApplyScale(float k)
+{
+    if (!(k > 0.0f)) k = 1.0f;
+    g_scale = k;
+    ImGui::GetStyle() = ImGuiStyle();     // исходный стиль: масштаб не копится
+    ApplyStyle();
+    ImGui::GetStyle().ScaleAllSizes(k);
+
+    ImPlot::GetStyle() = ImPlotStyle();
+    ApplyPlotStyle();
+    ImPlotStyle& ps = ImPlot::GetStyle();
+    auto sv = [k](ImVec2& v) { v.x *= k; v.y *= k; };
+    sv(ps.PlotPadding); sv(ps.LabelPadding); sv(ps.LegendPadding); sv(ps.LegendInnerPadding);
+    sv(ps.LegendSpacing); sv(ps.MousePosPadding); sv(ps.AnnotationPadding);
+    sv(ps.PlotDefaultSize); sv(ps.PlotMinSize);
+    sv(ps.MajorTickLen); sv(ps.MinorTickLen);
+    ps.MarkerSize *= k;
 }
 
 } // namespace theme

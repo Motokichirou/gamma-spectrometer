@@ -19,9 +19,10 @@ using namespace theme;
 
 namespace {
 
-const float GAP = 18.0f;          // промежуток между колонками и карточками
-const float RIGHT_W = 300.0f;     // правая колонка показаний (макет: 300 px)
-const float BIG_H = 44.0f;        // высота главной кнопки (.btn.big)
+// размеры раскладки при 100 %; в пикселях — × масштаб интерфейса (theme::px)
+float GAP()     { return px(18.0f); }    // промежуток между колонками и карточками
+float RIGHT_W() { return px(300.0f); }   // правая колонка показаний (макет: 300 px)
+float BIG_H()   { return px(44.0f); }    // высота главной кнопки (.btn.big)
 
 // ---------- данные ----------
 
@@ -71,8 +72,8 @@ bool PrimaryBig(const char* label, float w)
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, c_accent_hover);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  c_accent_active);
     ImGui::PushStyleColor(ImGuiCol_Text,          c_on_accent);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(22, 0));
-    bool r = ImGui::Button(label, ImVec2(w, BIG_H));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, px(22, 0));
+    bool r = ImGui::Button(label, ImVec2(w, BIG_H()));
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(4);
     return r;
@@ -85,12 +86,12 @@ bool LinkButton(const char* label)
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_Text,          c_accent);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 2));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, px(0, 2));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     bool r = ImGui::Button(label);
     if (ImGui::IsItemHovered()) {
         ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-        ImGui::GetWindowDrawList()->AddLine(ImVec2(a.x, b.y - 1), ImVec2(b.x, b.y - 1), U32(c_accent));
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(a.x, b.y - px(1)), ImVec2(b.x, b.y - px(1)), U32(c_accent), px(1));
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
     ImGui::PopStyleVar(2);
@@ -131,33 +132,35 @@ void CheckIcon(ImDrawList* dl, ImVec2 p, float s, ImU32 col, float th = 2.0f)
     dl->AddPolyline(pts, 3, col, 0, th);
 }
 
-// знак вида 44×44: треугольник с «!» (внимание) или круг с галочкой (готово)
+// знак вида 44×44 (при 100 %): треугольник с «!» (внимание) или круг с галочкой (готово)
 void Mark(bool ok)
 {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImVec2 p = ImGui::GetCursorScreenPos();
-    const float S = 44.0f;
+    const float k = scale(), S = 44.0f * k;
+    auto P = [&](float x, float y) { return ImVec2(p.x + x * k, p.y + y * k); };
     if (ok) {
         ImU32 c = U32(c_ok);
-        dl->AddCircle(ImVec2(p.x + 22, p.y + 22), 19, c, 0, 3.0f);
-        ImVec2 pts[3] = { ImVec2(p.x + 12, p.y + 23), ImVec2(p.x + 19, p.y + 30), ImVec2(p.x + 32, p.y + 15) };
-        dl->AddPolyline(pts, 3, c, 0, 3.5f);
+        dl->AddCircle(P(22, 22), 19 * k, c, 0, 3.0f * k);
+        ImVec2 pts[3] = { P(12, 23), P(19, 30), P(32, 15) };
+        dl->AddPolyline(pts, 3, c, 0, 3.5f * k);
     } else {
         ImU32 c = U32(c_warn);
-        dl->AddTriangle(ImVec2(p.x + 22, p.y + 4), ImVec2(p.x + 41, p.y + 38), ImVec2(p.x + 3, p.y + 38), c, 3.0f);
-        dl->AddRectFilled(ImVec2(p.x + 20.5f, p.y + 15), ImVec2(p.x + 23.5f, p.y + 27), c);
-        dl->AddRectFilled(ImVec2(p.x + 20.5f, p.y + 30), ImVec2(p.x + 23.5f, p.y + 33), c);
+        dl->AddTriangle(P(22, 4), P(41, 38), P(3, 38), c, 3.0f * k);
+        dl->AddRectFilled(P(20.5f, 15), P(23.5f, 27), c);
+        dl->AddRectFilled(P(20.5f, 30), P(23.5f, 33), c);
     }
     ImGui::Dummy(ImVec2(S, S));
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", T(ok ? "home.mark.ok" : "home.mark.warn"));
 }
 
-// карточка (.card): рамка, фон панели, внутренний отступ; высота по содержимому, если h == 0
+// карточка (.card): рамка, фон панели, внутренний отступ; высота по содержимому, если h == 0.
+// pad — при 100 % (масштабируется здесь); w и h — уже в пикселях
 bool BeginCard(const char* id, float w, float h = 0.0f, ImVec2 pad = ImVec2(18, 16))
 {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, c_child);
     ImGui::PushStyleColor(ImGuiCol_Border,  c_border);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, pad);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, px(pad.x, pad.y));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     ImGuiChildFlags f = ImGuiChildFlags_Border | ImGuiChildFlags_AlwaysUseWindowPadding;
     if (h <= 0.0f) f |= ImGuiChildFlags_AutoResizeY;
@@ -173,12 +176,12 @@ void EndCard(const ImVec4* edge = nullptr)
     ImGui::EndChild();
     if (edge) {
         ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-        ImGui::GetWindowDrawList()->AddRectFilled(a, ImVec2(a.x + 4, b.y), U32(*edge));
+        ImGui::GetWindowDrawList()->AddRectFilled(a, ImVec2(a.x + px(4), b.y), U32(*edge));
     }
 }
 
 // промежуток между карточками колонки
-void CardGap() { ImGui::Dummy(ImVec2(0, 8)); }
+void CardGap() { ImGui::Dummy(px(0, 8)); }
 
 // колонка без рамки и фона
 void BeginColumn(const char* id, float w, float h)
@@ -211,7 +214,7 @@ void EndKv()
 
 void KvRow(const char* k, const KvVal& v)
 {
-    ImGui::TableNextRow(0, 30.0f);
+    ImGui::TableNextRow(0, px(30.0f));
     ImGui::TableNextColumn();
     ImGui::AlignTextToFramePadding();
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
@@ -292,16 +295,16 @@ void ViewNotConnected(ImVec2 size)
     const std::vector<std::string>& ports = g_dev.ports;
     if (s_sel < 0 || s_sel >= (int)ports.size()) s_sel = ports.empty() ? -1 : (int)ports.size() - 1;   // FT231X обычно последний
 
-    const float W = 480.0f;
+    const float W = px(480.0f);
     float x = (size.x - W) * 0.5f;
-    if (x < GAP) x = GAP;
+    if (x < GAP()) x = GAP();
     ImGui::SetCursorPos(ImVec2(x, size.y * 0.14f));
     BeginCard("##connect", W, 0.0f, ImVec2(32, 28));
     Title(T("conn.title"));
     ImGui::PushFont(font_small);
     Dim(T("conn.hint"));
     ImGui::PopFont();
-    ImGui::Dummy(ImVec2(0, 10));
+    ImGui::Dummy(px(0, 10));
 
     ImGui::PushFont(font_small);
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
@@ -322,7 +325,7 @@ void ViewNotConnected(ImVec2 size)
         g_dev.refresh_ports();
         s_sel = g_dev.ports.empty() ? -1 : (int)g_dev.ports.size() - 1;
     }
-    ImGui::Dummy(ImVec2(0, 6));
+    ImGui::Dummy(px(0, 6));
 
     ImGui::BeginDisabled(s_sel < 0);
     if (PrimaryBig(T("conn.connect"), -1.0f)) {
@@ -332,16 +335,16 @@ void ViewNotConnected(ImVec2 size)
     ImGui::EndDisabled();
 
     if (s_failed) {
-        ImGui::Dummy(ImVec2(0, 4));
+        ImGui::Dummy(px(0, 4));
         ImGui::PushStyleColor(ImGuiCol_Text, c_warn);
         ImGui::TextWrapped("! %s", T(ds::connect_hint_key(s_err)));
         ImGui::PopStyleColor();
     }
-    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::Dummy(px(0, 8));
     ImGui::PushFont(font_small);
     Dim(T("conn.one_program"));
     ImGui::PopFont();
-    ImGui::Dummy(ImVec2(0, 4));
+    ImGui::Dummy(px(0, 4));
     ImGui::BeginDisabled(s_sel < 0);
     if (LinkButton(T("home.flash_link"))) {          // R1: мастер на шаге «Прошивка» работает без связи
         g_ui.flash_port = ports[s_sel];
@@ -386,19 +389,19 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
     bool old = snap.known == ds::SetupKnown::OldFirmware;
     int done = ds::steps_done_count(snap);
     ds::Step next = ds::first_open_step(snap);
-    float leftW = avail.x - RIGHT_W - GAP;
-    if (leftW < 360.0f) leftW = 360.0f;
+    float leftW = avail.x - RIGHT_W() - GAP();
+    if (leftW < px(360.0f)) leftW = px(360.0f);
 
     BeginColumn("##left", leftW, avail.y);
     // ---- карточка состояния ----
     BeginCard("##state", -1.0f, 0.0f, ImVec2(22, 20));
     {
         const char* btn = T(done == 0 ? "home.notset.start" : "home.notset.continue");
-        float bw = ImGui::CalcTextSize(btn).x + 44.0f;
+        float bw = ImGui::CalcTextSize(btn).x + px(44.0f);
         float y0 = ImGui::GetCursorPosY();
         Mark(false);
-        ImGui::SameLine(0, 16);
-        float tw = ImGui::GetContentRegionAvail().x - bw - 16;
+        ImGui::SameLine(0, px(16));
+        float tw = ImGui::GetContentRegionAvail().x - bw - px(16);
         ImGui::BeginGroup();
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tw);
         Title(T(old ? "home.oldfw.title" : "home.notset.title"));
@@ -418,7 +421,7 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
         ImGui::EndGroup();
         float gh = ImGui::GetItemRectSize().y;
         ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
-        if (gh > BIG_H) ImGui::SetCursorPosY(y0 + (gh - BIG_H) * 0.5f);
+        if (gh > BIG_H()) ImGui::SetCursorPosY(y0 + (gh - BIG_H()) * 0.5f);
         if (PrimaryBig(btn, bw)) ui_go(ds::Mode::Wizard, next);
     }
     EndCard(&c_warn);
@@ -430,13 +433,13 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_TableBorderLight, c_border);
     if (ImGui::BeginTable("##st", 3, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("n", ImGuiTableColumnFlags_WidthFixed, 26.0f);
+        ImGui::TableSetupColumn("n", ImGuiTableColumnFlags_WidthFixed, px(26.0f));
         ImGui::TableSetupColumn("t", ImGuiTableColumnFlags_WidthStretch, 1.0f);
         ImGui::TableSetupColumn("r", ImGuiTableColumnFlags_WidthStretch, 1.3f);
         for (int i = 0; i < (int)ds::Step::N; i++) {
             ds::Step st = (ds::Step)i;
             bool d = ds::step_done(snap, st), cur = st == next;
-            ImGui::TableNextRow(0, 30.0f);
+            ImGui::TableNextRow(0, px(30.0f));
             if (cur) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, U32(c_accent_sel));
             ImGui::TableNextColumn();
             ImGui::AlignTextToFramePadding();
@@ -453,9 +456,9 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
             if (d) {
                 ImVec2 p = ImGui::GetCursorScreenPos();
                 float h = ImGui::GetFrameHeight();
-                CheckIcon(ImGui::GetWindowDrawList(), ImVec2(p.x, p.y + (h - 14) * 0.5f), 14, U32(c_ok));
-                ImGui::Dummy(ImVec2(18, 1));
-                ImGui::SameLine(0, 4);
+                CheckIcon(ImGui::GetWindowDrawList(), ImVec2(p.x, p.y + (h - px(14)) * 0.5f), px(14), U32(c_ok), px(2.0f));
+                ImGui::Dummy(px(18, 1));
+                ImGui::SameLine(0, px(4));
                 std::string r = StepResult(snap, st);
                 ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
                 ImGui::TextUnformatted(r.c_str());
@@ -479,8 +482,8 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
     ImGui::EndChild();
 
     // ---- справа: показания ----
-    ImGui::SameLine(0, GAP);
-    BeginColumn("##right", RIGHT_W, avail.y);
+    ImGui::SameLine(0, GAP());
+    BeginColumn("##right", RIGHT_W(), avail.y);
     BeginCard("##now", -1.0f);
     SmallHeader(T("home.now"));
     if (BeginKv("##kv")) { KvRows(KV_HV | KV_TEMP | KV_RATE | KV_VREF | KV_LOG); EndKv(); }
@@ -542,18 +545,18 @@ void GoAdv(AdvPage p)
 
 void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
 {
-    float leftW = avail.x - RIGHT_W - GAP;
-    if (leftW < 420.0f) leftW = 420.0f;
+    float leftW = avail.x - RIGHT_W() - GAP();
+    if (leftW < px(420.0f)) leftW = px(420.0f);
 
     BeginColumn("##left", leftW, avail.y);
     BeginCard("##state", -1.0f, 0.0f, ImVec2(22, 20));
     {
         const char* btn = T("home.ready.give_port");
-        float bw = ImGui::CalcTextSize(btn).x + 44.0f;
+        float bw = ImGui::CalcTextSize(btn).x + px(44.0f);
         float y0 = ImGui::GetCursorPosY();
         Mark(true);
-        ImGui::SameLine(0, 16);
-        float tw = ImGui::GetContentRegionAvail().x - bw - 16;
+        ImGui::SameLine(0, px(16));
+        float tw = ImGui::GetContentRegionAvail().x - bw - px(16);
         ImGui::BeginGroup();
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tw);
         Title(T("home.ready.title"));
@@ -568,7 +571,7 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
         ImGui::EndGroup();
         float gh = ImGui::GetItemRectSize().y;
         ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
-        if (gh > BIG_H) ImGui::SetCursorPosY(y0 + (gh - BIG_H) * 0.5f);
+        if (gh > BIG_H()) ImGui::SetCursorPosY(y0 + (gh - BIG_H()) * 0.5f);
         if (PrimaryBig(btn, bw)) g_dev.disconnect();          // порт свободен для BecqMoni
     }
     EndCard(&c_ok);
@@ -577,7 +580,7 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
     // ---- задачи ----
     SmallHeader(T("home.more"));
     {
-        const float g = 10.0f, h = 118.0f;
+        const float g = px(10.0f), h = px(118.0f);
         float w = (ImGui::GetContentRegionAvail().x - 2 * g) / 3.0f;
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(g, g));
 
@@ -613,8 +616,8 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
     ImGui::EndChild();
 
     // ---- справа: ВВ крупно и показания ----
-    ImGui::SameLine(0, GAP);
-    BeginColumn("##right", RIGHT_W, avail.y);
+    ImGui::SameLine(0, GAP());
+    BeginColumn("##right", RIGHT_W(), avail.y);
     BeginCard("##hvbox", -1.0f, 0.0f, ImVec2(18, 14));
     {
         ImGui::PushFont(font_small);
@@ -670,7 +673,7 @@ void DrawHome(ImVec2 pos, ImVec2 size)
 {
     ImGui::SetNextWindowPos(pos);
     ImGui::SetNextWindowSize(size);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(GAP, GAP));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(GAP(), GAP()));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGuiWindowFlags f = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus |

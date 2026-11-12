@@ -303,6 +303,75 @@ static void test_appcfg()
     CHECK(g.lang == Lang::Ru);
 }
 
+// масштаб интерфейса: scale= в gammapult.ini, пределы, итоговый масштаб ui × dpi/96
+static bool near_(float a, float b) { return std::fabs(a - b) < 1e-4f; }
+
+static void test_appcfg_scale()
+{
+    std::string p = tmp_ini("gammapult_test_scale.ini");
+    std::remove(p.c_str());
+
+    AppCfg d;
+    CHECK(near_(d.scale, 1.30f));          // по умолчанию 130 %
+    appcfg_load(d, p);                     // файла нет
+    CHECK(near_(d.scale, 1.30f));
+
+    AppCfg c; c.lang = Lang::En; c.scale = 1.6f;
+    CHECK(appcfg_save(c, p));
+    AppCfg e;
+    CHECK(appcfg_load(e, p));
+    CHECK(near_(e.scale, 1.6f));
+    CHECK(e.lang == Lang::En);             // язык не теряется рядом с масштабом
+
+    // запись: строка scale=1.60
+    {
+        FILE* f = std::fopen(p.c_str(), "rb");
+        CHECK(f != nullptr);
+        char buf[256] = {0};
+        if (f) { size_t n = std::fread(buf, 1, sizeof buf - 1, f); buf[n] = 0; std::fclose(f); }
+        CHECK(std::strstr(buf, "scale=1.60") != nullptr);
+        CHECK(std::strstr(buf, "lang=en") != nullptr);
+    }
+
+    auto load_text = [&](const char* text) {
+        FILE* f = std::fopen(p.c_str(), "wb");
+        if (f) { std::fputs(text, f); std::fclose(f); }
+        AppCfg r; r.scale = 0.5f;
+        appcfg_load(r, p);
+        return r.scale;
+    };
+    CHECK(near_(load_text("scale=abc\n"), 1.30f));      // битое
+    CHECK(near_(load_text("scale=\n"), 1.30f));
+    CHECK(near_(load_text("scale=1.4x\n"), 1.30f));     // хвост — битое
+    CHECK(near_(load_text("scale=nan\n"), 1.30f));
+    CHECK(near_(load_text("scale=5\n"), 1.80f));        // выше предела — обрезка
+    CHECK(near_(load_text("scale=0.2\n"), 0.90f));      // ниже — обрезка
+    CHECK(near_(load_text("lang=en\r\nscale = 1.10 \r\n"), 1.10f));
+    std::remove(p.c_str());
+
+    // пределы
+    CHECK(near_(appcfg_clamp_scale(1.0f), 1.0f));
+    CHECK(near_(appcfg_clamp_scale(0.0f), 0.9f));
+    CHECK(near_(appcfg_clamp_scale(9.0f), 1.8f));
+    CHECK(near_(appcfg_clamp_scale(std::nanf("")), 1.30f));
+
+    // итоговый масштаб
+    CHECK(near_(ui_total_scale(1.30f, 96), 1.30f));
+    CHECK(near_(ui_total_scale(1.30f, 144), 1.95f));
+    CHECK(near_(ui_total_scale(1.0f, 120), 1.25f));
+    CHECK(near_(ui_total_scale(3.0f, 96), 1.80f));      // ui обрезается до предела
+    CHECK(near_(ui_total_scale(1.0f, 0), 1.0f));        // dpi неизвестен — как 96
+    CHECK(near_(ui_total_scale(1.0f, 10), 1.0f));       // dpi нелепо мал — не ниже 96
+    CHECK(near_(ui_total_scale(1.0f, 10000), 5.0f));    // и не выше 480
+
+    // шаг кнопок A−/A+
+    CHECK(near_(ui_scale_step(1.30f, +1), 1.40f));
+    CHECK(near_(ui_scale_step(1.30f, -1), 1.20f));
+    CHECK(near_(ui_scale_step(1.80f, +1), 1.80f));
+    CHECK(near_(ui_scale_step(0.90f, -1), 0.90f));
+    CHECK(near_(ui_scale_step(1.25f, +1), 1.40f));      // к сетке 0.1: 1.25 → 1.3 (округление) → 1.4
+}
+
 // ответ -cal как у прошивки: 39 строк hex (10 слов c0…c4, CRC, нули) и серийник последней строкой
 static std::string cal_reply(const double c[5])
 {
@@ -687,5 +756,6 @@ int main()
     test_contrast();
     test_i18n();
     test_appcfg();
+    test_appcfg_scale();
     return T_DONE();
 }
