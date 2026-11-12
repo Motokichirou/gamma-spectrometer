@@ -13,6 +13,7 @@
 #include "i18n.h"
 #include "theme.h"
 #include <algorithm>
+#include <deque>
 #include "implot.h"
 #include <windows.h>
 #include <atomic>
@@ -144,10 +145,13 @@ struct TapeSeg {
     }
 };
 struct TplTape {
-    TapeSeg cur, nxt;                         // играет / в буфере
-    double pos = 0;                           // левый край окна в отсчётах порции cur
+    // цепочка порций подряд: [0] играет, дальше — в буфере; новая разобранная (g_tv) встаёт в хвост
+    std::deque<std::pair<double, TapeSeg>> segs;   // (начало порции в координатах ленты, порция)
+    double pos = 0;                           // левый край окна, координаты ленты
     double t = -1;                            // время прошлого кадра
     double ytop = 0;                          // верх оси Y: быстро растёт, медленно опускается
+    size_t last_seen = 0;                     // последняя взятая порция g_tv
+    double end() const { return segs.empty() ? 0 : segs.back().first + segs.back().second.len(); }
 };
 TplTape g_tape;
 
@@ -1191,19 +1195,25 @@ void TplPulsePlots(const tpl::Result* res)
     if (v.blk.empty()) { g_tape = TplTape{}; return; }
     TplTape& tp = g_tape;
     double now = ImGui::GetTime();
-    if (v.seen < tp.cur.seen) tp = TplTape{};                    // новый сбор
-    if (!tp.cur.have) { tp.cur.take(v); tp.pos = 0; tp.t = now; }
-    // буфер: свежая разобранная порция, пока буфер ещё не начал играть
-    if (v.seen != tp.cur.seen && v.seen != tp.nxt.seen && tp.pos + TAPE_WIN < tp.cur.len()) tp.nxt.take(v);
+    if (v.seen < tp.last_seen) tp = TplTape{};                   // новый сбор
+    if (v.seen != tp.last_seen) {
+        if (tp.segs.empty()) { tp.segs.push_back({ 0.0, TapeSeg{} }); tp.segs.back().second.take(v); tp.pos = 0; tp.t = now; }
+        else if (tp.segs.size() > 1 && tp.segs.back().first > tp.pos + TAPE_WIN) tp.segs.back().second.take(v);   // ещё не видна — свежее
+        else if (tp.end() - tp.pos < 1.5 * TAPE_WIN) { double at = tp.end(); tp.segs.push_back({ at, TapeSeg{} }); tp.segs.back().second.take(v); }
+        else goto keep;                       // впереди и так хватает — порцию не берём (её место займёт свежая)
+        tp.last_seen = v.seen;
+    }
+keep:
     double dt = tp.t < 0 ? 0 : now - tp.t;
     tp.t = now;
     if (dt > 0.1) dt = 0.1;                                      // окно свёрнуто/подвисло — без скачка
     tp.pos += dt * TAPE_SPEED;
-    if (!tp.nxt.have && tp.pos > tp.cur.len() - TAPE_WIN) tp.pos = (std::max)(0.0, tp.cur.len() - TAPE_WIN);   // ждём следующую
-    if (tp.nxt.have && tp.pos >= tp.cur.len()) { tp.pos -= tp.cur.len(); tp.cur = tp.nxt; tp.nxt = TapeSeg{}; }
+    if (tp.pos > tp.end() - TAPE_WIN) tp.pos = (std::max)(0.0, tp.end() - TAPE_WIN);   // ждём следующую порцию
+    while (tp.segs.size() > 1 && tp.segs[1].first <= tp.pos - 1.0) tp.segs.pop_front();   // ушли за левый край
+    const TapeSeg& cur = tp.segs.front().second;
 
     ImGui::Spacing();
-    Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)tp.cur.ok_x.size(), (int)tp.cur.bad_x.size()).c_str());
+    Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)cur.ok_x.size(), (int)cur.bad_x.size()).c_str());
     Small(c_text_dim, T("wiz.tpl.v_tape"));
     if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle | ImPlotFlags_NoInputs)) {
         ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_n"));
@@ -1212,12 +1222,12 @@ void TplPulsePlots(const tpl::Result* res)
         // ось Y без скачков: низ — база −60, верх — не ниже база+1300 (рабочее окно 100…1200),
         // растёт сразу до пришедшего максимума, опускается медленно (≈ за 20 с)
         float ymax = 0;
-        for (const TapeSeg* sg : { &tp.cur, &tp.nxt }) for (float y : sg->y) if (y > ymax) ymax = y;
-        double floor_top = tp.cur.base + 1300.0;
+        for (const auto& sp : tp.segs) for (float y : sp.second.y) if (y > ymax) ymax = y;
+        double floor_top = cur.base + 1300.0;
         double want = (std::max)((double)ymax + 40.0, floor_top);
         if (want > tp.ytop) tp.ytop = want;
         else tp.ytop = (std::max)(want, tp.ytop - (tp.ytop - want) * (std::min)(1.0, dt / 20.0) - 0.5);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, tp.cur.base - 60.0, tp.ytop, ImPlotCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, cur.base - 60.0, tp.ytop, ImPlotCond_Always);
         ImPlot::SetupLegend(ImPlotLocation_NorthEast);
         static std::vector<float> ox, oy, bx, by;
         ox.clear(); oy.clear(); bx.clear(); by.clear();
@@ -1231,12 +1241,15 @@ void TplPulsePlots(const tpl::Result* res)
             for (size_t i = 0; i < sg.ok_x.size(); i++)  { ox.push_back(sg.ok_x[i] + (float)off);  oy.push_back(sg.ok_y[i]); }
             for (size_t i = 0; i < sg.bad_x.size(); i++) { bx.push_back(sg.bad_x[i] + (float)off); by.push_back(sg.bad_y[i]); }
         };
-        seg(tp.cur, 0);
-        seg(tp.nxt, tp.cur.len());
-        if (tp.nxt.have) {                                       // стык порций
-            const double xs = tp.cur.len();
+        static std::vector<double> joins;
+        joins.clear();
+        for (size_t i = 0; i < tp.segs.size(); i++) {
+            seg(tp.segs[i].second, tp.segs[i].first);
+            if (i > 0) joins.push_back(tp.segs[i].first);       // стык порций
+        }
+        if (!joins.empty()) {
             ImPlot::SetNextLineStyle(c_text_dim, 1.0f);
-            ImPlot::PlotInfLines("##join", &xs, 1);
+            ImPlot::PlotInfLines("##join", joins.data(), (int)joins.size());
         }
         if (!ox.empty()) {
             ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_ok, 1.0f, c_ok);
