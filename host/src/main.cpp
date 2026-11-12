@@ -34,6 +34,8 @@
 #include "ui_shell.h"
 #include "ui_home.h"
 #include "ui_wizard.h"
+#include "ui_adv.h"
+#include "ui_panels.h"
 #include "i18n.h"
 
 // --- DirectX 11 ---
@@ -54,8 +56,6 @@ Device g_dev;                                  // общий с оболочко
 static int    g_port_sel = 0;
 static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
-static float  gLeftW = 330.0f, gRightW = 380.0f, gConnH = 245.0f, gConsoleH = 200.0f;
-static float  gTeleH = 285.0f;
 static float  g_spec_x[Device::CHANNELS];
 static float  g_spec_y[Device::CHANNELS];
 
@@ -152,33 +152,6 @@ static bool BeginPanel(const char* id, ImVec2 pos, ImVec2 size)
     return ImGui::Begin(id, nullptr, f);
 }
 
-static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
-
-static float Splitter(const char* id, ImVec2 pos, ImVec2 size, bool vertical)
-{
-    ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSize(size);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGuiWindowFlags f = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
-                         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-    ImGui::Begin(id, nullptr, f);
-    ImGui::InvisibleButton("s", size);
-    bool active = ImGui::IsItemActive();
-    bool hovered = ImGui::IsItemHovered();
-    if (active || hovered) {
-        ImGui::SetMouseCursor(vertical ? ImGuiMouseCursor_ResizeEW : ImGuiMouseCursor_ResizeNS);
-        ImU32 col = theme::U32(active ? theme::c_accent : theme::c_accent_line);
-        ImGui::GetWindowDrawList()->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), col);
-    }
-    float d = active ? (vertical ? ImGui::GetIO().MouseDelta.x : ImGui::GetIO().MouseDelta.y) : 0.0f;
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-    return d;
-}
-
 static ImVec4 StateColor()
 {
     using namespace theme;
@@ -208,7 +181,7 @@ static bool Busy() { return g_dev.lin.running || g_dev.hvp.running || g_dev.raw.
 
 // ================= панели =================
 
-static void PanelConnection(ImVec2 pos, ImVec2 size)
+void PanelConnection(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##conn", pos, size);
@@ -263,7 +236,7 @@ static void PanelConnection(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void PanelTelemetry(ImVec2 pos, ImVec2 size)
+void PanelTelemetry(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##tele", pos, size);
@@ -320,7 +293,7 @@ static void PanelTelemetry(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void PanelHV(ImVec2 pos, ImVec2 size)
+void PanelHV(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##hv", pos, size);
@@ -337,7 +310,25 @@ static void PanelHV(ImVec2 pos, ImVec2 size)
         StatusDot(c_ok); ImGui::TextUnformatted("ВВ выключено");
     }
     ImGui::BeginDisabled(!conn);
-    if (DangerButton("ВЫКЛЮЧИТЬ ВВ", ImVec2(-1, 28))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
+    if (hv) {
+        if (DangerButton("ВЫКЛЮЧИТЬ ВВ", ImVec2(-1, 28))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
+    } else {
+        ImGui::BeginDisabled(true);
+        ImGui::Button("ВЫКЛЮЧИТЬ ВВ", ImVec2(-1, 28));
+        ImGui::EndDisabled();
+    }
+    // поле уставки — из прибора, один раз на подключение (иначе «Установить» при включённом ВВ
+    // послало бы прежнее значение поля, например -hv 750 при рабочих 565 В)
+    {
+        static bool synced = false;
+        if (!g_dev.connected()) synced = false;
+        else if (!synced && g_dev.gst_age() < 5.0) {
+            double v = std::fabs(g_dev.gnum("hv_set"));
+            if (v <= 0) v = g_dev.gnum("hv_boot");
+            if (v > 0) g_hv_set = (int)(v + 0.5);
+            synced = true;
+        }
+    }
     ImGui::SetNextItemWidth(90);
     ImGui::InputInt("В##hvset", &g_hv_set, 10, 50);
     if (g_hv_set < 0) g_hv_set = 0;
@@ -395,7 +386,7 @@ static void PanelHV(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void PanelSpectrum(ImVec2 pos, ImVec2 size)
+void PanelSpectrum(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##spec", pos, size);
@@ -475,7 +466,7 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void PanelConsole(ImVec2 pos, ImVec2 size)
+void PanelConsole(ImVec2 pos, ImVec2 size)
 {
     using namespace theme;
     BeginPanel("##con", pos, size);
@@ -519,7 +510,7 @@ static void PanelConsole(ImVec2 pos, ImVec2 size)
     ImGui::End();
 }
 
-static void TabSelftest()
+void TabSelftest()
 {
     using namespace theme;
     Device::LinRun& L = g_dev.lin;
@@ -533,7 +524,7 @@ static void TabSelftest()
     ImGui::EndDisabled();
     if (g_lin_n < 100) g_lin_n = 100;
     if (g_lin_period < 45) g_lin_period = 45;
-    ImGui::BeginDisabled(!conn || g_dev.hvp.running);
+    ImGui::BeginDisabled(!conn || g_dev.hvp.running || g_dev.hv_on());   // самотест ЦАП — только без ВВ
     if (!L.running) {
         if (PrimaryButton("Прогон линейности", ImVec2(-1, 26))) {
             std::vector<int> codes;
@@ -588,7 +579,7 @@ static void TabSelftest()
     }
 }
 
-static void TabCalib()
+void TabCalib()
 {
     using namespace theme;
     bool conn = g_dev.connected();
@@ -639,7 +630,8 @@ static void TabCalib()
     ImGui::TextDisabled("Калибровки действуют сразу; во флеш — «Сохранить».");
 }
 
-static void TabSettings()
+// «Порог и детектор»: порог, PGA, сохранить, умолчания (часть прежней вкладки «Настройки»)
+void TabDetector()
 {
     using namespace theme;
     bool conn = g_dev.connected();
@@ -667,35 +659,8 @@ static void TabSettings()
     ImGui::TextDisabled("Эталон формы снят на ×4 — для спектрометрии оставлять ×4.");
 
     ImGui::Spacing(); ImGui::Separator();
-    Caption("Автозапуск ВВ при подаче питания (собранный блок)");
-    {
-        double hb = g_dev.gnum("hv_boot");
-        char b[96];
-        if (hb > 0) snprintf(b, sizeof b, "сейчас: %.0f В через ~5 с после старта", hb);
-        else snprintf(b, sizeof b, "сейчас: выключен — ВВ включается только командой");
-        ImGui::TextUnformatted(b);
-        static int s_hvboot = 0;
-        if (s_hvboot == 0 && g_dev.gnum("hv_set") > 0) s_hvboot = (int)(g_dev.gnum("hv_set") + 0.5);
-        ImGui::BeginDisabled(!conn);
-        ImGui::SetNextItemWidth(100);
-        ImGui::InputInt("В##hvboot", &s_hvboot, 0, 0);
-        if (s_hvboot < 0) s_hvboot = 0;
-        if (s_hvboot > 1200) s_hvboot = 1200;
-        ImGui::SameLine();
-        if (ImGui::Button("Включить автозапуск") && s_hvboot > 0) {
-            char c[32]; snprintf(c, sizeof c, "-hvboot %d", s_hvboot); g_dev.queue({ c, "-save" });
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Выключить автозапуск")) g_dev.queue({ "-hvboot off", "-save" });
-        ImGui::EndDisabled();
-        ImGui::TextDisabled("Сразу пишется во флеш. Перед вскрытием блока — выключить автозапуск и ВВ.");
-    }
-
-    ImGui::Spacing(); ImGui::Separator();
     ImGui::BeginDisabled(!conn);
     if (PrimaryButton("Сохранить во флеш (-save)", ImVec2(-1, 26))) g_dev.send_cmd("-save");
-    if (ImGui::Button("Проверка тракта (-diag)", ImVec2(-1, 0))) g_dev.send_cmd("-diag");
-    if (ImGui::Button("Шум базы (-noise)", ImVec2(-1, 0))) g_dev.send_cmd("-noise");
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!conn || g_dev.hv_on());
     if (DangerButton("Умолчания (-defaults, до -save — в ОЗУ)", ImVec2(-1, 0))) g_dev.send_cmd("-defaults");
@@ -705,7 +670,47 @@ static void TabSettings()
     ImGui::PushFont(font_mono); ImGui::TextWrapped("%s", g_dev.last_reply.c_str()); ImGui::PopFont();
 }
 
-static void TabTemplate()
+// «Высокое напряжение»: автозапуск ВВ при подаче питания (часть прежней вкладки «Настройки»)
+void TabHvBoot()
+{
+    bool conn = g_dev.connected();
+    Caption("Автозапуск ВВ при подаче питания (собранный блок)");
+    double hb = g_dev.gnum("hv_boot");
+    char b[96];
+    if (hb > 0) snprintf(b, sizeof b, "сейчас: %.0f В через ~5 с после старта", hb);
+    else snprintf(b, sizeof b, "сейчас: выключен — ВВ включается только командой");
+    ImGui::TextUnformatted(b);
+    static int s_hvboot = 0;
+    if (s_hvboot == 0 && g_dev.gnum("hv_set") > 0) s_hvboot = (int)(g_dev.gnum("hv_set") + 0.5);
+    ImGui::BeginDisabled(!conn);
+    ImGui::SetNextItemWidth(100);
+    ImGui::InputInt("В##hvboot", &s_hvboot, 0, 0);
+    if (s_hvboot < 0) s_hvboot = 0;
+    if (s_hvboot > 1200) s_hvboot = 1200;
+    ImGui::SameLine();
+    if (ImGui::Button("Включить автозапуск") && s_hvboot > 0) {
+        char c[32]; snprintf(c, sizeof c, "-hvboot %d", s_hvboot); g_dev.queue({ c, "-save" });
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Выключить автозапуск")) g_dev.queue({ "-hvboot off", "-save" });
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Сразу пишется во флеш. Перед вскрытием блока — выключить автозапуск и ВВ.");
+}
+
+// «Самотест»: проверка тракта и шум базы (часть прежней вкладки «Настройки»)
+void TabDiag()
+{
+    using namespace theme;
+    bool conn = g_dev.connected();
+    ImGui::BeginDisabled(!conn);
+    if (ImGui::Button("Проверка тракта (-diag)", ImVec2(-1, 0))) g_dev.send_cmd("-diag");
+    if (ImGui::Button("Шум базы (-noise)", ImVec2(-1, 0))) g_dev.send_cmd("-noise");
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Последний ответ:");
+    ImGui::PushFont(font_mono); ImGui::TextWrapped("%s", g_dev.last_reply.c_str()); ImGui::PopFont();
+}
+
+void TabTemplate()
 {
     using namespace theme;
     bool conn = g_dev.connected();
@@ -805,7 +810,7 @@ static std::string LogDefaultDir()
     return u8;
 }
 
-static void TabLogger()
+void TabLogger()
 {
     using namespace theme;
     bool conn = g_dev.connected();
@@ -940,7 +945,7 @@ static void TabLogger()
     ImGui::EndDisabled();
 }
 
-static void TabThermo()
+void TabThermo()
 {
     using namespace theme;
     bool conn = g_dev.connected();
@@ -1002,22 +1007,6 @@ static void TabThermo()
             ImGui::EndDisabled();
         } else ImGui::TextDisabled("для расчёта нужно ≥ %d точек", g_tc_order == 2 ? 4 : 3);
     }
-}
-
-static void PanelService(ImVec2 pos, ImVec2 size)
-{
-    BeginPanel("##svc", pos, size);
-    PanelHeader("СЕРВИС");
-    if (ImGui::BeginTabBar("##svctabs")) {
-        if (ImGui::BeginTabItem("Самотест ЦАП")) { TabSelftest(); ImGui::EndTabItem(); }
-        if (ImGui::BeginTabItem("Калибровки"))   { TabCalib();    ImGui::EndTabItem(); }
-        if (ImGui::BeginTabItem("Эталон"))       { TabTemplate(); ImGui::EndTabItem(); }
-        if (ImGui::BeginTabItem("Термо"))        { TabThermo();   ImGui::EndTabItem(); }
-        if (ImGui::BeginTabItem("Регистратор"))  { TabLogger();   ImGui::EndTabItem(); }
-        if (ImGui::BeginTabItem("Настройки"))    { TabSettings(); ImGui::EndTabItem(); }
-        ImGui::EndTabBar();
-    }
-    ImGui::End();
 }
 
 static void HelpSection(const char* h)
@@ -1091,40 +1080,6 @@ static void DrawHelp()
     ImGui::EndPopup();
 }
 
-// прежняя раскладка панелей: пока расширенный режим (заменит Task 10)
-static void DrawPanels(ImVec2 area, ImVec2 asz)
-{
-    float p = 5.0f, g = 5.0f;
-    float innerX = area.x + p, innerY = area.y + p;
-    float innerW = asz.x - 2 * p, innerH = asz.y - 2 * p;
-
-    gLeftW    = clampf(gLeftW, 220.0f, innerW - gRightW - 2 * g - 260.0f);
-    gRightW   = clampf(gRightW, 260.0f, innerW - gLeftW - 2 * g - 260.0f);
-    gConnH    = clampf(gConnH, 150.0f, innerH - 320.0f);
-    gTeleH    = clampf(gTeleH, 120.0f, innerH - gConnH - 180.0f);
-    gConsoleH = clampf(gConsoleH, 110.0f, innerH - 220.0f);
-
-    float leftW = gLeftW, rightW = gRightW;
-    float centerW = innerW - leftW - rightW - 2 * g;
-    float connH = gConnH, teleH = gTeleH;
-    float hvH = innerH - connH - teleH - 2 * g;
-    float consoleH = gConsoleH, spectrumH = innerH - consoleH - g;
-    float lx = innerX, cx = innerX + leftW + g, rx = cx + centerW + g;
-
-    PanelConnection(ImVec2(lx, innerY),                         ImVec2(leftW, connH));
-    PanelTelemetry (ImVec2(lx, innerY + connH + g),             ImVec2(leftW, teleH));
-    PanelHV        (ImVec2(lx, innerY + connH + g + teleH + g), ImVec2(leftW, hvH));
-    PanelSpectrum  (ImVec2(cx, innerY),                         ImVec2(centerW, spectrumH));
-    PanelConsole   (ImVec2(cx, innerY + spectrumH + g),         ImVec2(centerW, consoleH));
-    PanelService   (ImVec2(rx, innerY),                         ImVec2(rightW, innerH));
-
-    gLeftW    += Splitter("##sp_lc", ImVec2(lx + leftW + g * 0.5f - 3, innerY),             ImVec2(6, innerH), true);
-    gRightW   -= Splitter("##sp_cr", ImVec2(rx - g * 0.5f - 3, innerY),                     ImVec2(6, innerH), true);
-    gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),         ImVec2(centerW, 6), false);
-    gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),             ImVec2(leftW, 6), false);
-    gTeleH    += Splitter("##sp_tc", ImVec2(lx, innerY + connH + g + teleH + g * 0.5f - 3), ImVec2(leftW, 6), false);
-}
-
 static void DrawApp()
 {
     DrawShell();
@@ -1137,7 +1092,7 @@ static void DrawApp()
     ds::Mode m = g_ui.mode;                  // режим на этот кадр (ui_go внутри кадра сработает со следующего)
     if (m == ds::Mode::Wizard)    DrawWizard(area, asz);
     else if (m == ds::Mode::Home) DrawHome(area, asz);
-    else                          DrawPanels(area, asz);
+    else                          DrawAdvanced(area, asz);
 
     WizTick();
     DrawHelp();
