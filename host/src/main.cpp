@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include "theme.h"
 #include "host_app.h"
+#include "appcfg.h"
 
 // --- DirectX 11 ---
 static ID3D11Device*           g_pd3dDevice = nullptr;
@@ -1623,6 +1624,11 @@ static void DrawApp()
 
 int run_gui()
 {
+    {   // язык интерфейса из %APPDATA%\gammapult\gammapult.ini (нет файла: русский)
+        AppCfg cfg;
+        appcfg_load(cfg);
+        i18n_set(cfg.lang);
+    }
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
                        GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
                        nullptr, L"gammapult", nullptr };

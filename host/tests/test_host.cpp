@@ -3,6 +3,11 @@
 #include "t.h"
 #include "devstate.h"
 #include "theme_tokens.h"
+#include "i18n.h"
+#include "appcfg.h"
+#include <cstdio>
+#include <cstdlib>
+#include <string>
 #include <cstring>
 
 using namespace ds;
@@ -197,6 +202,103 @@ static void test_contrast()
     CHECK(contrast(k.warn, k.warn_bg) >= 4.5);
 }
 
+// строки интерфейса: язык, пропуски, вычитка таблицы
+static void test_i18n()
+{
+    i18n_set(Lang::Ru);
+    CHECK(i18n_get() == Lang::Ru);
+    std::string ru = T("home.ready.title");
+    CHECK(ru != "home.ready.title");
+    i18n_set(Lang::En);
+    CHECK(i18n_get() == Lang::En);
+    std::string en = T("home.ready.title");
+    CHECK(en != "home.ready.title");
+    CHECK(en != ru);
+    i18n_set(Lang::Ru);
+    CHECK(T("home.ready.title") == ru);                             // переключение без перезапуска
+
+    // нет ключа: возвращается сам ключ и запоминается один раз
+    size_t m0 = i18n_missing().size();
+    CHECK(std::strcmp(T("нет.такого"), "нет.такого") == 0);
+    CHECK(std::strcmp(T("нет.такого"), "нет.такого") == 0);
+    CHECK(i18n_missing().size() == m0 + 1);
+    CHECK(i18n_missing().back() == "нет.такого");
+
+    // ключи подсказок подключения из devstate есть в таблице на обоих языках
+    for (Lang l : { Lang::Ru, Lang::En }) {
+        i18n_set(l);
+        for (unsigned long e : { 5ul, 2ul, 31ul }) {
+            const char* k = connect_hint_key(e);
+            CHECK(std::strcmp(T(k), k) != 0);
+        }
+    }
+    i18n_set(Lang::Ru);
+    CHECK(i18n_missing().size() == m0 + 1);
+
+    std::string report;
+    bool ok = i18n_check(report);
+    if (!ok) printf("%s\n", report.c_str());
+    CHECK(ok);
+    CHECK(i18n_count() > 50);
+
+    // сама проверка ловит нарушения
+    const I18nEntry bad[] = {
+        { "a.dup",  "раз",            "one" },
+        { "a.dup",  "два",            "two" },
+        { "a.empty", "",              "x" },
+        { "a.dash", "Прибор \u2014 ок", "ok" },
+        { "a.ndash", "слово\u2013слово", "ok" },
+        { "a.range", "3\u20135 минут",   "3\u20135 min" },          // диапазон цифра-цифра разрешён
+    };
+    std::string r2;
+    CHECK(!i18n_check_entries(bad, sizeof bad / sizeof bad[0], r2));
+    CHECK(r2.find("a.dup") != std::string::npos);
+    CHECK(r2.find("a.empty") != std::string::npos);
+    CHECK(r2.find("a.dash") != std::string::npos);
+    CHECK(r2.find("a.ndash") != std::string::npos);
+    CHECK(r2.find("a.range") == std::string::npos);
+    std::string r3;
+    CHECK(i18n_check_entries(bad + 5, 1, r3));
+}
+
+static std::string tmp_ini(const char* name)
+{
+    const char* t = std::getenv("TEMP");
+    return std::string(t ? t : ".") + "\\" + name;
+}
+
+// настройки пульта: язык в gammapult.ini
+static void test_appcfg()
+{
+    std::string p = tmp_ini("gammapult_test_cfg.ini");
+    std::remove(p.c_str());
+    AppCfg c; c.lang = Lang::En;
+    CHECK(appcfg_save(c, p));
+    AppCfg d;
+    CHECK(d.lang == Lang::Ru);
+    CHECK(appcfg_load(d, p));
+    CHECK(d.lang == Lang::En);
+    c.lang = Lang::Ru;
+    CHECK(appcfg_save(c, p));
+    d.lang = Lang::En;
+    CHECK(appcfg_load(d, p));
+    CHECK(d.lang == Lang::Ru);
+
+    // битый файл: язык по умолчанию, загрузка не падает
+    FILE* f = std::fopen(p.c_str(), "wb");
+    CHECK(f != nullptr);
+    if (f) { std::fputs("\xff\xfe garbage\nlang=klingon\n=\n", f); std::fclose(f); }
+    AppCfg e; e.lang = Lang::En;
+    CHECK(appcfg_load(e, p));
+    CHECK(e.lang == Lang::Ru);
+    std::remove(p.c_str());
+
+    // файла нет: тоже Ru (первый запуск)
+    AppCfg g; g.lang = Lang::En;
+    appcfg_load(g, p);
+    CHECK(g.lang == Lang::Ru);
+}
+
 int main()
 {
     test_parse_setup();
@@ -208,5 +310,7 @@ int main()
     test_connect_hint();
     test_display_serial();
     test_contrast();
+    test_i18n();
+    test_appcfg();
     return T_DONE();
 }

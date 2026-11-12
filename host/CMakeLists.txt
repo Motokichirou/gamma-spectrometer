@@ -61,6 +61,8 @@ set(GAMMA_CORE
   src/logdump.cpp
   src/devstate.cpp
   src/theme_tokens.cpp
+  src/i18n.cpp
+  src/appcfg.cpp
   ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c)
 # формат записи регистратора — общий с прошивкой: logrec.c собирается как C++
 set_source_files_properties(${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c PROPERTIES LANGUAGE CXX)
@@ -110,5 +112,7 @@ set_target_properties(gammapult_com PROPERTIES OUTPUT_NAME gammapult SUFFIX ".co
 add_executable(gammapult_tests
   tests/test_host.cpp
   src/devstate.cpp
-  src/theme_tokens.cpp)
+  src/theme_tokens.cpp
+  src/i18n.cpp
+  src/appcfg.cpp)
 target_include_directories(gammapult_tests PRIVATE src ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/tests)
