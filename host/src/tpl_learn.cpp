@@ -386,8 +386,26 @@ Result build(const Singles& s, int refine, bool pp, int pp_iters)
     if (!rows_from_shape(f, r7)) { R.msg = "форма не годится: максимум строки не на позиции 1"; return R; }
     // ширина на половине высоты
     { double a = 1e300, b = -1e300; for (size_t g = 0; g < f.S.size(); g++) if (f.S[g] >= 0.5) { a = std::min(a, f.x[g]); b = std::max(b, f.x[g]); } R.fwhm50 = b - a; }
-    // общая форма для экрана (каждый 4-й узел: шаг 1/16 отсчёта)
-    for (size_t g = 0; g < f.S.size(); g += 4) { R.shape_x.push_back((float)f.x[g]); R.shape_y.push_back((float)f.S[g]); }
+    // общая форма для экрана (каждый 4-й узел: шаг 1/16 отсчёта). Вплетённые 64 строки дают «пилу» с
+    // периодом ровно 1 отсчёт (строки нормированы на свой отсчёт максимума, а не на вершину) — скользящее
+    // среднее шириной 1 отсчёт (NPH узлов) убирает её целиком; затем максимум снова 1. Только для показа.
+    {
+        const int N = (int)f.S.size(), H = NPH / 2;
+        std::vector<double> sm(N, 0.0);
+        double mx = 0;
+        for (int g = 0; g < N; g++) {
+            double s = 0; int c = 0;
+            for (int k = g - H; k < g + H; k++) if (k >= 0 && k < N) { s += f.S[k]; c++; }
+            sm[g] = c ? s / c : f.S[g];
+            mx = std::max(mx, sm[g]);
+        }
+        int im = (int)(std::max_element(sm.begin(), sm.end()) - sm.begin());
+        double x0 = f.x[im];
+        for (int g = H; g + H <= N; g += 4) {     // края без полного окна не показываем
+            R.shape_x.push_back((float)(f.x[g] - x0));
+            R.shape_y.push_back((float)(mx > 0 ? sm[g] / mx : sm[g]));
+        }
+    }
 
     int q[NPH][NS]; std::vector<double> A; std::vector<int> ph;
     quant(r7, q); fit(wins, q, A, ph, nullptr);
