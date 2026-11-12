@@ -81,6 +81,7 @@ static int    g_pga = 4;
 static int    g_tpl_blocks = 2000;
 static std::atomic<int> g_tpl_state{ 0 };      // 0 — нет, 1 — считаю, 2 — готово
 static tpl::Result g_tpl_res;
+static tpl::Tail g_tpl_tail;                   // таблица хвоста к эталону (разбор наложений)
 static std::string g_tpl_info;
 static bool   g_tpl_loaded = false;
 static int    g_tpl_load_err0 = 0;
@@ -775,10 +776,12 @@ void TabTemplate()
         std::thread([blocks = R.blocks, info_fmt]() {
             tpl::Singles s = tpl::find_singles(blocks);
             tpl::Result r = tpl::build(s);
+            tpl::Tail t = tpl::build_tail(s, r);
             char b[200];
             snprintf(b, sizeof b, info_fmt, s.blocks, s.sigma, s.single, s.amp);
             g_tpl_info = b;
             g_tpl_res = r;
+            g_tpl_tail = t;
             g_tpl_state = 2;
         }).detach();
     }
@@ -802,11 +805,15 @@ void TabTemplate()
                 ImPlot::EndPlot();
             }
             ImGui::TextDisabled("%s", T("adv.tpl.norm"));
+            ImGui::PushStyleColor(ImGuiCol_Text, g_tpl_tail.ok ? c_ok : c_warn);
+            ImGui::TextWrapped(T(g_tpl_tail.ok ? "adv.tpl.tail" : "adv.tpl.tail_none"), g_tpl_tail.msg.c_str());
+            ImGui::PopStyleColor();
             ImGui::BeginDisabled(!conn || g_dev.queue_busy() || g_dev.acquiring);
             if (PrimaryButton(Lbl("adv.tpl.load", "tplload").c_str(), ImVec2(-1, 0))) {
                 g_tpl_load_err0 = g_dev.queue_errors;
                 g_dev.queue(tpl::commands(g_tpl_res));
-                g_dev.queue({ "-tplok" });
+                g_dev.queue({ "-tplok" });            // снимает прежнюю таблицу хвоста; новая следом
+                if (g_tpl_tail.ok) g_dev.queue(tpl::tail_commands(g_tpl_tail));
                 g_tpl_loaded = true;
             }
             if (ImGui::Button(Lbl("adv.tpl.save", "tplsave").c_str(), ImVec2(-1, 0))) g_dev.send_cmd("-save");

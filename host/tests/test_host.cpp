@@ -8,6 +8,7 @@
 #include "peakfit.h"
 #include "tpl_learn.h"
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -701,6 +702,128 @@ static void test_pulse_view()
     }
 }
 
+// ---- таблица хвоста (разбор наложений) ----
+// синтетическая форма: (u/4)·e^(1 − u/4) и медленный выброс в минус
+static double tail_g(double u)
+{
+    if (u <= 0) return 0.0;
+    double neg = u > 8 ? -0.005 * (1.0 - exp(-(u - 8) / 12.0)) * exp(-u / 100.0) : 0.0;
+    return (u / 4.0) * exp(1.0 - u / 4.0) + neg;
+}
+
+static std::vector<std::vector<uint16_t>> tail_blocks(int nb, uint32_t seed)
+{
+    std::vector<std::vector<uint16_t>> blocks;
+    uint32_t rs = seed;
+    auto rnd = [&]() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) * (1.0 / 16777216.0); };
+    for (int b = 0; b < nb; b++) {
+        std::vector<double> y(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) y[i] = 400.0 + 2.0 * (rnd() + rnd() + rnd() - 1.5);
+        for (int c = 150; c + 200 < tpl::BLK; c += 300) {
+            double fr = rnd(), A = 600.0 * (0.95 + 0.1 * rnd());     // как фотопик Cs
+            for (int k = 0; k < 300 && c + k < tpl::BLK; k++) y[c + k] += A * tail_g(k - fr);
+        }
+        std::vector<uint16_t> bb(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) bb[i] = (uint16_t)(y[i] + 0.5);
+        blocks.push_back(bb);
+    }
+    return blocks;
+}
+
+static void test_build_tail_synthetic()
+{
+    auto blocks = tail_blocks(80, 4242);
+    tpl::Singles s = tpl::find_singles(blocks);
+    CHECK(s.lwins.size() > 1000);
+    tpl::Result r = tpl::build(s);
+    CHECK(r.ok);
+    tpl::Tail t = tpl::build_tail(s, r);
+    CHECK(t.ok);
+    if (!t.ok) { printf("  tail: %s\n", t.msg.c_str()); return; }
+    // форма: u50 — 50 % фронта, gmax — максимум
+    double gmax = 0, u50 = 0;
+    for (int i = 0; i <= 20000; i++) gmax = std::max(gmax, tail_g(i * 0.001));
+    for (int i = 0; i <= 20000; i++) if (tail_g(i * 0.001) >= 0.5 * gmax) { u50 = i * 0.001; break; }
+    // строка r: время импульса от максимума — t_row[r], отсчёт imax + j — g(j − t_row + c).
+    // Начало отсчёта времени у таблицы — 50 % фронта по двум отсчётам в среднем по фазам, поэтому c ≈ u50
+    // с точностью до общего сдвига ≤ 0.1 отсчёта: c подбирается одна на всю таблицу
+    double emax = 1e9, cbest = u50;
+    for (int q = -100; q <= 100; q++) {
+        double c = u50 + q * 0.001, e = 0;
+        for (int rr = 0; rr < tpl::TL_ROWS; rr++) {
+            double off = t.t_row[rr];
+            for (int j = 0; j < tpl::TL_LEN; j++) e = std::max(e, fabs(t.s[rr][j] / 32768.0 - tail_g(j + 1 - off + c) / gmax));
+        }
+        if (e < emax) { emax = e; cbest = c; }
+    }
+    for (int rr = 0; rr < tpl::TL_ROWS; rr++) {
+        CHECK(t.t_row[rr] >= t.off_lo - 1e-9 && t.t_row[rr] <= t.off_hi + 1e-9);
+        CHECK(fabs(t.k_row[rr] - 1.0) < 0.01);
+    }
+    bool neg = false;
+    for (int rr = 0; rr < tpl::TL_ROWS; rr++) for (int j = 0; j < tpl::TL_LEN; j++) if (t.s[rr][j] < 0) neg = true;
+    printf("  tail synthetic: max |s − g| = %.4f %% A (сдвиг начала %+.3f отсч.), off %.3f…%.3f, rms_pct %.4f, max_pct %.4f\n",
+           100 * emax, cbest - u50, t.off_lo, t.off_hi, t.rms_pct, t.max_pct);
+    // по аналитической форме — с точностью до смещения A эталона по фазам (до ±0.3 % у синтетики):
+    // строка таблицы следует тому, что видит детектор (A и фаза подгонкой эталона), а не идеальной g
+    CHECK(emax <= 0.005);
+    CHECK(fabs(cbest - u50) < 0.1);
+    // главное: хвост по таблице совпадает с хвостами одиночных (A и фаза подгонкой эталона, как в приборе)
+    // на всех j = 1…64 и во всех строках ≤ 0.1 % A
+    CHECK(t.max_pct <= 0.1);
+    CHECK(neg);                                        // выброс в минус в таблице есть
+    CHECK(t.off_hi > t.off_lo);
+    for (int p = 0; p < tpl::NPH; p++) CHECK(t.row[p] < tpl::TL_ROWS);
+    CHECK(t.rms_pct > 0 && t.rms_pct < 0.05);
+    // без эталона — не строится
+    tpl::Result bad;
+    CHECK(!tpl::build_tail(s, bad).ok);
+    tpl::Singles few;
+    CHECK(!tpl::build_tail(few, r).ok);
+}
+
+static void test_tail_commands()
+{
+    tpl::Tail t;
+    for (int r = 0; r < tpl::TL_ROWS; r++) for (int j = 0; j < tpl::TL_LEN; j++) t.s[r][j] = (int16_t)(j % 2 ? -32768 : 32767);
+    for (int p = 0; p < tpl::NPH; p++) t.row[p] = (uint8_t)(p % tpl::TL_ROWS);
+    t.ok = true;
+    auto v = tpl::tail_commands(t);
+    CHECK(v.size() == 69u);
+    if (v.size() != 69u) return;
+    for (int k = 0; k < 64; k++) CHECK(v[k].rfind("-tlw ", 0) == 0);
+    for (int k = 64; k < 68; k++) CHECK(v[k].rfind("-tlm ", 0) == 0);
+    CHECK(v[68] == "-tlok");
+    for (auto& c : v) CHECK(c.size() <= 256);
+    CHECK(v[0].rfind("-tlw 0 0 32767 -32768 ", 0) == 0);
+    CHECK(v[5] == "-tlw 1 1 32767 -32768 32767 -32768 32767 -32768 32767 -32768 32767 -32768 32767 -32768 32767 -32768 32767 -32768");
+    CHECK(v[65] == "-tlm 1 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15");
+}
+
+static void test_save_tail_bin()
+{
+    tpl::Tail t;
+    for (int r = 0; r < tpl::TL_ROWS; r++) for (int j = 0; j < tpl::TL_LEN; j++) t.s[r][j] = (int16_t)(r * 100 - j);
+    for (int p = 0; p < tpl::NPH; p++) t.row[p] = (uint8_t)(p / 4);
+    t.ok = true;
+    std::string path = tmp_ini("gp_tail_test.bin");
+    CHECK(tpl::save_tail_bin(t, path));
+    FILE* f = fopen(path.c_str(), "rb");
+    CHECK(f != nullptr);
+    if (!f) return;
+    unsigned char b[3000];
+    size_t n = fread(b, 1, sizeof b, f);
+    fclose(f);
+    remove(path.c_str());
+    CHECK(n == 2112u);
+    CHECK(b[0] == 0 && b[1] == 0);                                   // s[0][0] = 0
+    int16_t v = (int16_t)(b[2] | (b[3] << 8));                       // s[0][1] = −1, little-endian
+    CHECK(v == -1);
+    int16_t w = (int16_t)(b[2 * 64] | (b[2 * 64 + 1] << 8));         // s[1][0] = 100
+    CHECK(w == 100);
+    CHECK(b[2048] == 0 && b[2048 + 63] == 15);                       // row
+}
+
 // отчёт: шаг не проводился в этот раз — дата из прибора или «нет данных»
 static void test_report_not_run()
 {
@@ -788,6 +911,9 @@ int main()
     test_weak_source();
     test_pulse_view();
     test_tail_pileup();
+    test_build_tail_synthetic();
+    test_tail_commands();
+    test_save_tail_bin();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();

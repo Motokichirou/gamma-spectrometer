@@ -64,6 +64,8 @@ struct Wiz {
     int tpl_phase = 0, tpl_err0 = 0;
     std::atomic<int> tpl_state{ 0 };           // расчёт в потоке: 1 — считаю, 2 — готово
     tpl::Result tpl_res;
+    tpl::Tail tpl_tail;                        // таблица хвоста (разбор наложений), пишется следом за эталоном
+    std::string tpl_qerr;                      // ошибка записи в прибор (-err …), для фазы 5
     int tpl_target = 10000; float tpl_timeout = 900.0f;
     double tpl_t0 = 0, tpl_el = 0;
     size_t tpl_counted = 0; int tpl_n = 0;     // порций просчитано, одиночных в них
@@ -428,6 +430,8 @@ void WriteReport()
         fprintf(f, "Эталон формы: записан сейчас; %s", w.tpl_res.msg.c_str());
         if (w.tpl_partial) fprintf(f, " (одиночных %d из заданных %d: вышел предел времени)", w.tpl_n, w.tpl_target);
         fprintf(f, "\n");
+        fprintf(f, "Таблица хвоста (разбор наложений): %s%s\n", w.tpl_tail.ok ? "записана; " : "нет, разбор выключен; ",
+                w.tpl_tail.msg.c_str());
     }
     else {
         std::string nr = NotRun(R.tpl_unix);
@@ -746,11 +750,13 @@ void BodyTpl(bool primary)
         if (w.tpl_partial) Small(c_warn, Fmt(T("wiz.tpl.partial"), w.tpl_n, w.tpl_target).c_str());
         PassLine(w.tpl_res.resid_med < 1.0 && w.tpl_res.spread_after < 1.0,
                  Fmt(T("wiz.tpl.quality"), w.tpl_res.resid_med, w.tpl_res.spread_after));
+        if (w.tpl_tail.ok) PassLine(true, Fmt(T("wiz.tpl.tail_ok"), w.tpl_tail.rms_pct));
+        else Small(c_warn, Fmt(T("wiz.tpl.tail_none"), w.tpl_tail.msg.c_str()).c_str());
     }
     if (w.tpl_phase >= 3 && w.tpl_res.ok) Small(c_text_dim, w.tpl_res.msg.c_str());
     if (w.tpl_phase == 5) {
         if (w.tpl_few) Para(c_danger, Fmt(T("wiz.tpl.few"), w.tpl_n, MinSec(w.tpl_el).c_str()).c_str());
-        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg).c_str()).c_str());
+        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg + (w.tpl_qerr.empty() ? "" : " " + w.tpl_qerr)).c_str()).c_str());
     }
     ImGui::Spacing();
     TplPulsePlots(w.tpl_phase >= 3 && w.tpl_res.ok ? &w.tpl_res : nullptr);
@@ -1445,17 +1451,25 @@ void WizTick()
                 std::thread([blocks = R.blocks]() {
                     tpl::Singles s = tpl::find_singles(blocks);
                     g_wiz.tpl_res = tpl::build(s);
+                    g_wiz.tpl_tail = tpl::build_tail(s, g_wiz.tpl_res);
                     g_wiz.tpl_state = 2;
                 }).detach();
             }
         }
     }
     if (w.tpl_phase == 2 && w.tpl_state == 2) {
-        if (w.tpl_res.ok) { w.tpl_err0 = g_dev.queue_errors; g_dev.queue(tpl::commands(w.tpl_res)); g_dev.queue({ "-tplok" }); w.tpl_phase = 3; }
+        if (w.tpl_res.ok) {
+            // эталон, -tplok (снимает прежнюю таблицу хвоста), затем таблица хвоста к нему: -tlw ×64, -tlm ×4, -tlok
+            w.tpl_err0 = g_dev.queue_errors; w.tpl_qerr.clear();
+            g_dev.queue(tpl::commands(w.tpl_res)); g_dev.queue({ "-tplok" });
+            if (w.tpl_tail.ok) g_dev.queue(tpl::tail_commands(w.tpl_tail));
+            w.tpl_phase = 3;
+        }
         else w.tpl_phase = 5;
     }
     if (w.tpl_phase == 3 && !g_dev.queue_busy()) {
         w.tpl_phase = g_dev.queue_errors == w.tpl_err0 ? 4 : 5;
+        if (w.tpl_phase == 5) w.tpl_qerr = g_dev.queue_last_err;     // например, -err tl от -tlok
         if (w.tpl_phase == 4) Record(ds::Step::Tpl);
     }
 

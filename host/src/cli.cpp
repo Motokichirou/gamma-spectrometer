@@ -11,7 +11,8 @@
 //   gammapult tpl collect --port COMx [--n 2000] --out raw.bin [--baud 3000000]
 //                         (сырые порции uint16 × 8192 подряд, дописываются по мере прихода; --baud — временно
 //                          поднять скорость UART на время сбора, после — обратно 600000)
-//   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
+//   gammapult tpl build raw.bin [--out tpl.h] [--tail-out tail.bin] [--load --port COMx [--save]]
+//                         (эталон и таблица хвоста для разбора наложений; --load пишет оба: -tplw/-tplok, -tlw/-tlm/-tlok)
 //   gammapult log status|on P [D]|off|start|stop|time|erase --yes --port COMx   (регистратор, SPEC_logger.md)
 //   gammapult log dump --port COMx --out <папка> [--session N] [--lo 300 --hi 6000] [--thermo] [--sum]
 #include "device.h"
@@ -73,7 +74,7 @@ static void usage()
            "  gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin [--baud 3000000]   (пишет по ходу)\n"
-           "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n"
+           "  gammapult tpl build raw.bin [--out tpl.h] [--tail-out tail.bin] [--load --port COMx [--save]]\n"
            "  gammapult log status|off|start|stop|time --port COMx      (регистратор: состояние/управление)\n"
            "  gammapult log on <период_с> [выдержка_с] --port COMx     (автозапуск регистратора)\n"
            "  gammapult log erase --yes --port COMx                   (стереть журнал)\n"
@@ -114,6 +115,8 @@ int run_cli(int argc, char** argv)
 
     // эталон из файла — без прибора (с --load нужен порт)
     tpl::Result tr;
+    tpl::Tail tt;
+    int tail_rc = 0;
     bool tpl_build = (sub == "tpl" && argc >= 4 && std::string(argv[2]) == "build");
     if (tpl_build) {
         FILE* f = fopen(argv[3], "rb");
@@ -133,9 +136,23 @@ int run_cli(int argc, char** argv)
             FILE* h = fopen(out.c_str(), "wb");
             if (h) { std::string t = tpl::header(tr); fwrite(t.data(), 1, t.size(), h); fclose(h); printf("эталон -> %s\n", out.c_str()); }
         }
+        // таблица хвоста (разбор наложений) — по тем же одиночным и новому эталону
+        tt = tpl::build_tail(s, tr);
+        printf("%s\n", tt.msg.c_str());
+        if (tt.ok) {
+            printf("строки (время от максимума, отсч. / масштаб):");
+            for (int r = 0; r < tpl::TL_ROWS; r++) printf(" %.3f/%.4f", tt.t_row[r], tt.k_row[r]);
+            printf("\n");
+        }
+        std::string tout = opt(argc, argv, "--tail-out");
+        if (!tout.empty()) {
+            if (!tt.ok) { printf("таблица хвоста не построена, %s не записан\n", tout.c_str()); tail_rc = 4; }
+            else if (tpl::save_tail_bin(tt, tout)) printf("таблица хвоста -> %s (2112 байт)\n", tout.c_str());
+            else { printf("не записать %s\n", tout.c_str()); tail_rc = 2; }
+        }
         bool load = false;
         for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--load") == 0) load = true;
-        if (!load) return 0;
+        if (!load) return tail_rc;
     }
 
     std::string port = opt(argc, argv, "--port");
@@ -355,12 +372,14 @@ int run_cli(int argc, char** argv)
         printf("в приборе возвращено: %s\n", dev.tc_reply.c_str());
     } else if (tpl_build) {
         dev.queue(tpl::commands(tr));
-        dev.queue({ "-tplok" });
+        dev.queue({ "-tplok" });                 // таблицу хвоста в приборе снимает; новая следом
+        if (tt.ok) dev.queue(tpl::tail_commands(tt));
+        else printf("таблицы хвоста нет: разбор наложений в приборе будет выключен (pile=-)\n");
         bool save = false;
         for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--save") == 0) save = true;
         if (save) dev.queue({ "-save" });
         while (dev.queue_busy()) pump(dev, 0.05);
-        printf("загрузка эталона: ошибок %d%s%s\n", dev.queue_errors, dev.queue_errors ? " — " : "", dev.queue_last_err.c_str());
+        printf("загрузка эталона%s: ошибок %d%s%s\n", tt.ok ? " и таблицы хвоста" : "", dev.queue_errors, dev.queue_errors ? " — " : "", dev.queue_last_err.c_str());
         printf("ответ: %s\n", dev.last_reply.c_str());
         rc = dev.queue_errors ? 5 : 0;
     } else if (sub == "tpl" && argc >= 3 && std::string(argv[2]) == "collect") {

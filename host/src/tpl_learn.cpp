@@ -23,6 +23,24 @@ static double median(std::vector<double> v)
     return 0.5 * (a + b);
 }
 
+// база для таблицы хвоста — как у детектора прибора: среднее спокойных отсчётов (вне [i − 2, i + 40] вокруг
+// отсчётов выше th5 = 5σ), а не медиана всей порции: медиана выше на ≈ 0.05 % A (импульсы), а хвост на +40…+64
+// (−0.5 % A) вычитается из сигнала с базой детектора (EMA спокойных отсчётов). Как portion_base в pumodel.py
+static double quiet_base(const std::vector<double>& x, double b, double th5)
+{
+    std::vector<char> m(x.size());
+    for (int it = 0; it < 2; it++) {
+        std::fill(m.begin(), m.end(), 0);
+        for (int i = 0; i < (int)x.size(); i++)
+            if (x[i] - b > th5) for (int q = std::max(0, i - 2); q <= std::min((int)x.size() - 1, i + 40); q++) m[q] = 1;
+        double sum = 0; int n = 0;
+        for (size_t i = 0; i < x.size(); i++) if (!m[i]) { sum += x[i]; n++; }
+        if (n <= 100) break;
+        b = sum / n;
+    }
+    return b;
+}
+
 // одна порция: счётчики в s и (keep) окна одиночных импульсов; возвращает σ шума порции.
 // view (для экрана): метки принятых/отбракованных и нормированные окна вида — на отбор не влияет
 static double singles_block(const std::vector<uint16_t>& blk, double thr, double amin, double amax, int clip,
@@ -40,6 +58,7 @@ static double singles_block(const std::vector<uint16_t>& blk, double thr, double
     std::vector<int> up;
     for (int i = 1; i < BLK; i++) if (x[i] - b > th && x[i - 1] - b <= th) up.push_back(i);
     s.cross += (int)up.size();
+    double bq = NaN;                          // база для длинных окон (quiet_base), по первому требованию
     for (size_t k = 0; k < up.size(); k++) {
         int c = up[k];
         if (c - ISO < 0 || c + ISO >= BLK) continue;
@@ -85,6 +104,23 @@ static double singles_block(const std::vector<uint16_t>& blk, double thr, double
         Win w;
         for (int i = 0; i < W; i++) w[i] = x[im - PRE + i] - b;
         s.wins.push_back(w);
+        // длинное окно (таблица хвоста): до +LPOST нет ни пересечения, ни подъёма над спадом больше порога
+        if (im - LPRE < 0 || im + LPOST >= BLK) continue;
+        if (k + 1 < up.size() && up[k + 1] <= im + LPOST) continue;
+        {
+            bool quiet_tail = true;
+            double mn = x[im];
+            for (int i = im + 1; i <= im + LPOST; i++) {
+                if (x[i] < mn) mn = x[i];
+                else if (x[i] - mn > th) { quiet_tail = false; break; }
+                if (i > im + 30 && fabs(x[i] - b) > th) { quiet_tail = false; break; }
+            }
+            if (!quiet_tail) continue;
+        }
+        if (!std::isfinite(bq)) bq = quiet_base(x, b, 5.0 * sd);
+        LWin lw;
+        for (int i = 0; i < LW; i++) lw[i] = (float)(x[im - LPRE + i] - bq);
+        s.lwins.push_back(lw);
     }
     return sd;
 }
@@ -451,6 +487,300 @@ std::vector<std::string> commands(const Result& r)
         v.push_back(b);
     }
     return v;
+}
+
+
+// ---- таблица хвоста (разбор наложений): порт tools/pileup/shape.py ----
+// одиночные с тишиной до +LPOST → A и фаза подгонкой эталона (как детектор) → время импульса по 50 % фронта
+// (CFD), off[фаза] = медиана (t_cfd − imax) → общая форма S(τ) на сетке 1/16 отсчёта (МНК по A, хвост
+// τ > 15 сглажен ±1 отсчёт) → чистка одиночных по остатку > 6σ (неотловленные импульсы на хвосте) →
+// строки: 16 равных шагов по диапазону off, s[r][j − 1] = S(j − off_r).
+static const int TL_MIN = 300;   // одиночных с тишиной до +LPOST, меньше — таблица не строится
+static const int TL_GRID = 16;   // шагов сетки S на отсчёт
+static const int TL_NEAR = 4;    // у вершины (j ≤ 4) строка берёт поправку по своим импульсам
+
+namespace {
+struct TailShape {
+    double tau0 = 0;
+    std::vector<double> S;
+    double at(double tau) const
+    {
+        double g = (tau - tau0) * TL_GRID;
+        if (g <= 0) return S.front();
+        int i = (int)g;
+        if (i >= (int)S.size() - 1) return S.back();
+        double f = g - i;
+        return S[i] + (S[i + 1] - S[i]) * f;
+    }
+};
+}
+
+static TailShape tail_shape(const std::vector<LWin>& lw, const std::vector<double>& A, const std::vector<double>& tsp,
+                            const std::vector<size_t>& use)
+{
+    TailShape f;
+    f.tau0 = -LPRE + 2;
+    const int NG = (LPOST + 2 - (-LPRE + 2)) * TL_GRID;     // τ до +72: с запасом на сглаживание у +64 − off
+    std::vector<double> sum(NG, 0.0), wsum(NG, 0.0);
+    for (size_t k : use) {
+        const double a = A[k];
+        for (int i = 0; i < LW; i++) {
+            double tau = (i - LPRE) - tsp[k];
+            long g = std::lround((tau - f.tau0) * TL_GRID);
+            if (g < 0 || g >= NG) continue;
+            sum[g] += lw[k][i] * a; wsum[g] += a * a;
+        }
+    }
+    f.S.assign(NG, NaN);
+    for (int g = 0; g < NG; g++) if (wsum[g] > 0) f.S[g] = sum[g] / wsum[g];
+    // пустые узлы — линейно между соседями, по краям — ближайшим
+    int last = -1;
+    for (int g = 0; g < NG; g++) {
+        if (!std::isfinite(f.S[g])) continue;
+        if (last < 0) for (int q = 0; q < g; q++) f.S[q] = f.S[g];
+        else for (int q = last + 1; q < g; q++) f.S[q] = f.S[last] + (f.S[g] - f.S[last]) * (q - last) / (double)(g - last);
+        last = g;
+    }
+    if (last < 0) { f.S.assign(NG, 0.0); return f; }
+    for (int q = last + 1; q < NG; q++) f.S[q] = f.S[last];
+    // хвост τ > 15: сглаживание по соседним целым отсчётам (узлы g ± 16, g ± 32), квадратичное (Савицкий-
+    // Голей, 5 точек). В shape.py — скользящее среднее ±1 отсчёт по всем узлам; здесь иначе по двум причинам:
+    // среднее на изогнутом спаде смещает форму (до −0.15 % A на +13…+20), а усреднение соседних узлов внутри
+    // отсчёта смешивает фазы с разным смещением A эталона (до ±0.15 % A по строкам)
+    static const double wsg[5] = { -3.0 / 35, 12.0 / 35, 17.0 / 35, 12.0 / 35, -3.0 / 35 };
+    std::vector<double> sm(f.S);
+    for (int g = 2 * TL_GRID; g + 2 * TL_GRID < NG; g++) {
+        if (f.tau0 + (double)g / TL_GRID <= 15) continue;
+        double v = 0;
+        for (int k = -2; k <= 2; k++) v += wsg[k + 2] * f.S[g + k * TL_GRID];
+        sm[g] = v;
+    }
+    f.S.swap(sm);
+    return f;
+}
+
+Tail build_tail(const Singles& s, const Result& tpl)
+{
+    Tail T;
+    if (!tpl.ok) { T.msg = "хвост: нет эталона"; return T; }
+    const size_t n0 = s.lwins.size();
+    if ((int)n0 < TL_MIN) {
+        T.msg = "хвост: мало одиночных с тишиной до +" + std::to_string(LPOST) + ": " + std::to_string(n0) +
+                " (нужно ≥ " + std::to_string(TL_MIN) + ")";
+        return T;
+    }
+    // A и фаза — подгонкой эталона по окну −1…+5 от максимума, как в детекторе
+    std::vector<Win> wins(n0);
+    for (size_t k = 0; k < n0; k++) for (int i = 0; i < W; i++) wins[k][i] = s.lwins[k][LPRE - PRE + i];
+    std::vector<double> A; std::vector<int> ph;
+    fit(wins, tpl.q, A, ph, nullptr);
+    // время импульса: 50 % фронта, линейно между отсчётами, от максимума (отсчёт LPRE окна)
+    std::vector<double> cfd(n0, NaN);
+    for (size_t k = 0; k < n0; k++) {
+        const double a = A[k];
+        if (!(a > 0)) continue;
+        const LWin& w = s.lwins[k];
+        int j = LPRE - 1;
+        while (j > 0 && w[j] >= 0.5 * a) j--;
+        if (w[j] >= 0.5 * a || w[j + 1] < 0.5 * a) continue;
+        cfd[k] = j + (0.5 * a - w[j]) / (w[j + 1] - w[j]) - LPRE;
+    }
+    // off[фаза] — медиана по фазе (> 5 импульсов), пропуски — линейно по фазе, края — ближайшим
+    double off[NPH];
+    auto fill_off = [&](const std::vector<int>& known) {
+        for (int p = 0; p < NPH; p++) {
+            if (std::find(known.begin(), known.end(), p) != known.end()) continue;
+            if (p < known.front()) { off[p] = off[known.front()]; continue; }
+            if (p > known.back()) { off[p] = off[known.back()]; continue; }
+            int a = known.front(), b = known.back();
+            for (int q : known) { if (q < p) a = q; if (q > p) { b = q; break; } }
+            off[p] = off[a] + (off[b] - off[a]) * (p - a) / (double)(b - a);
+        }
+    };
+    std::vector<int> known;
+    for (int p = 0; p < NPH; p++) {
+        std::vector<double> v;
+        for (size_t k = 0; k < n0; k++) if (ph[k] == p && std::isfinite(cfd[k])) v.push_back(cfd[k]);
+        off[p] = v.size() > 5 ? median(v) : NaN;
+        if (std::isfinite(off[p])) known.push_back(p);
+    }
+    if (known.empty()) { T.msg = "хвост: не найдено время импульса ни для одной фазы"; return T; }
+    fill_off(known);
+    std::vector<double> tsp(n0, 0.0);
+    std::vector<size_t> use;
+    for (size_t k = 0; k < n0; k++) if (std::isfinite(cfd[k])) { tsp[k] = off[ph[k]]; use.push_back(k); }
+    // чистка: остаток после A·S на отсчётах ≥ +6 не больше 6σ, иначе в окне неотловленный импульс
+    const double cut = 6.0 * (s.sigma > 0 ? s.sigma : 4.0);
+    std::vector<size_t> keep = use;
+    TailShape f;
+    auto clean = [&]() {
+        keep = use;
+        for (int it = 0; it < 3; it++) {
+            f = tail_shape(s.lwins, A, tsp, keep);
+            keep.clear();
+            for (size_t k : use) {
+                double mx = 0;
+                for (int i = LPRE + 6; i < LW; i++) mx = std::max(mx, fabs(s.lwins[k][i] - A[k] * f.at((i - LPRE) - tsp[k])));
+                if (mx <= cut) keep.push_back(k);
+            }
+        }
+    };
+    clean();
+    // уточнение off[фаза] по общей форме: 50 % фронта по двум отсчётам смещено на 0.02…0.07 отсчёта и по-разному
+    // у разных фаз (фронт изогнут), отчего S размывается. Сдвиг δ фазы — минимум Σ (m_p(n) − S(n − δ))² на
+    // n = −3…+30, где m_p — МНК-среднее w/A одиночных этой фазы; затем S заново. Начало отсчёта времени S
+    // (в среднем 50 % фронта) не меняется.
+    for (int it = 0; it < 2; it++) {
+        std::vector<int> kn;
+        for (int p = 0; p < NPH; p++) {
+            double m[34] = {}, aa = 0; int cnt = 0;
+            for (size_t k : keep) {
+                if (ph[k] != p) continue;
+                for (int n = -3; n <= 30; n++) m[n + 3] += s.lwins[k][LPRE + n] * A[k];
+                aa += A[k] * A[k]; cnt++;
+            }
+            if (cnt < 6) continue;
+            for (double& v : m) v /= aa;
+            double best = 1e300, bd = off[p];
+            for (int q = -150; q <= 150; q++) {
+                double d = off[p] + q * 0.002, r = 0;
+                for (int n = -3; n <= 30; n++) { double e = m[n + 3] - f.at(n - d); r += e * e; }
+                if (r < best) { best = r; bd = d; }
+            }
+            off[p] = bd; kn.push_back(p);
+        }
+        if (kn.empty()) break;
+        fill_off(kn);
+        for (size_t k : use) tsp[k] = off[ph[k]];
+        clean();
+    }
+    if ((int)keep.size() < TL_MIN) {
+        T.msg = "хвост: после чистки осталось " + std::to_string(keep.size()) + " одиночных (нужно ≥ " + std::to_string(TL_MIN) + ")";
+        return T;
+    }
+    f = tail_shape(s.lwins, A, tsp, keep);
+    double smax = *std::max_element(f.S.begin(), f.S.end());
+    if (!(smax > 0.8 && smax < 1.2)) {
+        char b[160]; snprintf(b, sizeof b, "хвост: максимум формы %.3f, а должен быть ≈ 1 (форма не сходится с эталоном)", smax);
+        T.msg = b; return T;
+    }
+    // строки таблицы: фазы сгруппированы 16 равными шагами по диапазону off; время строки — среднее off её
+    // импульсов (вес A², как у МНК), а не середина шага: фазы ложатся в шаг неравномерно (у эталона с
+    // реального тракта бывают и пропуски), и середина шага дала бы лишнее смещение
+    double lo = off[0], hi = off[0];
+    for (int p = 1; p < NPH; p++) { lo = std::min(lo, off[p]); hi = std::max(hi, off[p]); }
+    const double step = (hi - lo) / TL_ROWS;
+    for (int p = 0; p < NPH; p++) {
+        int r = step > 0 ? (int)floor((off[p] - lo) / step) : 0;
+        T.row[p] = (uint8_t)std::max(0, std::min(TL_ROWS - 1, r));
+    }
+    double tw[TL_ROWS] = {}, ww[TL_ROWS] = {};
+    for (size_t k : keep) { int r = T.row[ph[k]]; tw[r] += A[k] * A[k] * off[ph[k]]; ww[r] += A[k] * A[k]; }
+    for (int r = 0; r < TL_ROWS; r++) T.t_row[r] = ww[r] > 0 ? tw[r] / ww[r] : lo + (r + 0.5) * step;
+    // масштаб строки: у фаз эталона A смещена по-разному (до ±0.3 %), и хвост в единицах A подгонки у строки
+    // свой — κ_r = МНК по её одиночным (j = 1…64), в пределах ±3 %
+    double ky[TL_ROWS] = {}, kk[TL_ROWS] = {};
+    for (size_t k : keep) {
+        const int r = T.row[ph[k]];
+        for (int j = 1; j <= TL_LEN; j++) {
+            double h = A[k] * f.at(j - T.t_row[r]);
+            ky[r] += s.lwins[k][LPRE + j] * h; kk[r] += h * h;
+        }
+    }
+    for (int r = 0; r < TL_ROWS; r++) {
+        const double o = T.t_row[r];
+        const double kap = kk[r] > 0 ? std::max(0.97, std::min(1.03, ky[r] / kk[r])) : 1.0;
+        T.k_row[r] = kap;
+        for (int j = 1; j <= TL_LEN; j++) {
+            double v = std::nearbyint(32768.0 * kap * f.at(j - o));
+            T.s[r][j - 1] = (int16_t)std::max(-32768.0, std::min(32767.0, v));
+        }
+    }
+    // остаток одиночных после вычета хвоста по таблице: систематика — МНК-среднее остатка/A по (строке, j),
+    // rms по всем (строка, j) с весом числа импульсов строки; шум — rms остатка в кодах
+    std::vector<double> m(TL_ROWS * TL_LEN), aa(TL_ROWS);
+    std::vector<int> cnt(TL_ROWS);
+    double e2 = 0; size_t ne = 0;
+    auto resid = [&]() {
+        std::fill(m.begin(), m.end(), 0.0); std::fill(aa.begin(), aa.end(), 0.0); std::fill(cnt.begin(), cnt.end(), 0);
+        e2 = 0; ne = 0;
+        for (size_t k : keep) {
+            const int r = T.row[ph[k]];
+            for (int j = 1; j <= TL_LEN; j++) {
+                double e = s.lwins[k][LPRE + j] - A[k] * T.s[r][j - 1] / 32768.0;
+                m[r * TL_LEN + j - 1] += e * A[k]; e2 += e * e; ne++;
+            }
+            aa[r] += A[k] * A[k]; cnt[r]++;
+        }
+    };
+    resid();
+    // у вершины (j = 1…4) форма по фазам эталона различается сильнее, чем даёт общая S со сдвигом и масштабом
+    // (на cs_only у крайних строк до −0.6 % A на j = 1): там строка берёт поправку по своим импульсам
+    for (int r = 0; r < TL_ROWS; r++) {
+        if (cnt[r] < 100) continue;
+        for (int j = 1; j <= TL_NEAR; j++) {
+            double v = T.s[r][j - 1] + std::nearbyint(32768.0 * m[r * TL_LEN + j - 1] / aa[r]);
+            T.s[r][j - 1] = (int16_t)std::max(-32768.0, std::min(32767.0, v));
+        }
+    }
+    resid();
+    double ms = 0, ws = 0;
+    for (int r = 0; r < TL_ROWS; r++) {
+        if (!cnt[r]) continue;
+        for (int j = 0; j < TL_LEN; j++) {
+            double v = m[r * TL_LEN + j] / aa[r];
+            ms += cnt[r] * v * v;
+            if (cnt[r] >= 20) T.max_pct = std::max(T.max_pct, 100.0 * fabs(v));
+        }
+        ws += (double)cnt[r] * TL_LEN;
+    }
+    T.rms_pct = ws > 0 ? 100.0 * sqrt(ms / ws) : 0;
+    T.noise_rms = ne ? sqrt(e2 / ne) : 0;
+    T.off_lo = lo; T.off_hi = hi;
+    T.n = (int)keep.size();
+    T.ok = true;
+    int jneg = 0, smin = 0;
+    for (int j = 0; j < TL_LEN; j++) { int v = T.s[TL_ROWS / 2][j]; if (v < smin) smin = v; if (!jneg && v < 0) jneg = j + 1; }
+    char b[320];
+    snprintf(b, sizeof b, "хвост: одиночных %d из %zu, время импульса %.2f…%.2f отсч. от максимума, "
+             "остаток %.3f %% A rms (наибольший %.3f %%), шум %.2f кода rms; ниже нуля с +%d, минимум %.2f %%",
+             T.n, n0, lo, hi, T.rms_pct, T.max_pct, T.noise_rms, jneg, 100.0 * smin / 32768.0);
+    T.msg = b;
+    return T;
+}
+
+std::vector<std::string> tail_commands(const Tail& t)
+{
+    std::vector<std::string> v;
+    char b[256];
+    for (int r = 0; r < TL_ROWS; r++) for (int c = 0; c < TL_LEN / 16; c++) {
+        int n = snprintf(b, sizeof b, "-tlw %d %d", r, c);
+        for (int i = 0; i < 16; i++) n += snprintf(b + n, sizeof b - n, " %d", (int)t.s[r][16 * c + i]);
+        v.push_back(b);
+    }
+    for (int c = 0; c < NPH / 16; c++) {
+        int n = snprintf(b, sizeof b, "-tlm %d", c);
+        for (int i = 0; i < 16; i++) n += snprintf(b + n, sizeof b - n, " %d", (int)t.row[16 * c + i]);
+        v.push_back(b);
+    }
+    v.push_back("-tlok");
+    return v;
+}
+
+bool save_tail_bin(const Tail& t, const std::string& path)
+{
+    unsigned char buf[TL_ROWS * TL_LEN * 2 + NPH];
+    size_t n = 0;
+    for (int r = 0; r < TL_ROWS; r++) for (int j = 0; j < TL_LEN; j++) {
+        uint16_t u = (uint16_t)t.s[r][j];
+        buf[n++] = (unsigned char)(u & 0xFF); buf[n++] = (unsigned char)(u >> 8);
+    }
+    for (int p = 0; p < NPH; p++) buf[n++] = t.row[p];
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) return false;
+    bool ok = fwrite(buf, 1, n, f) == n;
+    if (fclose(f) != 0) ok = false;
+    return ok;
 }
 
 } // namespace tpl

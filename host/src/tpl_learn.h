@@ -17,8 +17,13 @@ constexpr int QMAX = 16384;
 
 using Win = std::array<double, W>;
 
+// длинное окно для таблицы хвоста: одиночный с тишиной до +LPOST после максимума
+constexpr int LPRE = 8, LPOST = 70, LW = LPRE + LPOST + 1;
+using LWin = std::array<float, LW>;
+
 struct Singles {
     std::vector<Win> wins;                    // одиночные импульсы без базы, окно −PRE…+POST от максимума
+    std::vector<LWin> lwins;                  // из них с тишиной до +LPOST: окно −LPRE…+LPOST, база — среднее спокойных отсчётов порции
     double sigma = 0;                         // средняя σ шума порций, коды
     int blocks = 0, cross = 0, single = 0, amp = 0;
 };
@@ -78,6 +83,33 @@ Result build(const Singles& s, int refine = 3, bool pp = true, int pp_iters = 4)
 
 std::string header(const Result& r, const char* name = "tpl_pmt", const char* note = "эталон с реального тракта (gammapult)");
 std::vector<std::string> commands(const Result& r);   // 64 × "-tplw p v0..v6" (без -tplok)
+
+// ---- таблица хвоста для разбора наложений (прошивка: det_tail_t, команды -tlw/-tlm/-tlok) ----
+// хвост импульса с фазой эталона p, амплитудой A и максимумом на imax на отсчёте imax + j (j = 1…64) =
+// A · s[row[p]][j − 1] / 32768 (Q15, 32767 ≡ 1.0 = максимум формы)
+constexpr int TL_ROWS = 16, TL_LEN = 64;
+
+struct Tail {
+    bool ok = false;
+    int16_t s[TL_ROWS][TL_LEN] = {};
+    uint8_t row[NPH] = {};
+    double rms_pct = 0;                       // систематика: МНК-средний остаток одиночных по (строке, j), rms, % A
+    std::string msg;
+    // для сверки: время импульса (≈ 50 % фронта) от максимума у фаз эталона, отсчёты: диапазон (фазы делятся
+    // на строки 16 равными шагами по нему) и время каждой строки
+    double off_lo = 0, off_hi = 0;
+    double t_row[TL_ROWS] = {};
+    double k_row[TL_ROWS] = {};               // масштаб строки (смещение A эталона у её фаз): s = κ·S(j − t_row)
+    int n = 0;                                // одиночных в форме (после чистки)
+    double noise_rms = 0;                     // rms остатка одиночных на +1…+64, коды
+    double max_pct = 0;                       // то же, наибольший по (строке, j) у строк с ≥ 20 импульсами, % A
+};
+
+// форма по одиночным с тишиной до +70 (Singles::lwins), A и фаза — подгонкой эталона tpl как в детекторе;
+// время импульса по 50 % фронта, смещение по фазе — медиана; строки — 16 равных шагов по диапазону смещений
+Tail build_tail(const Singles& s, const Result& tpl);
+std::vector<std::string> tail_commands(const Tail& t);   // 64 × -tlw, 4 × -tlm, -tlok
+bool save_tail_bin(const Tail& t, const std::string& path);   // s (int16 LE) подряд, затем row: 2112 байт
 
 // дописать порции в открытый файл (uint16 LE × BLK подряд, как raw.bin) и выбросить их из памяти:
 // сбор сотен тысяч порций не копится в ОЗУ и при сбое не теряется. Порции не длины BLK — пропускаются.
