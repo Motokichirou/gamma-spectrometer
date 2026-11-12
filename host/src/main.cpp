@@ -175,7 +175,9 @@ static void KV(const char* k, const char* v, const ImVec4* col = nullptr)
     ImGui::SameLine(px(130));
     ImGui::PushFont(theme::font_mono);
     if (col) ImGui::PushStyleColor(ImGuiCol_Text, *col);
+    ImGui::PushTextWrapPos(0.0f);          // не влезает в колонку — перенос, продолжение под значением
     ImGui::TextUnformatted(v);
+    ImGui::PopTextWrapPos();
     if (col) ImGui::PopStyleColor();
     ImGui::PopFont();
 }

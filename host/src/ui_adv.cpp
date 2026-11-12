@@ -17,7 +17,7 @@ using namespace theme;
 
 // размеры при 100 %; в пикселях — × масштаб интерфейса (theme::px), см. DrawAdvanced
 const float NAV_W_100   = 250.0f;   // навигация
-const float TELE_W_100  = 330.0f;   // колонка телеметрии
+const float TELE_W_100  = 380.0f;   // колонка телеметрии
 const float TITLE_H_100 = 52.0f;    // полоса заголовка страницы
 const float GAP_100     = 5.0f;
 const int   LOG_N   = 12;       // строк журнала в колонке
