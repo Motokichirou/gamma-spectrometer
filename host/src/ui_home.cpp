@@ -261,7 +261,7 @@ void KvRows(unsigned which)
         KvRow(T("home.kv.rate"), { Fmt("home.val.cps", v), c_text, true });
     if (which & KV_VREF) {
         std::string ok = g_dev.gstr("vref_ok", "-");
-        if (ok == "1") KvRow(T("home.kv.vref"), { std::string("\xE2\x9C\x93 ") + T("home.val.ok"), c_ok, false });   // ✓
+        if (ok == "1") KvRow(T("home.kv.vref"), { T("home.val.ok"), c_ok, false });   // словом: в Segoe UI нет глифа ✓
         else if (ok == "0") KvRow(T("home.kv.vref"), { std::string("! ") + T("home.val.bad"), c_warn, false });
     }
     if ((which & KV_RES) && g_dev.setup_known == ds::SetupKnown::Yes && g_dev.setup.res_unix && g_dev.setup.res_fwhm > 0) {
@@ -663,6 +663,8 @@ void ViewLoading(ImVec2 size)
 }
 
 } // namespace
+
+std::string HomeStepResult(const ds::Snapshot& s, ds::Step st) { return StepResult(s, st); }
 
 void DrawHome(ImVec2 pos, ImVec2 size)
 {

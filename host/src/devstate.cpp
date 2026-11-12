@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <vector>
 #include <cstring>
+#include <cstdio>
 
 namespace ds {
 
@@ -255,6 +256,23 @@ std::string display_serial(const std::string& cal_last)
     for (char c : cal_last)
         if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return cal_last;
     return "GS474-" + cal_last.substr(4);
+}
+
+std::string setup_cmd(Step s, uint32_t unix, double a, double b)
+{
+    char c[96];
+    unsigned long u = (unsigned long)unix;
+    switch (s) {
+    case Step::Check: snprintf(c, sizeof c, "-setup chk %lu %d", u, a != 0 ? 1 : 0); break;
+    case Step::Zero:  snprintf(c, sizeof c, "-setup zero %lu", u); break;
+    case Step::Hv:
+    case Step::Hv2:   snprintf(c, sizeof c, "-setup hv %lu %.1f %.1f", u, a, b); break;
+    case Step::Tpl:   snprintf(c, sizeof c, "-setup tpl %lu", u); break;
+    case Step::Res:   snprintf(c, sizeof c, "-setup res %lu %.2f %.1f", u, a, b); break;
+    case Step::Save:  snprintf(c, sizeof c, "-setup done %lu", u); break;
+    default:          return std::string();
+    }
+    return c;
 }
 
 } // namespace ds

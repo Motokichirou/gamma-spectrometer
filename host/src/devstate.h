@@ -67,4 +67,9 @@ const char* connect_hint_key(unsigned long win_error);
 // серийник из -cal для показа: "0474NNNN" (8 hex) → "GS474-NNNN", иначе как есть
 std::string display_serial(const std::string& cal_last);
 
+// ---- мастер: запись результата шага в прибор ----
+// Команда "-setup …" для шага s, unix — время ПК. a, b по шагу: Check — a ≠ 0 «прошла»;
+// Hv/Hv2 — a вольты, b канал пика; Res — a FWHM, %, b канал пика. Flash и Scale ("") записи не пишут.
+std::string setup_cmd(Step s, uint32_t unix, double a, double b);
+
 } // namespace ds

@@ -361,8 +361,27 @@ static void test_home_logic()
     CHECK(!parse_log_status("-err log noflash id 000000", ls));
 }
 
+static void test_wizard_records()
+{
+    // команды записи результатов шагов мастера в прибор (-setup …)
+    CHECK(setup_cmd(Step::Res, 1762800000u, 6.99, 1190) == "-setup res 1762800000 6.99 1190.0");
+    CHECK(setup_cmd(Step::Check, 1762800000u, 0, 0) == "-setup chk 1762800000 0");
+    CHECK(setup_cmd(Step::Check, 1762800000u, 1, 0) == "-setup chk 1762800000 1");
+    CHECK(setup_cmd(Step::Save, 1762800000u, 0, 0) == "-setup done 1762800000");
+    CHECK(setup_cmd(Step::Zero, 1762800000u, 0, 0) == "-setup zero 1762800000");
+    CHECK(setup_cmd(Step::Tpl, 1762800000u, 0, 0) == "-setup tpl 1762800000");
+    CHECK(setup_cmd(Step::Hv, 1762800000u, 755.4, 1181.26) == "-setup hv 1762800000 755.4 1181.3");
+    CHECK(setup_cmd(Step::Hv2, 1762800000u, 760, 1190) == "-setup hv 1762800000 760.0 1190.0");
+    CHECK(setup_cmd(Step::Flash, 1762800000u, 0, 0).empty());    // следа в записи не оставляют
+    CHECK(setup_cmd(Step::Scale, 1762800000u, 0, 0).empty());
+    // короткий ответ на запись не принимается за запись о настройке
+    SetupRec r;
+    CHECK(!parse_setup("-ok setup", r));
+}
+
 int main()
 {
+    test_wizard_records();
     test_home_logic();
     test_parse_setup();
     test_old_firmware();
