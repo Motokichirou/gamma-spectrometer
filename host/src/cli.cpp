@@ -28,6 +28,7 @@
 #include <thread>
 #include <cmath>
 #include <filesystem>
+#include <algorithm>
 
 static std::string opt(int argc, char** argv, const char* key, const char* def = "")
 {
@@ -65,6 +66,8 @@ static void usage()
            "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
            "  gammapult bootinfo --port COMx            (загрузчик: ID МК, опции; только чтение)\n"
            "  gammapult flash   --port COMx [--bin file.bin] [--no-dbank-fix]   (прошить; без --bin — встроенная)\n"
+           "  gammapult dump    --port COMx --out DIR            (вся флеш и опции через загрузчик, дважды со сверкой)\n"
+           "  gammapult setpage erase|restore --port COMx [--from DIR]  (страница настроек 0x0801F000)\n"
            "  gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
@@ -165,6 +168,74 @@ int run_cli(int argc, char** argv)
         printf("%s\n", same ? "блок опций не изменился — путь записи работает" : "БЛОК ОПЦИЙ ИЗМЕНИЛСЯ");
         b2.go(stm32boot::FLASH_BASE);
         return same ? 0 : 6;
+    }
+    // dump --out DIR: вся флеш (128 КБ) и опции через загрузчик, дважды со сверкой; затем запуск прошивки.
+    // setpage erase | restore --from DIR: только страница настроек 0x0801F000 (4 КБ, DBANK=0).
+    // Вход в загрузчик — "!boot": прошивка сама выключает ВВ; после go() автозапуск ВВ (если записан) поднимет его снова.
+    if (sub == "dump" || sub == "setpage") {
+        const uint32_t FLASH_LEN = 0x20000;
+        auto u32 = [](const std::vector<uint8_t>& o, size_t i) { return (uint32_t)(o[i] | (o[i+1] << 8) | (o[i+2] << 16) | ((uint32_t)o[i+3] << 24)); };
+        std::string mode = sub == "setpage" && argc >= 3 ? argv[2] : "";
+        if (sub == "setpage" && mode != "erase" && mode != "restore") { printf("нужно: setpage erase | setpage restore --from DIR\n"); return 1; }
+        std::string dir = opt(argc, argv, sub == "dump" ? "--out" : "--from", "");
+        if (dir.empty() && !(sub == "setpage" && mode == "erase")) { printf("нужен %s DIR\n", sub == "dump" ? "--out" : "--from"); return 1; }
+        std::vector<uint8_t> page;
+        if (mode == "restore") {                 // страница из дампа — до входа в загрузчик
+            FILE* f = fopen((dir + "/flash.bin").c_str(), "rb");
+            if (!f) { printf("нет %s/flash.bin\n", dir.c_str()); return 1; }
+            std::vector<uint8_t> all(FLASH_LEN);
+            size_t n = fread(all.data(), 1, all.size(), f); fclose(f);
+            if (n != FLASH_LEN) { printf("flash.bin не 128 КБ (%zu)\n", n); return 1; }
+            uint32_t off = stm32boot::SETTINGS_ADDR - stm32boot::FLASH_BASE;
+            page.assign(all.begin() + off, all.begin() + off + stm32boot::PAGE_SB);
+        }
+        stm32boot::Boot b(clog);
+        if (!stm32boot::Boot::kick_firmware(port, clog) || !b.open(port)) { printf("ошибка: нет загрузчика: %s\n", b.error.c_str()); return 6; }
+        std::vector<uint8_t> ob;
+        if (!b.read_ob(ob)) { printf("ошибка чтения опций: %s\n", b.error.c_str()); return 6; }
+        if (u32(ob, 0) & stm32boot::OPTR_DBANK) { printf("DBANK=1 — страница настроек в другом месте, отмена\n"); b.go(stm32boot::FLASH_BASE); return 6; }
+        auto read_all = [&](std::vector<uint8_t>& out) {
+            out.assign(FLASH_LEN, 0);
+            for (uint32_t off = 0; off < FLASH_LEN; off += 256)
+                if (!b.read(stm32boot::FLASH_BASE + off, out.data() + off, 256)) return false;
+            return true;
+        };
+        int rc = 0;
+        if (sub == "dump") {
+            std::vector<uint8_t> a, c;
+            printf("  чтение флеш, проход 1…\n"); fflush(stdout);
+            if (!read_all(a)) { printf("ошибка чтения: %s\n", b.error.c_str()); rc = 6; }
+            printf("  чтение флеш, проход 2…\n"); fflush(stdout);
+            if (!rc && !read_all(c)) { printf("ошибка чтения: %s\n", b.error.c_str()); rc = 6; }
+            if (!rc && a != c) { printf("ОШИБКА: два чтения различаются\n"); rc = 6; }
+            if (!rc) {
+                std::filesystem::create_directories(dir);
+                FILE* f = fopen((dir + "/flash.bin").c_str(), "wb"); fwrite(a.data(), 1, a.size(), f); fclose(f);
+                f = fopen((dir + "/ob.bin").c_str(), "wb"); fwrite(ob.data(), 1, ob.size(), f); fclose(f);
+                printf("  записано: %s/flash.bin (%zu байт, два чтения совпали), ob.bin (OPTR %08X)\n", dir.c_str(), a.size(), (unsigned)u32(ob, 0));
+            }
+        } else {
+            const uint16_t pg = (uint16_t)((stm32boot::SETTINGS_ADDR - stm32boot::FLASH_BASE) / stm32boot::PAGE_SB);
+            printf("  стирание страницы %u (0x%08X)…\n", (unsigned)pg, (unsigned)stm32boot::SETTINGS_ADDR); fflush(stdout);
+            if (!b.erase_pages(pg, 1)) { printf("ошибка стирания: %s\n", b.error.c_str()); rc = 6; }
+            if (!rc && mode == "restore") {
+                for (uint32_t off = 0; off < stm32boot::PAGE_SB && !rc; off += 256)
+                    if (!b.write(stm32boot::SETTINGS_ADDR + off, page.data() + off, 256)) { printf("ошибка записи: %s\n", b.error.c_str()); rc = 6; }
+            }
+            if (!rc) {                           // сверка чтением
+                std::vector<uint8_t> rb(stm32boot::PAGE_SB);
+                for (uint32_t off = 0; off < stm32boot::PAGE_SB && !rc; off += 256)
+                    if (!b.read(stm32boot::SETTINGS_ADDR + off, rb.data() + off, 256)) { printf("ошибка чтения: %s\n", b.error.c_str()); rc = 6; }
+                if (!rc) {
+                    bool ok = mode == "restore" ? rb == page : std::all_of(rb.begin(), rb.end(), [](uint8_t x) { return x == 0xFF; });
+                    printf("  %s\n", ok ? (mode == "restore" ? "страница восстановлена и сверена" : "страница стёрта (вся 0xFF)") : "ОШИБКА: сверка не сошлась");
+                    if (!ok) rc = 6;
+                }
+            }
+        }
+        b.go(stm32boot::FLASH_BASE);
+        printf("  запуск прошивки\n");
+        return rc;
     }
     if (sub == "flash") {
         std::vector<uint8_t> img; std::string tag, err;

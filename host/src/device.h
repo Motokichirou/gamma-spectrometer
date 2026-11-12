@@ -97,6 +97,8 @@ public:
         double target = 1190, lo = 300, hi = 6000, gain_exp = 5.3, tol_pct = 1.0;
         double count = 3000, timeout = 120;  // импульсов в фотопике за проход; страховка, с
         int iter = 0, max_iter = 6, phase = 0; double t0 = 0;
+        double seek_s = 25, v_max = 1200;    // нет уверенного пика за seek_s — поднять ВВ на 15 % (не выше v_max)
+        int climb = 0;                       // сколько раз поднимали без пика
         double v = 0, peak = 0;
         // живые числа прохода (фаза 2): импульсов в окне пика, окно [win_lo, win_hi), пик найден, прошло с
         uint64_t n_in = 0; int win_lo = 0, win_hi = 0; bool win_ok = false; double pass_s = 0;
@@ -169,7 +171,8 @@ private:
     void tc_tick(double now);
     void old_tc_from(const std::string& t);
     uint32_t lin_seq_ = 0, hvp_seq_ = 0, tc_seq_ = 0;
-    double hvp_eval_t_ = 0;                  // когда последний раз считали пик в проходе подбора ВВ
+    double hvp_eval_t_ = 0;
+    double hvp_settle_t_ = 0;                // с какого момента монитор ВВ держится у уставки                  // когда последний раз считали пик в проходе подбора ВВ
     bool hvp_msg_progress_ = false;          // в hvp.msg — ход подбора (а не итог/ошибка): прерывание его заменит
     std::deque<std::string> q_;
     bool q_wait_ = false; double q_t_ = 0;

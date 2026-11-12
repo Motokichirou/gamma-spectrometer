@@ -50,7 +50,8 @@ struct Wiz {
     bool zero_wait = false; int zero_err0 = 0; std::string zero_reply; bool zero_ok = false;
     // ВВ: какой шаг запустил подбор (Hv или Hv2), N — никакой
     ds::Step hv_run = ds::Step::N; double hv_t0 = 0;
-    float start_v = 600.0f;
+    ds::Step hv_last = ds::Step::N;          // шаг, чей подбор закончился последним (показать итог или ошибку)
+    float start_v = 450.0f;
     double hv1_v = 0, hv1_peak = 0, hv2_v = 0, hv2_peak = 0;
     // эталон: 0 — нет, 1 — сбор, 2 — расчёт, 3 — загрузка, 4 — готово, 5 — ошибка
     int tpl_phase = 0, tpl_err0 = 0;
@@ -527,6 +528,7 @@ void BodyHv(ds::Step s, bool primary)
     bool second = s == ds::Step::Hv2;
     Device::HvPeak& h = g_dev.hvp;
     bool mine = w.hv_run == s;
+    bool last = w.hv_last == s;              // подбор этого шага уже закончился — итог или ошибка
     if (!second) {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(T("wiz.hv.start_v"));
@@ -571,11 +573,12 @@ void BodyHv(ds::Step s, bool primary)
             ImGui::PopFont();
         }
         EndBox();
-    } else if (mine || res_v > 0) {
-        if (res_v > 0) PassLine(true, Fmt(T("wiz.hv.result"), res_v, res_pk));
+    } else if (mine || last || res_v > 0) {
+        if (last && !h.done && !h.msg.empty()) Para(c_warn, ("! " + h.msg).c_str());
+        else if (res_v > 0) PassLine(true, Fmt(T("wiz.hv.result"), res_v, res_pk));
         else if (!h.msg.empty()) Para(c_warn, ("! " + h.msg).c_str());
     }
-    if (mine || res_v > 0) {
+    if (mine || last || res_v > 0) {
         ImGui::PushFont(font_small);
         for (auto& p : h.hist) Para(c_text_dim, Fmt(T("wiz.hv.history"), p.first, p.second).c_str());
         ImGui::PopFont();
@@ -1096,6 +1099,7 @@ void WizTick()
             else                           { w.hv1_v = h.v; w.hv1_peak = h.peak; }
             Record(w.hv_run, h.v, h.peak);
         }
+        w.hv_last = w.hv_run;
         w.hv_run = ds::Step::N;
     }
 

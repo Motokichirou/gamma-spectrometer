@@ -545,13 +545,15 @@ void Device::hvp_tick(double now)
     case 0:   // уставка
         snprintf(c, sizeof c, "-hv %d", (int)lround(hvp.v));
         send_cmd(c);
-        hvp.phase = 1; hvp.t0 = now;
+        hvp.phase = 1; hvp.t0 = now; hvp_settle_t_ = now;
         hvp.msg = T("dev.hvp.waiting"); hvp_msg_progress_ = true;
         break;
     case 1: { // установление по монитору
         double out = fabs(gnum("hv_out", 0));
         bool fresh = gst_age() < 1.5;
-        if (now - hvp.t0 > 4.0 && fresh && fabs(out - hvp.v) < 3.0) {
+        // ВВ устоялось: монитор в ±1 В от уставки 3 с подряд (±3 В — это ±2.8 % усиления ФЭУ)
+        if (!(fresh && fabs(out - (double)lround(hvp.v)) < 1.0)) hvp_settle_t_ = now;   // уставка уходит целым
+        if (now - hvp.t0 > 4.0 && now - hvp_settle_t_ >= 3.0) {
             send_cmd("-sto"); send_cmd("-rst"); send_cmd("-sta");
             for (auto& v : spectrum) v = 0;
             hvp.phase = 2; hvp.t0 = now; hvp_eval_t_ = now;
@@ -576,6 +578,21 @@ void Device::hvp_tick(double now)
             else       hvp.msg = TF("dev.hvp.seek", hvp.v);
             hvp_msg_progress_ = true;
         }
+        // пика в окне нет (напряжение мало — пик ниже окна поиска): поднять ВВ на 15 % и искать снова
+        if (!hvp.win_ok && hvp.pass_s >= hvp.seek_s) {
+            double nv = hvp.v * 1.15;
+            if (hvp.v >= hvp.v_max - 0.5) {
+                hvp.msg = TF("dev.hvp.nopeak_max", hvp.v_max); hvp_msg_progress_ = false;
+                log_add(3, TF("dev.hvp.log", hvp.msg.c_str()));
+                hvp_abort();
+                break;
+            }
+            if (nv > hvp.v_max) nv = hvp.v_max;
+            log_add(1, TF("dev.hvp.log", TF("dev.hvp.climb", hvp.v, nv).c_str()));
+            hvp.v = nv; hvp.climb++;
+            hvp.phase = 0;
+            break;
+        }
         peakfit::Stop st = peakfit::count_stop(hvp.n_in, (uint64_t)hvp.count, hvp.pass_s, hvp.timeout);
         if (st == peakfit::Stop::Count) { hvp_seq_ = full_seq_; chunk_mask_ = 0; hvp.phase = 3; hvp.t0 = now; }
         else if (st == peakfit::Stop::Timeout) {
@@ -589,8 +606,13 @@ void Device::hvp_tick(double now)
     case 3: { // свежий полный спектр → пик
         if (full_seq_ <= hvp_seq_ && now - hvp.t0 < 3.0) break;
         send_cmd("-sto");
+        // центр фотопика — подгонка гауссом с линейным фоном. Центр тяжести (peak_stats) в окне ±4σ
+        // захватывает комптоновский континуум снизу и даёт сдвиг вниз, который при коротких проходах
+        // скачет на ±2–3 % (найдено при приёмке 2026-11-12: 571 В → 1206, 570 В → 1166)
         double m = 0, sd = 0; uint64_t n = 0;
-        if (!peak_stats(spectrum, (int)hvp.lo, (int)hvp.hi, m, sd, n) || n < 200) {
+        peakfit::PeakWin pw = peakfit::peak_window(spectrum, CHANNELS, (int)hvp.lo, (int)hvp.hi);
+        if (pw.ok) { m = pw.center; n = peakfit::window_sum(spectrum, CHANNELS, pw.lo, pw.hi); }
+        if (!pw.ok || n < 200) {
             hvp.msg = T("dev.hvp.nopeak"); hvp_msg_progress_ = false;
             hvp_abort();
             break;
