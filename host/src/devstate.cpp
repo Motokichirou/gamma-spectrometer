@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cerrno>
 #include <vector>
+#include <cstring>
 
 namespace ds {
 
@@ -145,6 +146,98 @@ TopBar top_bar(const Snapshot& s, Mode m)
     b.hv_chip_on = s.connected && s.hv_on;
     b.kill_visible = s.connected && s.hv_on;      // в любом режиме, пока ВВ включено
     return b;
+}
+
+int steps_done_count(const Snapshot& s)
+{
+    int n = 0;
+    for (int i = 0; i < (int)Step::N; i++) if (step_done(s, (Step)i)) n++;
+    return n;
+}
+
+bool step_needs_cs(Step st)
+{
+    switch (st) {
+    case Step::Hv: case Step::Tpl: case Step::Hv2: case Step::Res: case Step::Scale: return true;
+    default: return false;
+    }
+}
+
+static bool hex_u32(const std::string& s, uint32_t& v)
+{
+    if (s.empty() || s.size() > 8) return false;
+    v = 0;
+    for (char c : s) {
+        int d = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 :
+                (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+        if (d < 0) return false;
+        v = (v << 4) | (uint32_t)d;
+    }
+    return true;
+}
+
+bool parse_becq_cal(const std::string& reply, double c[5])
+{
+    std::vector<std::string> lines;
+    std::string acc;
+    for (char ch : reply) {
+        if (ch == '\r' || ch == '\n') { if (!acc.empty()) lines.push_back(acc); acc.clear(); }
+        else acc.push_back(ch);
+    }
+    if (!acc.empty()) lines.push_back(acc);
+    if (lines.size() < 30) return false;
+    uint32_t w[10];
+    for (int i = 0; i < 10; i++) if (!hex_u32(lines[i], w[i])) return false;
+    bool any = false;
+    double r[5];
+    for (int k = 0; k < 5; k++) {
+        uint64_t u = ((uint64_t)w[2 * k] << 32) | w[2 * k + 1];
+        double d;
+        static_assert(sizeof d == sizeof u, "double 64 бит");
+        std::memcpy(&d, &u, sizeof d);
+        if (!(d == d) || d > 1e300 || d < -1e300) return false;   // NaN/бесконечность — шкалы нет
+        if (d != 0) any = true;
+        r[k] = d;
+    }
+    if (!any) return false;
+    for (int k = 0; k < 5; k++) c[k] = r[k];
+    return true;
+}
+
+bool parse_tc(const std::string& reply, double& t0, double& k1, double& k2)
+{
+    static const char pre[] = "-ok tc ";
+    if (reply.compare(0, sizeof(pre) - 1, pre) != 0) return false;
+    auto p = split(reply.substr(sizeof(pre) - 1), ' ');
+    std::vector<std::string> v;
+    for (auto& x : p) {
+        std::string y = x;
+        while (!y.empty() && (y.back() == '\r' || y.back() == '\n')) y.pop_back();
+        if (!y.empty()) v.push_back(y);
+    }
+    double a, b, c;
+    if (v.size() != 3 || !to_dbl(v[0], a) || !to_dbl(v[1], b) || !to_dbl(v[2], c)) return false;
+    t0 = a; k1 = b; k2 = c;
+    return true;
+}
+
+bool parse_log_status(const std::string& reply, LogState& out)
+{
+    static const char pre[] = "-ok log ";
+    if (reply.compare(0, sizeof(pre) - 1, pre) != 0) return false;
+    auto p = split(reply.substr(sizeof(pre) - 1), ' ');
+    if (p.empty() || (p[0] != "on" && p[0] != "off")) return false;
+    LogState r;
+    r.enabled = p[0] == "on";
+    bool have_rec = false, have_act = false;
+    for (size_t i = 1; i + 1 < p.size(); i++) {
+        uint32_t v;
+        if (p[i] == "records" && to_u32(p[i + 1], v)) { r.records = (long)v; have_rec = true; }
+        if (p[i] == "active" && to_u32(p[i + 1], v)) { r.active = v != 0; have_act = true; }
+    }
+    if (!have_rec || !have_act) return false;
+    out = r;
+    return true;
 }
 
 const char* connect_hint_key(unsigned long win_error)

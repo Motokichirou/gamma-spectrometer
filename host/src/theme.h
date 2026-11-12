@@ -20,6 +20,7 @@ extern ImFont *font_small;     // мелкие подписи/заголовки
 extern ImFont *font_mono;      // моно: лог, таблицы, телеметрия
 extern ImFont *font_mono_time; // моно крупнее: время набора
 extern ImFont *font_mono_big;  // моно крупно: cps
+extern ImFont *font_title;     // Segoe UI Semibold 22 px: заголовки главного экрана
 
 void LoadFonts(ImGuiIO& io);
 void ApplyStyle();       // ImGuiStyle + цвета

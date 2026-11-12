@@ -46,6 +46,21 @@ int  step_prereq(const Snapshot&, Step);         // −1 — можно; ина�
 struct TopBar { bool modes_enabled; bool wiz_on, adv_on; bool hv_chip_on; bool kill_visible; };
 TopBar top_bar(const Snapshot&, Mode);
 
+// ---- главный экран ----
+int  steps_done_count(const Snapshot&);          // сколько из 9 шагов сделано (для «Пройдено N из 9»)
+bool step_needs_cs(Step);                        // шаг требует источник Cs-137
+
+// ответ -cal (40 строк hex, конвенция BecqMoni): первые 10 слов — c0…c4 как double (старшее/младшее слово).
+// false — не ответ -cal или шкалы нет (все нули, не числа). E(ch) = c0 + c1·ch + …; кэВ/канал ≈ c1.
+bool parse_becq_cal(const std::string& reply, double c[5]);
+
+// "-ok tc <t0> <k1> <k2>"; false — не тот ответ
+bool parse_tc(const std::string& reply, double& t0, double& k1, double& k2);
+
+// "-ok log on|off period … active 0|1 … records N …" (ответ "-log" без аргументов)
+struct LogState { bool enabled = false, active = false; long records = 0; };
+bool parse_log_status(const std::string& reply, LogState& out);
+
 // ключ строки i18n по коду GetLastError() открытия порта
 const char* connect_hint_key(unsigned long win_error);
 

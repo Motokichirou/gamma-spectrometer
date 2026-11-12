@@ -54,7 +54,11 @@ bool Device::connect(const std::string& port)
     send_cmd("-cal");   // 40 регистров BecqMoni + серийник последней строкой
     send_cmd("-thr");   // порог, коды АЦП
     send_cmd("-gst", true);
-    setup_refresh();    // последним: "-err unknown" после него однозначно от -setup (старая прошивка)
+    setup_refresh();    // "-err unknown" сразу после него — от -setup (старая прошивка)
+    // только чтение, для главного экрана; после -setup, чтобы их "-err unknown" на старой прошивке
+    // пришли уже после ответа на -setup и не приняли за него
+    send_cmd("-tc", true);    // термокомпенсация: "-ok tc t0 k1 k2"
+    send_cmd("-log", true);   // регистратор: "-ok log on|off … records N"
     return true;
 }
 
@@ -92,6 +96,8 @@ void Device::disconnect()
     status_text = "Нет связи · порт закрыт";
     acquiring = false;
     fw_info.clear(); serial.clear();
+    becq_ok = false; for (double& c : becq_c) c = 0;
+    tc_reply.clear(); log_status.clear();
     setup = ds::SetupRec(); setup_known = ds::SetupKnown::Unknown; setup_wait_ = false;
     gst.clear(); gst_rx_ = -1.0; thr_codes = -1;
     port_name.clear();
@@ -268,6 +274,7 @@ void Device::on_text(const std::string& t0)
         }
         if (!acc.empty()) sn = acc;
         serial = sn;
+        becq_ok = ds::parse_becq_cal(t, becq_c);
         log_add(2, "калибровка BecqMoni: 40 регистров, серийник " + sn);
         return;
     }
@@ -276,6 +283,8 @@ void Device::on_text(const std::string& t0)
     last_reply = t;
     if (starts(t, "GammaSpec")) {
         fw_info = t;
+    } else if (starts(t, "-ok tc")) {
+        tc_reply = t;
     } else if (starts(t, "-ok thr")) {
         thr_codes = atoi(t.c_str() + 7);
     } else if (t == "-ok collecting") {

@@ -299,8 +299,71 @@ static void test_appcfg()
     CHECK(g.lang == Lang::Ru);
 }
 
+// ответ -cal как у прошивки: 39 строк hex (10 слов c0…c4, CRC, нули) и серийник последней строкой
+static std::string cal_reply(const double c[5])
+{
+    std::string r;
+    char b[16];
+    for (int k = 0; k < 5; k++) {
+        uint64_t u; std::memcpy(&u, &c[k], 8);
+        snprintf(b, sizeof b, "%08X\r\n", (unsigned)(u >> 32)); r += b;
+        snprintf(b, sizeof b, "%08X\r\n", (unsigned)u);         r += b;
+    }
+    r += "1A2B3C\r\n";                                   // CRC (короткий hex, как crc.ToString("X"))
+    for (int i = 11; i < 39; i++) r += "00000000\r\n";
+    r += "04740001\r\n";
+    return r;
+}
+
+// чистая логика главного экрана: счёт шагов, источник, -cal, -tc, -log
+static void test_home_logic()
+{
+    Snapshot s = connected_snap();
+    s.known = SetupKnown::Yes;
+    CHECK(steps_done_count(s) == 1);                 // только «Прошивка»
+    s.s.chk_unix = 3; s.s.chk_ok = true; s.s.zero_unix = 4;
+    CHECK(steps_done_count(s) == 3);
+    Snapshot old = connected_snap();
+    old.known = SetupKnown::OldFirmware;
+    CHECK(steps_done_count(old) == 0);
+    CHECK(first_open_step(old) == Step::Flash);
+    CHECK(steps_done_count(Snapshot()) == 0);
+
+    CHECK(!step_needs_cs(Step::Flash) && !step_needs_cs(Step::Check) && !step_needs_cs(Step::Zero));
+    CHECK(step_needs_cs(Step::Hv) && step_needs_cs(Step::Res) && step_needs_cs(Step::Scale));
+    CHECK(!step_needs_cs(Step::Save));
+
+    double c[5] = { 0, 0.555, 0, 0, 0 }, o[5] = { 9, 9, 9, 9, 9 };
+    CHECK(parse_becq_cal(cal_reply(c), o));
+    CHECK_NEAR(o[1], 0.555, 1e-12);
+    CHECK(o[0] == 0 && o[4] == 0);
+    double z[5] = { 0, 0, 0, 0, 0 };
+    CHECK(!parse_becq_cal(cal_reply(z), o));          // все нули — шкалы нет
+    CHECK(!parse_becq_cal("-ok tc 25 0 0", o));
+    CHECK(!parse_becq_cal("", o));
+
+    double t0, k1, k2;
+    CHECK(parse_tc("-ok tc 25.000 0.000000e+00 0.000000e+00", t0, k1, k2));
+    CHECK(t0 == 25.0 && k1 == 0 && k2 == 0);
+    CHECK(parse_tc("-ok tc 24.500 -1.200000e-03 3.000000e-06\r\n", t0, k1, k2));
+    CHECK_NEAR(k1, -1.2e-3, 1e-12);
+    CHECK(!parse_tc("-ok tc 25", t0, k1, k2));
+    CHECK(!parse_tc("-err tc", t0, k1, k2));
+
+    LogState ls;
+    CHECK(parse_log_status("-ok log off period 600 delay 120 active 0 session 3 rec 0 records 7 "
+                           "used_kb 28 total_kb 8000 wrap 0 id EF4017 err 0 scan done", ls));
+    CHECK(!ls.enabled && !ls.active && ls.records == 7);
+    CHECK(parse_log_status("-ok log on period 600 delay 120 active 1 session 4 rec 2 records 9 "
+                           "used_kb 36 total_kb 8000 wrap 0 id EF4017 err 0 scan done", ls));
+    CHECK(ls.enabled && ls.active && ls.records == 9);
+    CHECK(!parse_log_status("-ok log on 600 120", ls));      // ответ на "-log on", не статус
+    CHECK(!parse_log_status("-err log noflash id 000000", ls));
+}
+
 int main()
 {
+    test_home_logic();
     test_parse_setup();
     test_old_firmware();
     test_migrated_ready();

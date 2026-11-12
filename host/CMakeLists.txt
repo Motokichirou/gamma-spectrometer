@@ -90,6 +90,7 @@ add_executable(gammapult WIN32
   src/main.cpp
   src/theme.cpp
   src/ui_shell.cpp
+  src/ui_home.cpp
   ${GAMMA_CORE})
 target_link_libraries(gammapult PRIVATE
   imgui implot d3d11 dxgi d3dcompiler dwmapi)

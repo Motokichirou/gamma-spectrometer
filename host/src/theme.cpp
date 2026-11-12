@@ -42,7 +42,7 @@ ImVec4 c_head          = tk(tok.panel2);
 ImVec4 c_child         = tk(tok.panel);
 
 ImFont *font_ui = nullptr, *font_small = nullptr, *font_mono = nullptr,
-       *font_mono_time = nullptr, *font_mono_big = nullptr;
+       *font_mono_time = nullptr, *font_mono_big = nullptr, *font_title = nullptr;
 
 void LoadFonts(ImGuiIO& io)
 {
@@ -63,7 +63,7 @@ void LoadFonts(ImGuiIO& io)
     font_ui = io.Fonts->AddFontFromFileTTF(SEGOE, 15.0f, nullptr, cyr);
     if (!font_ui) {                       // нет системного шрифта — дефолт на всё (ASCII)
         ImFont* d = io.Fonts->AddFontDefault();
-        font_ui = font_small = font_mono = font_mono_time = font_mono_big = d;
+        font_ui = font_small = font_mono = font_mono_time = font_mono_big = font_title = d;
         return;
     }
     font_small     = io.Fonts->AddFontFromFileTTF(SEGOE,   13.0f, nullptr, cyr);
@@ -74,6 +74,9 @@ void LoadFonts(ImGuiIO& io)
     if (!font_mono_time) font_mono_time = font_mono;
     font_mono_big  = io.Fonts->AddFontFromFileTTF(CONSOLA, 34.0f, nullptr, cyr);
     if (!font_mono_big) font_mono_big = font_mono;
+    font_title     = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisb.ttf", 22.0f, nullptr, cyr);
+    if (!font_title) font_title = io.Fonts->AddFontFromFileTTF(SEGOE, 22.0f, nullptr, cyr);
+    if (!font_title) font_title = font_ui;
 }
 
 void ApplyStyle()

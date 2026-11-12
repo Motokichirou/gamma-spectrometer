@@ -32,6 +32,7 @@
 #include "host_app.h"
 #include "appcfg.h"
 #include "ui_shell.h"
+#include "ui_home.h"
 #include "i18n.h"
 
 // --- DirectX 11 ---
@@ -1164,6 +1165,11 @@ static void WizStepBody(int s)
         break;
     }
     case 1: {
+        if (!g_ui.flash_port.empty()) {             // R1: порт выбран на главном экране («Прибор не отвечает? Прошить»)
+            for (int i = 0; i < (int)g_dev.ports.size(); i++)
+                if (g_dev.ports[i] == g_ui.flash_port) g_port_sel = i;
+            g_ui.flash_port.clear();
+        }
         std::vector<uint8_t> img; std::string tag;
         bool emb = fwflash::embedded(img, tag);
         if (conn && g_dev.fw_info.rfind("GammaSpec", 0) == 0) {
@@ -1519,7 +1525,7 @@ static void DrawHelp()
     ImGui::EndPopup();
 }
 
-// прежняя раскладка панелей: пока и главный экран, и расширенный режим (заменят Task 8 и 10)
+// прежняя раскладка панелей: пока расширенный режим (заменит Task 10)
 static void DrawPanels(ImVec2 area, ImVec2 asz)
 {
     float p = 5.0f, g = 5.0f;
@@ -1564,8 +1570,9 @@ static void DrawApp()
     ImVec2 asz(vp->Size.x, vp->Size.y - topH - statusH);
 
     ds::Mode m = g_ui.mode;                  // режим на этот кадр (ui_go внутри кадра сработает со следующего)
-    if (m == ds::Mode::Wizard) DrawWizard(area, asz, s_prev != ds::Mode::Wizard);
-    else                       DrawPanels(area, asz);
+    if (m == ds::Mode::Wizard)    DrawWizard(area, asz, s_prev != ds::Mode::Wizard);
+    else if (m == ds::Mode::Home) DrawHome(area, asz);
+    else                          DrawPanels(area, asz);
     s_prev = m;
 
     WizTick();

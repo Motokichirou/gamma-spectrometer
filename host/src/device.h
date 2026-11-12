@@ -36,6 +36,8 @@ public:
     // ---- идентификация ----
     std::string fw_info;                     // ответ -inf
     std::string serial;                      // серийник (последняя строка ответа -cal)
+    double becq_c[5] = { 0, 0, 0, 0, 0 };    // шкала BecqMoni из -cal: E = c0 + c1·ch + …
+    bool becq_ok = false;                    // шкала в приборе есть (не нули)
 
     // ---- запись о настройке (-setup) ----
     ds::SetupRec setup;
@@ -43,6 +45,7 @@ public:
     // запросить -setup: зовётся после подключения, после выхода из мастера, после "-ok saved"
     void setup_refresh();
     ds::Snapshot snapshot() const;           // срез для ds::home_view / step_done / top_bar
+    bool setup_pending() const { return setup_wait_; }   // ждём ответа на -setup (главный экран: «читаю…»)
 
     State state = State::Disconnected;
     std::string status_text = "Нет связи · порт закрыт";
