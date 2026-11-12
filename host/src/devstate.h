@@ -72,4 +72,9 @@ std::string display_serial(const std::string& cal_last);
 // Hv/Hv2 — a вольты, b канал пика; Res — a FWHM, %, b канал пика. Flash и Scale ("") записи не пишут.
 std::string setup_cmd(Step s, uint32_t unix, double a, double b);
 
+// ---- отчёт о настройке ----
+// шаг не проводился в этой сессии: «не проводилось в этот раз (последний раз: ДД.ММ.ГГГГ | дата неизвестна |
+// нет данных)»; last_unix — дата из записи прибора (0 — нет, 1 — настроен до учёта). Отчёт — по-русски.
+std::string report_not_run(uint32_t last_unix);
+
 } // namespace ds

@@ -1,5 +1,6 @@
 // device.cpp — см. device.h
 #include "device.h"
+#include "peakfit.h"
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -501,9 +502,11 @@ void Device::hvp_start(double v_start)
 {
     if (!connected()) return;
     lin_abort();
-    double target = hvp.target, lo = hvp.lo, hi = hvp.hi, ge = hvp.gain_exp, secs = hvp.secs, tol = hvp.tol_pct;
+    double target = hvp.target, lo = hvp.lo, hi = hvp.hi, ge = hvp.gain_exp, tol = hvp.tol_pct;
+    double cnt = hvp.count, tmo = hvp.timeout;
     hvp = HvPeak{};
-    hvp.target = target; hvp.lo = lo; hvp.hi = hi; hvp.gain_exp = ge; hvp.secs = secs; hvp.tol_pct = tol;
+    hvp.target = target; hvp.lo = lo; hvp.hi = hi; hvp.gain_exp = ge; hvp.tol_pct = tol;
+    hvp.count = cnt < 100 ? 100 : cnt; hvp.timeout = tmo < 10 ? 10 : tmo;
     hvp.v = v_start; hvp.running = true; hvp.phase = 0;
     hvp.msg = "выставляю ВВ…";
     log_add(0, "подстройка ВВ по пику: старт с " + std::to_string((int)v_start) + " В, цель канал " + std::to_string((int)target));
@@ -539,8 +542,9 @@ void Device::hvp_tick(double now)
         if (now - hvp.t0 > 4.0 && fresh && fabs(out - hvp.v) < 3.0) {
             send_cmd("-sto"); send_cmd("-rst"); send_cmd("-sta");
             for (auto& v : spectrum) v = 0;
-            hvp.phase = 2; hvp.t0 = now;
-            snprintf(c, sizeof c, "набор %.0f с при %.0f В…", hvp.secs, hvp.v);
+            hvp.phase = 2; hvp.t0 = now; hvp_eval_t_ = now;
+            hvp.n_in = 0; hvp.win_ok = false; hvp.win_lo = hvp.win_hi = 0; hvp.pass_s = 0;
+            snprintf(c, sizeof c, "набор при %.0f В: ищу пик…", hvp.v);
             hvp.msg = c;
         } else if (now - hvp.t0 > 180.0) {
             hvp.msg = "ВВ не установилось за 3 мин";
@@ -548,9 +552,30 @@ void Device::hvp_tick(double now)
         }
         break;
     }
-    case 2:   // набор
-        if (now - hvp.t0 >= hvp.secs) { hvp_seq_ = full_seq_; chunk_mask_ = 0; hvp.phase = 3; hvp.t0 = now; }
+    case 2: { // набор до count импульсов в фотопике; пик и окно пересчитываются раз в секунду
+        hvp.pass_s = now - hvp.t0;
+        // первые 2 с не считаем: могут прийти куски спектра, отправленные до -rst
+        if (hvp.pass_s >= 2.0 && now - hvp_eval_t_ >= 1.0) {
+            hvp_eval_t_ = now;
+            peakfit::PeakWin pw = peakfit::peak_window(spectrum, CHANNELS, (int)hvp.lo, (int)hvp.hi);
+            hvp.win_ok = pw.ok;
+            hvp.win_lo = pw.lo; hvp.win_hi = pw.hi;
+            hvp.n_in = pw.ok ? peakfit::window_sum(spectrum, CHANNELS, pw.lo, pw.hi) : 0;
+            if (pw.ok) snprintf(c, sizeof c, "набор при %.0f В: в пике %llu из %.0f…", hvp.v, (unsigned long long)hvp.n_in, hvp.count);
+            else       snprintf(c, sizeof c, "набор при %.0f В: ищу пик…", hvp.v);
+            hvp.msg = c;
+        }
+        peakfit::Stop st = peakfit::count_stop(hvp.n_in, (uint64_t)hvp.count, hvp.pass_s, hvp.timeout);
+        if (st == peakfit::Stop::Count) { hvp_seq_ = full_seq_; chunk_mask_ = 0; hvp.phase = 3; hvp.t0 = now; }
+        else if (st == peakfit::Stop::Timeout) {
+            snprintf(c, sizeof c, "не набралось %.0f в пике за %.0f с при %.0f В (в пике %llu): проверьте источник",
+                     hvp.count, hvp.timeout, hvp.v, (unsigned long long)hvp.n_in);
+            hvp.msg = c;
+            log_add(3, "подстройка ВВ: " + hvp.msg);
+            hvp_abort();
+        }
         break;
+    }
     case 3: { // свежий полный спектр → пик
         if (full_seq_ <= hvp_seq_ && now - hvp.t0 < 3.0) break;
         send_cmd("-sto");

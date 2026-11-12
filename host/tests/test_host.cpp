@@ -5,6 +5,9 @@
 #include "theme_tokens.h"
 #include "i18n.h"
 #include "appcfg.h"
+#include "peakfit.h"
+#include <vector>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -379,8 +382,128 @@ static void test_wizard_records()
     CHECK(!parse_setup("-ok setup", r));
 }
 
+// ---- набор до N импульсов в фотопике (Task 9b) ----
+
+// синтетический спектр: гаусс (площадь area, центр m, σ sg) + линейно спадающий фон + «низ» (комптон/шумы)
+static std::vector<uint32_t> synth(double area, double m, double sg, double bg_scale)
+{
+    std::vector<uint32_t> s(8192, 0);
+    for (int i = 0; i < 8192; i++) {
+        double g = area / (sg * 2.5066283) * exp(-0.5 * ((i - m) / sg) * ((i - m) / sg));
+        double b = bg_scale * ((i < 6000 ? (6000.0 - i) / 6000.0 * 20.0 : 0) + (i < 250 ? 400.0 : 0));
+        s[i] = (uint32_t)lround(g + b);
+    }
+    return s;
+}
+
+// детерминированный «шум»: пуассон приближённо, λ + √λ·N(0,1) (N — сумма 12 равномерных − 6)
+static void noisify(std::vector<uint32_t>& s, uint32_t seed)
+{
+    uint32_t x = seed;
+    auto u = [&]() { x = x * 1664525u + 1013904223u; return (x >> 8) / 16777216.0; };
+    for (auto& v : s) {
+        double z = -6; for (int k = 0; k < 12; k++) z += u();
+        double y = v + sqrt((double)v) * z;
+        v = y > 0 ? (uint32_t)lround(y) : 0;
+    }
+}
+
+static void test_peak_count()
+{
+    using namespace peakfit;
+    // Cs-137: пик 1180, FWHM 7 % (σ 35.1), 20 000 в пике, фон
+    const double m = 1180, sg = 0.07 * 1180 / 2.3548;
+    std::vector<uint32_t> s = synth(20000, m, sg, 1.0);
+    PeakWin w = peak_window(s.data(), 8192, 300, 6000);
+    CHECK(w.ok);
+    CHECK_NEAR(w.center, m, 1.0);
+    CHECK_NEAR(w.fwhm, 2.3548 * sg, 0.03 * 2.3548 * sg);
+    // окно ±1.5·FWHM
+    CHECK_NEAR(w.lo, m - 1.5 * 2.3548 * sg, 2.0);
+    CHECK_NEAR(w.hi, m + 1.5 * 2.3548 * sg, 2.0);
+    // сумма в окне — ровно сумма каналов [lo, hi)
+    uint64_t ref = 0; for (int i = w.lo; i < w.hi; i++) ref += s[i];
+    CHECK(window_sum(s.data(), 8192, w.lo, w.hi) == ref);
+    // ±3.5σ: почти весь пик плюс фон под ним (фон ≈ 20·(6000 − x)/6000 на канал)
+    double bgsum = 0; for (int i = w.lo; i < w.hi; i++) bgsum += 20.0 * (6000 - i) / 6000;
+    CHECK_NEAR((double)ref, 20000 * 0.9996 + bgsum, 150.0);
+    // границы суммы обрезаются по спектру
+    CHECK(window_sum(s.data(), 8192, -10, 2) == (uint64_t)s[0] + s[1]);
+    CHECK(window_sum(s.data(), 8192, 8190, 9000) == (uint64_t)s[8190] + s[8191]);
+    CHECK(window_sum(s.data(), 8192, 100, 100) == 0);
+    // подгонка отдаёт колокол с фоном: модель в центре ≈ высота + фон
+    CHECK(w.fit.ok);
+    CHECK_NEAR(w.fit.model(m), 20000 / (sg * 2.5066283) + 20.0 * (6000 - m) / 6000, 8.0);
+    CHECK(w.fit.model(m + 10 * sg) < w.fit.model(m) * 0.2);
+
+    // мало счёта, но с шумом — пик ещё виден (3000 в пике, как проход подбора ВВ)
+    std::vector<uint32_t> s2 = synth(3000, 900, 0.075 * 900 / 2.3548, 0.15);
+    noisify(s2, 12345);
+    PeakWin w2 = peak_window(s2.data(), 8192, 300, 6000);
+    CHECK(w2.ok);
+    CHECK_NEAR(w2.center, 900, 6.0);
+
+    // неуверенно — счёт не идёт
+    std::vector<uint32_t> z(8192, 0);
+    CHECK(!peak_window(z.data(), 8192, 300, 6000).ok);           // пусто
+    std::vector<uint32_t> flat(8192, 5);
+    CHECK(!peak_window(flat.data(), 8192, 300, 6000).ok);        // ровный фон
+    std::vector<uint32_t> few(8192, 0);
+    few[1000] = 1; few[1003] = 1; few[1300] = 1; few[2000] = 2;
+    CHECK(!peak_window(few.data(), 8192, 300, 6000).ok);         // единичные импульсы
+    // пик вне окна поиска не берётся
+    std::vector<uint32_t> s3 = synth(20000, 7000, 200, 0);
+    CHECK(!peak_window(s3.data(), 8192, 300, 6000).ok);
+
+    // условие остановки: по N и по страховочному времени
+    CHECK(count_stop(2999, 3000, 10, 120) == Stop::Run);
+    CHECK(count_stop(3000, 3000, 10, 120) == Stop::Count);
+    CHECK(count_stop(3001, 3000, 200, 120) == Stop::Count);     // набралось — это не отказ
+    CHECK(count_stop(100, 3000, 120, 120) == Stop::Timeout);
+    CHECK(count_stop(0, 20000, 599.9, 600) == Stop::Run);
+    CHECK(count_stop(0, 20000, 600, 600) == Stop::Timeout);
+
+    // набор во времени: 2000/с в пике → N = 20 000 за ~10 с, а не по фиксированному времени
+    std::vector<uint32_t> acc(8192, 0);
+    std::vector<uint32_t> per_s = synth(2000, m, sg, 0.1);
+    int stop_t = -1; Stop why = Stop::Run;
+    for (int t = 1; t <= 600 && why == Stop::Run; t++) {
+        for (int i = 0; i < 8192; i++) acc[i] += per_s[i];
+        PeakWin pw = peak_window(acc.data(), 8192, 300, 6000);
+        uint64_t n = pw.ok ? window_sum(acc.data(), 8192, pw.lo, pw.hi) : 0;
+        why = count_stop(n, 20000, t, 600);
+        stop_t = t;
+    }
+    CHECK(why == Stop::Count);
+    CHECK(stop_t >= 9 && stop_t <= 10);
+    // источника нет (только фон) → страховка по времени
+    std::vector<uint32_t> bg_only(8192, 0), bg_s = synth(0, m, sg, 0.1);
+    why = Stop::Run; stop_t = -1;
+    for (int t = 1; t <= 600 && why == Stop::Run; t++) {
+        for (int i = 0; i < 8192; i++) bg_only[i] += bg_s[i];
+        PeakWin pw = peak_window(bg_only.data(), 8192, 300, 6000);
+        uint64_t n = pw.ok ? window_sum(bg_only.data(), 8192, pw.lo, pw.hi) : 0;
+        why = count_stop(n, 20000, t, 120);
+        stop_t = t;
+    }
+    CHECK(why == Stop::Timeout);
+    CHECK(stop_t == 120);
+}
+
+// отчёт: шаг не проводился в этот раз — дата из прибора или «нет данных»
+static void test_report_not_run()
+{
+    CHECK(report_not_run(0) == "не проводилось в этот раз (последний раз: нет данных)");
+    CHECK(report_not_run(1) == "не проводилось в этот раз (последний раз: дата неизвестна)");
+    std::string r = report_not_run(1762800000u);     // 10.11.2025 по UTC; в местном поясе может быть 11.11
+    CHECK(r.find("не проводилось в этот раз (последний раз: 1") == 0);
+    CHECK(r.find(".11.2025)") != std::string::npos);
+}
+
 int main()
 {
+    test_peak_count();
+    test_report_not_run();
     test_wizard_records();
     test_home_logic();
     test_parse_setup();

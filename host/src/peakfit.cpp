@@ -91,9 +91,53 @@ Result fit(const uint32_t* s, int n, int lo, int hi)
     }
     R.ok = m > 0 && sg > 0;
     R.peak = m; R.sigma = sg; R.height = p[0];
+    R.bg0 = p[3]; R.bg1 = p[4]; R.x0 = pk;
     R.fwhm_pct = 235.48 * sg / m;
     R.fwhm_err = 235.48 * sqrt(fabs(cov[2][2])) / m;
     return R;
+}
+
+double Result::model(double x) const
+{
+    if (sigma <= 0) return bg0 + bg1 * (x - x0);
+    double u = (x - peak) / sigma;
+    return height * exp(-0.5 * u * u) + bg0 + bg1 * (x - x0);
+}
+
+PeakWin peak_window(const uint32_t* s, int n, int lo, int hi, double k)
+{
+    PeakWin W;
+    Result r = fit(s, n, lo, hi);
+    if (!r.ok || !std::isfinite(r.peak) || !std::isfinite(r.sigma) || !std::isfinite(r.fwhm_err)) return W;
+    double fw = 2.35482 * r.sigma;
+    double area = r.height * r.sigma * 2.5066283;
+    bool sure = r.peak >= lo + 0.5 * fw && r.peak < hi &&
+                r.fwhm_pct >= 1.0 && r.fwhm_pct <= 30.0 &&
+                r.height > 0 && area >= 30.0 &&
+                r.fwhm_err < 0.5 * r.fwhm_pct;
+    if (!sure) return W;
+    W.ok = true; W.center = r.peak; W.fwhm = fw; W.fit = r;
+    W.lo = (int)floor(r.peak - k * fw + 0.5);
+    W.hi = (int)floor(r.peak + k * fw + 0.5) + 1;
+    if (W.lo < 0) W.lo = 0;
+    if (W.hi > n) W.hi = n;
+    return W;
+}
+
+uint64_t window_sum(const uint32_t* s, int n, int lo, int hi)
+{
+    if (lo < 0) lo = 0;
+    if (hi > n) hi = n;
+    uint64_t t = 0;
+    for (int i = lo; i < hi; i++) t += s[i];
+    return t;
+}
+
+Stop count_stop(uint64_t in_peak, uint64_t target, double elapsed_s, double timeout_s)
+{
+    if (in_peak >= target) return Stop::Count;
+    if (elapsed_s >= timeout_s) return Stop::Timeout;
+    return Stop::Run;
 }
 
 static uint32_t crc32_zip(const char* s, size_t n)

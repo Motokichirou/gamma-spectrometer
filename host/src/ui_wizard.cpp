@@ -12,6 +12,7 @@
 #include "tpl_learn.h"
 #include "i18n.h"
 #include "theme.h"
+#include "implot.h"
 #include <windows.h>
 #include <atomic>
 #include <cmath>
@@ -55,11 +56,19 @@ struct Wiz {
     int tpl_phase = 0, tpl_err0 = 0;
     std::atomic<int> tpl_state{ 0 };           // расчёт в потоке: 1 — считаю, 2 — готово
     tpl::Result tpl_res;
-    // разрешение: 0 — нет, 1 — набор, 3 — оценено
-    int fw_phase = 0; double fw_t0 = 0; float fw_secs = 120.0f;
+    // разрешение: 0 — нет, 1 — набор, 3 — оценено. Набор до fw_count импульсов в окне фотопика
+    // (±1.5·FWHM по живой подгонке), не дольше fw_timeout с
+    int fw_phase = 0; double fw_t0 = 0;
+    int fw_count = 20000; float fw_timeout = 600.0f;
+    uint64_t fw_n = 0; double fw_el = 0, fw_eval_t = 0; bool fw_timeout_hit = false;
+    peakfit::PeakWin fw_win;                   // окно и подгонка: живые в ходе набора, итоговые после
     peakfit::Result fwr;
+    // график: лог/лин, запрос вида (приблизить к пику / весь спектр) — по счётчику на каждый экземпляр
+    bool fw_log = false; int fw_view_req = 0; bool fw_view_full = false; int fw_view_done[2] = { 0, 0 };
     // шкала: 0 — нет, 1 — пишу, 2 — записана, 3 — ошибка
     int cal_phase = 0, cal_err0 = 0; double cal_k = 0; std::string cal_err;
+    // ноль монитора снят в этой сессии (для отчёта: иначе дата из записи прибора)
+    bool zero_run = false;
     // итог
     bool saved = false; std::string report_path;
     bool autohv = true; int hvboot_v = 0;      // автозапуск ВВ при подаче питания (-hvboot)
@@ -223,36 +232,116 @@ void Big3(const char* l1, const std::string& v1, const char* l2, const std::stri
 
 // ---------- отчёт ----------
 
+// строка отчёта о шаге, который в этой сессии не проводился: дата из записи прибора
+std::string NotRun(uint32_t last_unix)
+{
+    bool known = g_dev.setup_known == ds::SetupKnown::Yes;
+    return ds::report_not_run(known ? last_unix : 0);
+}
+
+// UTF-8 → UTF-16 и обратно: имя отчёта с кириллицей. Узкий fopen берёт кодовую страницу ANSI
+// и записывал байты UTF-8 как cp1251 («gammapult_РІРІРѕРґ_…» прямо в имени файла).
+std::wstring Wide(const std::string& u)
+{
+    int n = MultiByteToWideChar(CP_UTF8, 0, u.c_str(), -1, nullptr, 0);
+    std::wstring w(n > 0 ? n - 1 : 0, L'\0');
+    if (n > 1) MultiByteToWideChar(CP_UTF8, 0, u.c_str(), -1, &w[0], n);
+    return w;
+}
+
+std::string Utf8(const std::wstring& w)
+{
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string u(n > 0 ? n - 1 : 0, '\0');
+    if (n > 1) WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, &u[0], n, nullptr, nullptr);
+    return u;
+}
+
+// Отчёт пишется по-русски (документ, не интерфейс). Шаги, пройденные в этой сессии, идут с числами
+// сессии; остальные — «не проводилось в этот раз (последний раз: …)» по записи прибора (-setup).
 void WriteReport()
 {
     Wiz& w = g_wiz;
+    const ds::SetupRec& R = g_dev.setup;
+    bool rec = g_dev.setup_known == ds::SetupKnown::Yes;
     time_t t = time(nullptr); struct tm lt; localtime_s(&lt, &t);
-    char fn[160], ts[64];
+    char ts[64], d8[32];
     strftime(ts, sizeof ts, "%Y-%m-%d %H:%M", &lt);
-    std::string sn = g_dev.serial.empty() ? "noserial" : g_dev.serial;
-    char d8[32]; strftime(d8, sizeof d8, "%Y%m%d_%H%M", &lt);
-    snprintf(fn, sizeof fn, "gammapult_ввод_%s_%s.txt", sn.c_str(), d8);
-    FILE* f = fopen(fn, "w");
+    strftime(d8, sizeof d8, "%Y%m%d_%H%M", &lt);
+    std::string sn = g_dev.serial.empty() ? std::string("noserial") : ds::display_serial(g_dev.serial);
+    std::string fn = "gammapult_ввод_" + sn + "_" + d8 + ".txt";
+    std::wstring wfn = Wide(fn);
+    FILE* f = _wfopen(wfn.c_str(), L"w");
     if (!f) { w.report_path.clear(); return; }
     const Device::LinRun& L = g_dev.lin;
     fprintf(f, "Ввод в строй гамма-спектрометра — %s\n", ts);
     fprintf(f, "Серийник: %s\nПрошивка: %s\n\n", sn.c_str(), g_dev.fw_info.c_str());
-    fprintf(f, "Тракт: -diag %s; опора %.1f мВ; шум базы без ВВ σ %.2f кода; Pt1000 %s %.2f °C\n",
-            w.diag_ok ? "ok" : "НЕ ОК", g_dev.gnum("vref"), g_dev.gnum("sigma"), g_dev.gstr("pt").c_str(), g_dev.gnum("t"));
-    fprintf(f, "Самотест ЦАП: канал = %.4f·код %+.2f, R² %.6f, отклонение ≤ %.3f %%\n", L.k, L.b, L.r2, L.dev);
-    fprintf(f, "Монитор ВВ: ноль %.1f мВ, k %.4f мВ/В\n", g_dev.gnum("hv_zero"), g_dev.gnum("hv_k"));
-    fprintf(f, "ВВ по пику (до эталона): %.0f В, пик %.1f\n", w.hv1_v, w.hv1_peak);
-    fprintf(f, "Эталон формы: %s\n", w.tpl_res.msg.c_str());
-    fprintf(f, "ВВ по пику (рабочее): %.0f В, пик %.1f\n", w.hv2_v, w.hv2_peak);
-    fprintf(f, "Разрешение Cs-137 (%.0f с): пик %.2f, FWHM %.2f ± %.2f %%\n", w.fw_secs, w.fwr.peak, w.fwr.fwhm_pct, w.fwr.fwhm_err);
-    if (w.cal_phase == 2) fprintf(f, "Энергокалибровка (базовая, по Cs-137): E = %.6f · канал\n", w.cal_k);
+
+    // проверка электроники
+    if (w.chk_phase == 3) {
+        fprintf(f, "Проверка электроники: %s; -diag %s\n", w.chk_ok ? "прошла" : "НЕ ПРОШЛА", w.diag_ok ? "ok" : "НЕ ОК");
+        if (L.fitted) fprintf(f, "  Самотест ЦАП: канал = %.4f·код %+.2f, R² %.6f, отклонение ≤ %.3f %%\n", L.k, L.b, L.r2, L.dev);
+        else fprintf(f, "  Самотест ЦАП: не выполнен%s%s\n", L.msg.empty() ? "" : ": ", L.msg.c_str());
+    } else {
+        std::string nr = NotRun(R.chk_unix);
+        if (rec && R.chk_unix) nr += R.chk_ok ? ", прошла" : ", НЕ ПРОШЛА";
+        fprintf(f, "Проверка электроники: %s\n", nr.c_str());
+    }
+    fprintf(f, "  Сейчас: опора %.1f мВ; шум базы σ %.2f кода; Pt1000 %s %.2f °C\n",
+            g_dev.gnum("vref"), g_dev.gnum("sigma"), g_dev.gstr("pt").c_str(), g_dev.gnum("t"));
+
+    // ноль монитора
+    if (w.zero_run) fprintf(f, "Ноль монитора ВВ: снят сейчас\n");
+    else fprintf(f, "Ноль монитора ВВ: %s\n", NotRun(R.zero_unix).c_str());
+    fprintf(f, "  Монитор ВВ: ноль %.1f мВ, k %.4f мВ/В\n", g_dev.gnum("hv_zero"), g_dev.gnum("hv_k"));
+
+    // подбор ВВ: в записи прибора один (последний) подбор, общий для шагов 4 и 6
+    auto hv_line = [&](const char* name, double v, double pk) {
+        if (v > 0) { fprintf(f, "%s: %.0f В, пик %.1f\n", name, v, pk); return; }
+        std::string nr = NotRun(R.hv_unix);
+        if (rec && R.hv_unix && R.hv_v > 0) {
+            char b[96]; snprintf(b, sizeof b, "; в приборе: %.0f В, пик %.1f", R.hv_v, R.hv_peak_ch); nr += b;
+        }
+        fprintf(f, "%s: %s\n", name, nr.c_str());
+    };
+    hv_line("ВВ по пику (до эталона)", w.hv1_v, w.hv1_peak);
+
+    // эталон формы
+    if (w.tpl_phase == 4) fprintf(f, "Эталон формы: записан сейчас; %s\n", w.tpl_res.msg.c_str());
+    else {
+        std::string nr = NotRun(R.tpl_unix);
+        if (rec && R.tpl) nr += "; эталон в приборе есть";
+        fprintf(f, "Эталон формы: %s\n", nr.c_str());
+    }
+    hv_line("ВВ по пику (рабочее)", w.hv2_v, w.hv2_peak);
+
+    // разрешение
+    if (w.fw_phase == 3 && w.fwr.ok && !w.fw_timeout_hit) {
+        fprintf(f, "Разрешение Cs-137 (%llu в пике, %.0f с): пик %.2f, FWHM %.2f ± %.2f %%\n",
+                (unsigned long long)w.fw_n, w.fw_el, w.fwr.peak, w.fwr.fwhm_pct, w.fwr.fwhm_err);
+    } else {
+        std::string nr = NotRun(R.res_unix);
+        if (rec && R.res_unix && R.res_fwhm > 0) {
+            char b[96]; snprintf(b, sizeof b, "; в приборе: FWHM %.2f %%, пик %.1f", R.res_fwhm, R.res_peak_ch); nr += b;
+        }
+        if (w.fw_phase == 3 && w.fw_timeout_hit) {
+            char b[160]; snprintf(b, sizeof b, "; набор сейчас прерван: не набралось %d в пике за %.0f с", w.fw_count, w.fw_el); nr += b;
+        }
+        fprintf(f, "Разрешение Cs-137: %s\n", nr.c_str());
+    }
+
+    // шкала
+    if (w.cal_phase == 2) fprintf(f, "Энергокалибровка (базовая, по Cs-137): E = %.6f · канал, записана сейчас\n", w.cal_k);
+    else if (g_dev.becq_ok) fprintf(f, "Энергокалибровка: не записывалась в этот раз; в приборе E = %.6f · канал %+.3f\n", g_dev.becq_c[1], g_dev.becq_c[0]);
+    else fprintf(f, "Энергокалибровка: не проводилось в этот раз (в приборе шкалы нет)\n");
+
     if (w.hvboot_v > 0) fprintf(f, "Автозапуск ВВ при подаче питания: %d В\n", w.hvboot_v);
     else fprintf(f, "Автозапуск ВВ: выключен (ВВ только командой)\n");
     fprintf(f, "Порог: %s; термокомпенсация: %s\n", g_dev.thr_codes == 0 ? "авто 5σ" : std::to_string(g_dev.thr_codes).c_str(),
             g_dev.tc_reply.empty() ? "не настроена" : g_dev.tc_reply.c_str());
     fclose(f);
-    char full[MAX_PATH];
-    w.report_path = _fullpath(full, fn, MAX_PATH) ? full : fn;
+    wchar_t full[MAX_PATH];
+    w.report_path = _wfullpath(full, wfn.c_str(), MAX_PATH) ? Utf8(full) : fn;
 }
 
 // ---------- действия ----------
@@ -316,7 +405,7 @@ void StepStop(ds::Step s)
     case ds::Step::Check: g_dev.lin_abort(); w.chk_phase = 0; break;   // прервано — итог не пишется
     case ds::Step::Hv: case ds::Step::Hv2: g_dev.hvp_abort(); w.hv_run = ds::Step::N; break;
     case ds::Step::Tpl:   g_dev.raw_abort(); w.tpl_phase = 0; break;
-    case ds::Step::Res:   g_dev.stop(); w.fw_phase = 0; break;
+    case ds::Step::Res:   g_dev.stop(); w.fw_phase = 0; w.fw_win = peakfit::PeakWin(); break;
     default: break;
     }
 }
@@ -464,7 +553,14 @@ void BodyHv(ds::Step s, bool primary)
             ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
             ImGui::TextUnformatted(el.c_str());
             ImGui::PopStyleColor();
-            ImGui::ProgressBar(h.max_iter ? (float)h.iter / h.max_iter : 0.0f, ImVec2(-1, 6), "");
+            // прогресс прохода: импульсов в фотопике из N
+            char ov[96] = "";
+            if (h.phase == 2) {
+                if (h.win_ok) snprintf(ov, sizeof ov, T("wiz.in_peak"), (unsigned long long)h.n_in, h.count);
+                else snprintf(ov, sizeof ov, "%s", T("wiz.res.seeking"));
+            }
+            ImGui::ProgressBar(h.phase == 2 && h.count > 0 ? (float)(h.n_in / h.count) : 0.0f, ImVec2(-1, 0), ov);
+            if (h.phase == 2) Small(c_text_dim, Fmt(T("wiz.hv.live"), (unsigned)g_dev.cps, MinSec(h.pass_s).c_str()).c_str());
             ImGui::Spacing();
             double pk = h.hist.empty() ? 0 : h.hist.back().second;
             Big3(T("wiz.step.hv.voltage"), Fmt(T("wiz.hv.volts"), std::fabs(g_dev.gnum("hv_out"))),
@@ -511,38 +607,132 @@ void BodyTpl(bool primary)
     if (w.tpl_phase == 5) Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg).c_str()).c_str());
 }
 
+// экземпляр тела шага: false — мастер, true — расширенный режим (у графика свой запрос вида)
+bool g_body_embedded = false;
+
+// живой спектр шага «Разрешение»: полоса окна пика, поверх подогнанный колокол с линейным фоном
+void ResPlot()
+{
+    Wiz& w = g_wiz;
+    const peakfit::PeakWin& pw = w.fw_win;
+    const peakfit::Result& fr = (w.fw_phase == 3 && w.fwr.ok) ? w.fwr : pw.fit;
+    bool have_fit = fr.ok && (pw.ok || w.fw_phase == 3);
+    double pk = have_fit ? fr.peak : 0;
+
+    // переключатели над графиком
+    auto seg = [&](const char* lbl, bool active) {
+        if (active) { ImGui::PushStyleColor(ImGuiCol_Button, c_accent); ImGui::PushStyleColor(ImGuiCol_Text, c_on_accent); }
+        bool r = ImGui::Button(lbl, ImVec2(48, 0));
+        if (active) ImGui::PopStyleColor(2);
+        return r;
+    };
+    if (seg(T("wiz.plot.lin"), !w.fw_log)) w.fw_log = false;
+    ImGui::SameLine(0, 2);
+    if (seg(T("wiz.plot.log"), w.fw_log)) w.fw_log = true;
+    ImGui::SameLine(0, 16);
+    ImGui::BeginDisabled(pk <= 0);
+    if (ImGui::Button(T("wiz.plot.to_peak"))) { w.fw_view_full = false; w.fw_view_req++; }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button(T("wiz.plot.full"))) { w.fw_view_full = true; w.fw_view_req++; }
+
+    int inst = g_body_embedded ? 1 : 0;
+    bool apply = w.fw_view_done[inst] != w.fw_view_req;
+    w.fw_view_done[inst] = w.fw_view_req;
+
+    ImPlot::GetInputMap().Pan = ImGuiMouseButton_Left;
+    if (!ImPlot::BeginPlot("##resplot", ImVec2(-1, 280), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) return;
+    ImPlot::SetupAxis(ImAxis_X1, T("wiz.plot.channel"));
+    ImPlot::SetupAxis(ImAxis_Y1, T("wiz.plot.counts"), ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_RangeFit);
+    if (w.fw_log) ImPlot::SetupAxisScale(ImAxis_Y1, ImPlotScale_Log10);
+    ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, (double)Device::CHANNELS);
+    ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, w.fw_log ? 0.5 : 0.0, 1.0e12);
+    if (apply) {
+        if (w.fw_view_full || pk <= 0) ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Always);
+        else ImPlot::SetupAxisLimits(ImAxis_X1, 0.5 * pk, 1.6 * pk, ImPlotCond_Always);
+    } else if (pk > 0) ImPlot::SetupAxisLimits(ImAxis_X1, 0.5 * pk, 1.6 * pk, ImPlotCond_Once);
+    else ImPlot::SetupAxisLimits(ImAxis_X1, 0, Device::CHANNELS, ImPlotCond_Once);
+    ImPlot::SetupLegend(ImPlotLocation_NorthEast);
+
+    // полоса окна пика на всю высоту области графика
+    if (pw.ok && pw.hi > pw.lo) {
+        ImPlotRect lim = ImPlot::GetPlotLimits();
+        ImVec2 a = ImPlot::PlotToPixels(pw.lo, lim.Y.Max), b = ImPlot::PlotToPixels(pw.hi, lim.Y.Min);
+        ImVec4 band = c_accent; band.w = 0.16f;
+        ImPlot::PushPlotClipRect();
+        ImPlot::GetPlotDrawList()->AddRectFilled(a, b, U32(band));
+        ImPlot::PopPlotClipRect();
+        double xs[2] = { (double)pw.lo, (double)pw.hi };
+        ImPlot::PushStyleColor(ImPlotCol_Line, c_accent_line);
+        ImPlot::PlotInfLines(T("wiz.plot.window"), xs, 2);
+        ImPlot::PopStyleColor();
+    }
+    ImPlot::PushStyleColor(ImPlotCol_Line, c_trace);
+    ImPlot::PlotStairs(T("wiz.plot.spectrum"), g_dev.spectrum, Device::CHANNELS);
+    ImPlot::PopStyleColor();
+    if (have_fit && fr.sigma > 0) {
+        // колокол с линейным фоном на ±4σ вокруг пика
+        static double gx[241], gy[241];
+        double x0 = fr.peak - 4 * fr.sigma, dx = 8 * fr.sigma / 240;
+        for (int i = 0; i <= 240; i++) {
+            gx[i] = x0 + i * dx;
+            double y = fr.model(gx[i]);
+            gy[i] = (w.fw_log && y < 0.5) ? 0.5 : y;
+        }
+        ImPlot::SetNextLineStyle(c_ok, 2.0f);
+        ImPlot::PlotLine(T("wiz.plot.fit"), gx, gy, 241);
+    }
+    ImPlot::EndPlot();
+}
+
 void BodyRes(bool primary)
 {
     Wiz& w = g_wiz;
     bool conn = g_dev.connected();
+    bool run = w.fw_phase == 1;
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(T("wiz.res.secs"));
+    ImGui::TextUnformatted(T("wiz.res.count"));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(90);
-    ImGui::BeginDisabled(w.fw_phase == 1);
-    ImGui::InputFloat("##wsecs", &w.fw_secs, 0, 0, "%.0f");
+    ImGui::SetNextItemWidth(140);
+    ImGui::BeginDisabled(run);
+    ImGui::InputInt("##wcount", &w.fw_count, 1000, 5000);
     ImGui::EndDisabled();
-    if (w.fw_secs < 30) w.fw_secs = 30;
-    ImGui::BeginDisabled(!conn || Busy() || w.fw_phase == 1);
+    if (w.fw_count < 1000) w.fw_count = 1000;
+    if (w.fw_count > 10000000) w.fw_count = 10000000;
+    ImGui::BeginDisabled(!conn || Busy() || run);
     if (ActionButton(T("wiz.res.btn"), primary)) {
         g_dev.stop(); g_dev.reset_spectrum(); g_dev.start();
-        w.fw_phase = 1; w.fw_t0 = ImGui::GetTime();
+        w.fw_phase = 1; w.fw_t0 = ImGui::GetTime(); w.fw_eval_t = w.fw_t0;
+        w.fw_n = 0; w.fw_el = 0; w.fw_timeout_hit = false;
+        w.fw_win = peakfit::PeakWin(); w.fwr = peakfit::Result();
     }
     ImGui::EndDisabled();
     ImGui::Spacing();
-    if (w.fw_phase == 1) {
-        double el = ImGui::GetTime() - w.fw_t0;
-        std::string e = Fmt(T("wiz.elapsed"), MinSec(el).c_str());
-        ImGui::ProgressBar((float)(el / (w.fw_secs + 2)), ImVec2(-1, 0), e.c_str());
+    if (run) {
+        char ov[96];
+        if (w.fw_win.ok) snprintf(ov, sizeof ov, T("wiz.in_peak"), (unsigned long long)w.fw_n, (double)w.fw_count);
+        else snprintf(ov, sizeof ov, "%s", T("wiz.res.seeking"));
+        ImGui::ProgressBar(w.fw_count > 0 ? (float)((double)w.fw_n / w.fw_count) : 0.0f, ImVec2(-1, 0), ov);
+        Small(c_text_dim, Fmt(T("wiz.res.live"), (unsigned)g_dev.cps, MinSec(w.fw_el).c_str(), MinSec(w.fw_timeout).c_str()).c_str());
     }
     if (w.fw_phase == 3) {
+        if (w.fw_timeout_hit)
+            Para(c_warn, Fmt(T("wiz.res.timeout"), w.fw_count, MinSec(w.fw_el).c_str()).c_str());
         if (w.fwr.ok) {
-            PassLine(w.fwr.fwhm_pct < 8.5, Fmt(T("wiz.res.result"), w.fwr.fwhm_pct, w.fwr.fwhm_err, w.fwr.peak));
-            const char* q = w.fwr.fwhm_pct < 7.5 ? "wiz.res.good" : w.fwr.fwhm_pct < 8.5 ? "wiz.res.norm" : "wiz.res.bad";
-            Small(w.fwr.fwhm_pct < 8.5 ? c_text_dim : c_warn, Fmt(T(q)).c_str());
+            PassLine(w.fwr.fwhm_pct < 8.5 && !w.fw_timeout_hit, Fmt(T("wiz.res.result"), w.fwr.fwhm_pct, w.fwr.fwhm_err, w.fwr.peak));
+            if (!w.fw_timeout_hit) {
+                const char* q = w.fwr.fwhm_pct < 7.5 ? "wiz.res.good" : w.fwr.fwhm_pct < 8.5 ? "wiz.res.norm" : "wiz.res.bad";
+                Small(w.fwr.fwhm_pct < 8.5 ? c_text_dim : c_warn, Fmt(T(q)).c_str());
+            }
+            Small(c_text_dim, Fmt(T("wiz.in_peak"), (unsigned long long)w.fw_n, (double)w.fw_count).c_str());
         } else {
-            PassLine(false, Fmt(T("wiz.res.nopeak")));
+            const char* np = T("wiz.res.nopeak");
+            PassLine(false, std::string(np).rfind("! ", 0) == 0 ? np + 2 : np);   // «!» рисует PassLine
         }
+    }
+    if (w.fw_phase == 1 || w.fw_phase == 3) {
+        ImGui::Spacing();
+        ResPlot();
     }
 }
 
@@ -550,7 +740,7 @@ void BodyRes(bool primary)
 double ScalePeak()
 {
     const Wiz& w = g_wiz;
-    if (w.fwr.ok && w.fw_phase == 3) return w.fwr.peak;
+    if (w.fwr.ok && w.fw_phase == 3 && !w.fw_timeout_hit) return w.fwr.peak;
     if (g_dev.setup_known == ds::SetupKnown::Yes && g_dev.setup.res_unix && g_dev.setup.res_peak_ch > 0) return g_dev.setup.res_peak_ch;
     return 0;
 }
@@ -624,6 +814,7 @@ void Body(ds::Step s, bool embedded)
     ds::Snapshot snap = Snap();
     bool conn = snap.connected;
     int target = (int)g_dev.hvp.target;
+    g_body_embedded = embedded;
 
     if (!embedded) {
         ImGui::PushFont(font_small);
@@ -725,6 +916,18 @@ void Body(ds::Step s, bool embedded)
             ImGui::SetNextItemWidth(70); float lo = (float)h.lo; if (ImGui::InputFloat("##wlo", &lo, 0, 0, "%.0f")) h.lo = lo;
             ImGui::SameLine(); ImGui::TextUnformatted("…"); ImGui::SameLine();
             ImGui::SetNextItemWidth(70); float hi = (float)h.hi; if (ImGui::InputFloat("##whi", &hi, 0, 0, "%.0f")) h.hi = hi;
+            ImGui::BeginDisabled(h.running);
+            ImGui::SetNextItemWidth(90); float cn = (float)h.count;
+            if (ImGui::InputFloat(T("wiz.hv.count"), &cn, 0, 0, "%.0f")) h.count = cn < 100 ? 100 : cn;
+            ImGui::SetNextItemWidth(90); float tm = (float)h.timeout;
+            if (ImGui::InputFloat(T("wiz.hv.timeout"), &tm, 0, 0, "%.0f")) h.timeout = tm < 10 ? 10 : tm;
+            ImGui::EndDisabled();
+        }
+        if (s == ds::Step::Res) {
+            ImGui::BeginDisabled(w.fw_phase == 1);
+            ImGui::SetNextItemWidth(90);
+            if (ImGui::InputFloat(T("wiz.res.timeout_lbl"), &w.fw_timeout, 0, 0, "%.0f") && w.fw_timeout < 30) w.fw_timeout = 30;
+            ImGui::EndDisabled();
         }
     }
 }
@@ -882,7 +1085,7 @@ void WizTick()
         w.zero_wait = false;
         w.zero_ok = g_dev.queue_errors == w.zero_err0;
         w.zero_reply = w.zero_ok ? g_dev.last_reply : g_dev.queue_last_err;
-        if (w.zero_ok) Record(ds::Step::Zero);
+        if (w.zero_ok) { Record(ds::Step::Zero); w.zero_run = true; }
     }
 
     // подбор ВВ (шаги Hv и Hv2)
@@ -917,13 +1120,32 @@ void WizTick()
         if (w.tpl_phase == 4) Record(ds::Step::Tpl);
     }
 
-    // разрешение
-    if (w.fw_phase == 1 && now - w.fw_t0 >= w.fw_secs + 2) {
-        g_dev.stop();
-        w.fwr = peakfit::fit(g_dev.spectrum, Device::CHANNELS, 300, 7000);
-        w.fw_phase = 3;
-        if (w.fwr.ok) Record(ds::Step::Res, w.fwr.fwhm_pct, w.fwr.peak);
+    // разрешение: набор до fw_count импульсов в окне фотопика; пик и окно раз в секунду по живому спектру
+    if (w.fw_phase == 1) {
+        int lo = (int)g_dev.hvp.lo, hi = (int)g_dev.hvp.hi;        // окно поиска пика (300–6000)
+        w.fw_el = now - w.fw_t0;
+        if (w.fw_el >= 2.0 && now - w.fw_eval_t >= 1.0) {          // первые 2 с: могли прийти куски до -rst
+            w.fw_eval_t = now;
+            bool had = w.fw_win.ok;
+            w.fw_win = peakfit::peak_window(g_dev.spectrum, Device::CHANNELS, lo, hi);
+            w.fw_n = w.fw_win.ok ? peakfit::window_sum(g_dev.spectrum, Device::CHANNELS, w.fw_win.lo, w.fw_win.hi) : 0;
+            if (w.fw_win.ok && !had) { w.fw_view_full = false; w.fw_view_req++; }   // пик нашёлся: приблизить
+        }
+        peakfit::Stop st = peakfit::count_stop(w.fw_n, (uint64_t)w.fw_count, w.fw_el, w.fw_timeout);
+        if (st != peakfit::Stop::Run) {
+            g_dev.stop();
+            // итог — только уверенный пик (та же проверка, что для счёта); иначе «Пик не найден»
+            peakfit::PeakWin fin = peakfit::peak_window(g_dev.spectrum, Device::CHANNELS, lo, hi);
+            w.fwr = fin.ok ? fin.fit : peakfit::Result();
+            w.fw_win = fin;
+            w.fw_n = fin.ok ? peakfit::window_sum(g_dev.spectrum, Device::CHANNELS, fin.lo, fin.hi) : 0;
+            w.fw_timeout_hit = st == peakfit::Stop::Timeout;
+            w.fw_phase = 3;
+            w.fw_view_full = false; w.fw_view_req++;
+            if (w.fwr.ok && !w.fw_timeout_hit) Record(ds::Step::Res, w.fwr.fwhm_pct, w.fwr.peak);
+        }
     }
+
 
     // шкала энергий: после записи перечитать шкалу (-cal) и запись о настройке
     if (w.cal_phase == 1 && !g_dev.queue_busy()) {

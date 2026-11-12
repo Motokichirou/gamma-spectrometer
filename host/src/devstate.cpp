@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 
 namespace ds {
 
@@ -273,6 +274,21 @@ std::string setup_cmd(Step s, uint32_t unix, double a, double b)
     default:          return std::string();
     }
     return c;
+}
+
+std::string report_not_run(uint32_t last_unix)
+{
+    std::string d;
+    if (last_unix == 0) d = "нет данных";
+    else if (last_unix < 1000000000u) d = "дата неизвестна";
+    else {
+        time_t t = (time_t)last_unix;
+        struct tm lt;
+        char b[32];
+        if (localtime_s(&lt, &t) == 0 && strftime(b, sizeof b, "%d.%m.%Y", &lt)) d = b;
+        else d = "дата неизвестна";
+    }
+    return "не проводилось в этот раз (последний раз: " + d + ")";
 }
 
 } // namespace ds

@@ -373,7 +373,8 @@ static void PanelHV(ImVec2 pos, ImVec2 size)
     ImGui::SetNextItemWidth(60); f = (float)h.lo; if (ImGui::InputFloat("##lo", &f, 0, 0, "%.0f")) h.lo = f;
     ImGui::SameLine(); ImGui::TextUnformatted("–"); ImGui::SameLine();
     ImGui::SetNextItemWidth(60); f = (float)h.hi; if (ImGui::InputFloat("окно пика", &f, 0, 0, "%.0f")) h.hi = f;
-    ImGui::SetNextItemWidth(60); f = (float)h.secs; if (ImGui::InputFloat("набор, с", &f, 0, 0, "%.0f")) h.secs = f < 5 ? 5 : f;
+    ImGui::SetNextItemWidth(60); f = (float)h.count; if (ImGui::InputFloat(T("adv.hv.count"), &f, 0, 0, "%.0f")) h.count = f < 100 ? 100 : f;
+    ImGui::SetNextItemWidth(60); f = (float)h.timeout; if (ImGui::InputFloat(T("adv.hv.timeout"), &f, 0, 0, "%.0f")) h.timeout = f < 10 ? 10 : f;
     ImGui::SetNextItemWidth(60); f = (float)h.gain_exp; if (ImGui::InputFloat("показатель усиления", &f, 0, 0, "%.1f")) h.gain_exp = f < 2 ? 2 : f;
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!conn || g_dev.lin.running);
@@ -384,6 +385,11 @@ static void PanelHV(ImVec2 pos, ImVec2 size)
         }
     } else if (ImGui::Button("Прервать подстройку", ImVec2(-1, 0))) g_dev.hvp_abort();
     ImGui::EndDisabled();
+    if (h.running && h.phase == 2) {          // проход: импульсов в фотопике из N
+        char ov[96];
+        snprintf(ov, sizeof ov, T("wiz.in_peak"), (unsigned long long)h.n_in, h.count);
+        ImGui::ProgressBar(h.count > 0 ? (float)(h.n_in / h.count) : 0.0f, ImVec2(-1, 0), ov);
+    }
     if (!h.msg.empty()) ImGui::TextWrapped("%s", h.msg.c_str());
     for (auto& p : h.hist) ImGui::TextDisabled("%.0f В → пик %.1f", p.first, p.second);
     ImGui::End();
@@ -456,6 +462,12 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
             double tg[1] = { h.target };
             ImPlot::PushStyleColor(ImPlotCol_Line, c_cursor);
             ImPlot::PlotInfLines("цель", tg, 1);
+            ImPlot::PopStyleColor();
+        }
+        if (h.running && h.phase == 2 && h.win_ok) {   // окно фотопика ±1.5·FWHM, по которому считается проход
+            double pw[2] = { (double)h.win_lo, (double)h.win_hi };
+            ImPlot::PushStyleColor(ImPlotCol_Line, c_ok);
+            ImPlot::PlotInfLines("##pkwin", pw, 2);
             ImPlot::PopStyleColor();
         }
         ImPlot::EndPlot();
