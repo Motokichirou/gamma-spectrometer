@@ -353,7 +353,7 @@ void FlashStart(const std::string& port)
     if (!fwflash::embedded(img, tag)) { w.fl_err = T("wiz.flash.no_image"); w.fl_state = 3; return; }
     g_dev.disconnect();
     w.fl_state = 1; w.fl_prog = 0; w.fl_err.clear(); w.fl_port = port;
-    { std::lock_guard<std::mutex> lk(w.fl_mtx); w.fl_log.clear(); w.fl_log.push_back("образ " + tag + ", " + std::to_string(img.size()) + " байт"); }
+    { std::lock_guard<std::mutex> lk(w.fl_mtx); w.fl_log.clear(); w.fl_log.push_back(Fmt(T("wiz.flash.image"), tag.c_str(), (int)img.size())); }
     std::thread([img, port]() {
         Wiz& w = g_wiz;
         std::string err;

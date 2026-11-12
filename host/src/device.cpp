@@ -1,7 +1,9 @@
 // device.cpp — см. device.h
 #include "device.h"
 #include "peakfit.h"
+#include "i18n.h"
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -21,6 +23,17 @@ static bool starts(const std::string& s, const char* p)
     return s.rfind(p, 0) == 0;
 }
 
+// строка по ключу i18n и формату printf (сообщения видны в пульте; CLI язык не меняет — там русский)
+static std::string TF(const char* key, ...)
+{
+    char b[320];
+    va_list ap;
+    va_start(ap, key);
+    vsnprintf(b, sizeof b, T(key), ap);
+    va_end(ap);
+    return b;
+}
+
 void Device::log_add(int dir, const std::string& s)
 {
     log.push_back({ dir, s });
@@ -36,20 +49,20 @@ bool Device::connect(const std::string& port)
 {
     disconnect();
     state = State::Connecting;
-    status_text = "Подключение…";
+    status_text = T("conn.connecting");
     if (!serial_.open(port, 600000)) {
         last_open_error = serial_.last_error();
         state = State::Error;
-        status_text = "Не удалось открыть " + port + " (занят BecqMoni?)";
+        status_text = TF("dev.open_fail", port.c_str());
         log_add(3, status_text);
         return false;
     }
     port_name = port;
     last_open_error = 0;
     state = State::Connected;
-    status_text = "Связь установлена · простой";
+    status_text = T("dev.idle");
     last_ka_ = last_gst_tx_ = now_sec();
-    log_add(0, "Открыт " + port + " @ 600000 8N1");
+    log_add(0, TF("dev.opened", port.c_str()));
     send_cmd("-stt");   // идёт ли набор (-ok collecting / -ok) — набор не трогаем
     send_cmd("-inf");   // версия прошивки
     send_cmd("-cal");   // 40 регистров BecqMoni + серийник последней строкой
@@ -94,7 +107,7 @@ void Device::disconnect()
     q_.clear(); q_wait_ = false;
     serial_.close();
     state = State::Disconnected;
-    status_text = "Нет связи · порт закрыт";
+    status_text = T("dev.closed");
     acquiring = false;
     fw_info.clear(); serial.clear();
     becq_ok = false; for (double& c : becq_c) c = 0;
@@ -114,11 +127,11 @@ void Device::send_cmd(const std::string& cmd, bool quiet)
     if (cmd == "-sta") {
         acquiring = true;
         if (state == State::Connected) state = State::Acquiring;
-        status_text = "Связь · набор";
+        status_text = T("dev.acq");
     } else if (cmd == "-sto") {
         acquiring = false;
         if (state == State::Acquiring) state = State::Connected;
-        status_text = "Связь установлена · простой";
+        status_text = T("dev.idle");
     }
 }
 
@@ -172,7 +185,7 @@ void Device::poll()
     int n = serial_.read(rx, sizeof(rx));
     if (n < 0) {
         state = State::Error;
-        status_text = "Ошибка связи · порт";
+        status_text = T("dev.port_err");
         log_add(3, status_text);
         lin.running = hvp.running = false;
         return;
@@ -186,7 +199,7 @@ void Device::poll()
     if (tc.running)  tc_tick(now);
     if (logd.running) logd_tick(now);
     if (setup_wait_ && now - setup_t_ > 2.0) setup_wait_ = false;   // нет ответа — состояние остаётся прежним
-    if (q_wait_ && now - q_t_ > 2.0) { q_wait_ = false; queue_errors++; queue_last_err = "нет ответа"; }
+    if (q_wait_ && now - q_t_ > 2.0) { q_wait_ = false; queue_errors++; queue_last_err = T("dev.no_reply"); }
     if (!q_wait_ && !q_.empty()) {
         send_cmd(q_.front(), true);
         q_.pop_front(); q_wait_ = true; q_t_ = now;
@@ -276,7 +289,7 @@ void Device::on_text(const std::string& t0)
         if (!acc.empty()) sn = acc;
         serial = sn;
         becq_ok = ds::parse_becq_cal(t, becq_c);
-        log_add(2, "калибровка BecqMoni: 40 регистров, серийник " + sn);
+        log_add(2, TF("dev.becq_cal", sn.c_str()));
         return;
     }
 
@@ -291,19 +304,19 @@ void Device::on_text(const std::string& t0)
     } else if (t == "-ok collecting") {
         acquiring = true;
         if (state == State::Connected) state = State::Acquiring;
-        status_text = "Связь · набор";
+        status_text = T("dev.acq");
     }
 
     if (lin.running) {
         if (starts(t, "-ok dac done")) {
             if (lin.phase == 1) { lin.phase = 2; lin_seq_ = full_seq_; chunk_mask_ = 0; lin.t0 = now_sec(); }
         } else if (starts(t, "-err dac") || starts(t, "-err acq")) {
-            lin.msg = "прибор отказал: " + t;
+            lin.msg = TF("dev.refused", t.c_str());
             lin_abort();
         }
     }
     if (hvp.running && (starts(t, "-err hv") || starts(t, "-err vref"))) {
-        hvp.msg = "прибор отказал: " + t;
+        hvp.msg = TF("dev.refused", t.c_str()); hvp_msg_progress_ = false;
         hvp_abort();
     }
 }
@@ -425,8 +438,8 @@ void Device::lin_start(const std::vector<int>& codes, int n, int period)
     lin = LinRun{};
     lin.codes = codes; lin.n = n; lin.period = period;
     lin.running = true; lin.phase = 0;
-    lin.msg = "идёт прогон…";
-    log_add(0, "самотест ЦАП: " + std::to_string(codes.size()) + " ступенек по " + std::to_string(n) + " импульсов");
+    lin.msg = T("dev.lin.running");
+    log_add(0, TF("dev.lin.start", (int)codes.size(), n));
 }
 
 void Device::lin_abort()
@@ -435,7 +448,7 @@ void Device::lin_abort()
     lin.running = false;
     send_cmd("-dac off");
     send_cmd("-sto");
-    if (lin.msg.empty() || lin.msg == "идёт прогон…") lin.msg = "прервано";
+    if (lin.msg.empty() || lin.msg == T("dev.lin.running")) lin.msg = T("dev.aborted");
 }
 
 void Device::lin_tick(double now)
@@ -463,13 +476,11 @@ void Device::lin_tick(double now)
             lin.r2 = syy > 0 ? 1.0 - ssr / syy : 1.0;
             lin.dev = dev;
             lin.fitted = true;
-            char b[160];
-            snprintf(b, sizeof b, "готово: канал = %.4f·код %+.2f; R² = %.6f; отклонение ≤ %.3f %%", lin.k, lin.b, lin.r2, lin.dev);
-            lin.msg = b;
+            lin.msg = TF("dev.lin.done", lin.k, lin.b, lin.r2, lin.dev);
         } else {
-            lin.msg = "мало точек для прямой";
+            lin.msg = T("dev.lin.few");
         }
-        log_add(0, "самотест ЦАП: " + lin.msg);
+        log_add(0, TF("dev.lin.log", lin.msg.c_str()));
         return;
     }
     int code = lin.codes[lin.idx];
@@ -481,7 +492,7 @@ void Device::lin_tick(double now)
         lin.phase = 1; lin.t0 = now;
     } else if (lin.phase == 1) {
         if (now - lin.t0 > lin.n * lin.period * 1e-6 + 5.0) {
-            lin.msg = "нет ответа «-ok dac done»";
+            lin.msg = T("dev.lin.no_done");
             lin_abort();
         }
     } else if (lin.phase == 2) {
@@ -508,8 +519,8 @@ void Device::hvp_start(double v_start)
     hvp.target = target; hvp.lo = lo; hvp.hi = hi; hvp.gain_exp = ge; hvp.tol_pct = tol;
     hvp.count = cnt < 100 ? 100 : cnt; hvp.timeout = tmo < 10 ? 10 : tmo;
     hvp.v = v_start; hvp.running = true; hvp.phase = 0;
-    hvp.msg = "выставляю ВВ…";
-    log_add(0, "подстройка ВВ по пику: старт с " + std::to_string((int)v_start) + " В, цель канал " + std::to_string((int)target));
+    hvp.msg = T("dev.hvp.setting"); hvp_msg_progress_ = true;
+    log_add(0, TF("dev.hvp.start", (int)v_start, (int)target));
 }
 
 void Device::hvp_abort()
@@ -517,14 +528,15 @@ void Device::hvp_abort()
     if (!hvp.running) return;
     hvp.running = false;
     send_cmd("-sto");
-    if (hvp.msg.empty() || starts(hvp.msg, "жду") || starts(hvp.msg, "набор") || starts(hvp.msg, "выставляю"))
-        hvp.msg = "прервано (ВВ оставлено как есть)";
+    if (hvp.msg.empty() || hvp_msg_progress_)
+        hvp.msg = T("dev.hvp.aborted");
+    hvp_msg_progress_ = false;
 }
 
 void Device::hvp_tick(double now)
 {
     if (gstr("hv_trip", "-") != "-" && gst_age() < 3) {
-        hvp.msg = "авария ВВ: " + gstr("hv_trip");
+        hvp.msg = TF("dev.hvp.trip", gstr("hv_trip").c_str()); hvp_msg_progress_ = false;
         hvp_abort();
         return;
     }
@@ -534,7 +546,7 @@ void Device::hvp_tick(double now)
         snprintf(c, sizeof c, "-hv %d", (int)lround(hvp.v));
         send_cmd(c);
         hvp.phase = 1; hvp.t0 = now;
-        hvp.msg = "жду установления ВВ…";
+        hvp.msg = T("dev.hvp.waiting"); hvp_msg_progress_ = true;
         break;
     case 1: { // установление по монитору
         double out = fabs(gnum("hv_out", 0));
@@ -544,10 +556,9 @@ void Device::hvp_tick(double now)
             for (auto& v : spectrum) v = 0;
             hvp.phase = 2; hvp.t0 = now; hvp_eval_t_ = now;
             hvp.n_in = 0; hvp.win_ok = false; hvp.win_lo = hvp.win_hi = 0; hvp.pass_s = 0;
-            snprintf(c, sizeof c, "набор при %.0f В: ищу пик…", hvp.v);
-            hvp.msg = c;
+            hvp.msg = TF("dev.hvp.seek", hvp.v); hvp_msg_progress_ = true;
         } else if (now - hvp.t0 > 180.0) {
-            hvp.msg = "ВВ не установилось за 3 мин";
+            hvp.msg = T("dev.hvp.no_settle"); hvp_msg_progress_ = false;
             hvp_abort();
         }
         break;
@@ -561,17 +572,16 @@ void Device::hvp_tick(double now)
             hvp.win_ok = pw.ok;
             hvp.win_lo = pw.lo; hvp.win_hi = pw.hi;
             hvp.n_in = pw.ok ? peakfit::window_sum(spectrum, CHANNELS, pw.lo, pw.hi) : 0;
-            if (pw.ok) snprintf(c, sizeof c, "набор при %.0f В: в пике %llu из %.0f…", hvp.v, (unsigned long long)hvp.n_in, hvp.count);
-            else       snprintf(c, sizeof c, "набор при %.0f В: ищу пик…", hvp.v);
-            hvp.msg = c;
+            if (pw.ok) hvp.msg = TF("dev.hvp.inpeak", hvp.v, (unsigned long long)hvp.n_in, hvp.count);
+            else       hvp.msg = TF("dev.hvp.seek", hvp.v);
+            hvp_msg_progress_ = true;
         }
         peakfit::Stop st = peakfit::count_stop(hvp.n_in, (uint64_t)hvp.count, hvp.pass_s, hvp.timeout);
         if (st == peakfit::Stop::Count) { hvp_seq_ = full_seq_; chunk_mask_ = 0; hvp.phase = 3; hvp.t0 = now; }
         else if (st == peakfit::Stop::Timeout) {
-            snprintf(c, sizeof c, "не набралось %.0f в пике за %.0f с при %.0f В (в пике %llu): проверьте источник",
-                     hvp.count, hvp.timeout, hvp.v, (unsigned long long)hvp.n_in);
-            hvp.msg = c;
-            log_add(3, "подстройка ВВ: " + hvp.msg);
+            hvp.msg = TF("dev.hvp.timeout", hvp.count, hvp.timeout, hvp.v, (unsigned long long)hvp.n_in);
+            hvp_msg_progress_ = false;
+            log_add(3, TF("dev.hvp.log", hvp.msg.c_str()));
             hvp_abort();
         }
         break;
@@ -581,7 +591,7 @@ void Device::hvp_tick(double now)
         send_cmd("-sto");
         double m = 0, sd = 0; uint64_t n = 0;
         if (!peak_stats(spectrum, (int)hvp.lo, (int)hvp.hi, m, sd, n) || n < 200) {
-            hvp.msg = "пик в окне не найден (мало счёта или окно не то)";
+            hvp.msg = T("dev.hvp.nopeak"); hvp_msg_progress_ = false;
             hvp_abort();
             break;
         }
@@ -591,15 +601,13 @@ void Device::hvp_tick(double now)
         double err = (m / hvp.target - 1.0) * 100.0;
         if (fabs(err) <= hvp.tol_pct) {
             hvp.running = false; hvp.done = true;
-            snprintf(c, sizeof c, "готово: %.0f В, пик %.1f (%+.2f %%). Сохрани -save", hvp.v, m, err);
-            hvp.msg = c;
-            log_add(0, "подстройка ВВ: " + hvp.msg);
+            hvp.msg = TF("dev.hvp.done", hvp.v, m, err); hvp_msg_progress_ = false;
+            log_add(0, TF("dev.hvp.log", hvp.msg.c_str()));
             break;
         }
         if (hvp.iter >= hvp.max_iter) {
             hvp.running = false;
-            snprintf(c, sizeof c, "не сошлось за %d шагов: %.0f В, пик %.1f", hvp.max_iter, hvp.v, m);
-            hvp.msg = c;
+            hvp.msg = TF("dev.hvp.noconv", hvp.max_iter, hvp.v, m); hvp_msg_progress_ = false;
             break;
         }
         double nv = hvp.v * pow(hvp.target / m, 1.0 / hvp.gain_exp);
@@ -632,8 +640,8 @@ void Device::raw_start(int nblocks)
     raw.was_acq = acquiring;
     if (acquiring) send_cmd("-sto");
     raw_cur_.assign(tpl_blk, 0); raw_wait_ = false;
-    raw.msg = "сбор порций…";
-    log_add(0, "эталон: сбор " + std::to_string(nblocks) + " сырых порций (-osc raw)");
+    raw.msg = T("dev.raw.collecting");
+    log_add(0, TF("dev.raw.start_log", nblocks));
 }
 
 void Device::raw_abort()
@@ -641,7 +649,7 @@ void Device::raw_abort()
     if (!raw.running) return;
     raw.running = false; raw_wait_ = false;
     if (raw.was_acq) send_cmd("-sta");
-    raw.msg = "сбор прерван: порций " + std::to_string(raw.blocks.size());
+    raw.msg = TF("dev.raw.aborted", (int)raw.blocks.size());
 }
 
 void Device::raw_tick(double now)
@@ -653,13 +661,13 @@ void Device::raw_tick(double now)
     if ((int)raw.blocks.size() >= raw.target) {
         raw.running = false;
         if (raw.was_acq) send_cmd("-sta");
-        raw.msg = "собрано порций: " + std::to_string(raw.blocks.size()) + ", сбоев " + std::to_string(raw.bad);
-        log_add(0, "эталон: " + raw.msg);
+        raw.msg = TF("dev.raw.done", (int)raw.blocks.size(), raw.bad);
+        log_add(0, TF("dev.raw.log", raw.msg.c_str()));
         return;
     }
     if (raw.bad > 50 && raw.bad > (int)raw.blocks.size()) {
         raw.running = false;
-        raw.msg = "слишком много сбоев при чтении порций";
+        raw.msg = T("dev.raw.too_bad");
         return;
     }
     std::fill(raw_cur_.begin(), raw_cur_.end(), (uint16_t)0);
@@ -685,8 +693,8 @@ void Device::tc_start()
     tc_capture_old_ = true;
     queue({ "-tc", "-tc 25 0 0" });          // запомнить действующие коэффициенты и выключить поправку
     tc.running = true; tc.phase = -1; tc.t0 = now_sec();
-    tc.msg = "выключаю термокомпенсацию…";
-    log_add(0, "термокомпенсация: запись (поправка в приборе выключена на время записи)");
+    tc.msg = T("dev.tc.off");
+    log_add(0, T("dev.tc.log"));
 }
 
 void Device::tc_stop(bool restore_old)
@@ -694,8 +702,8 @@ void Device::tc_stop(bool restore_old)
     if (!tc.running) return;
     tc.running = false;
     send_cmd("-sto");
-    if (restore_old && !tc.old_tc.empty()) { queue({ "-tc " + tc.old_tc }); tc.msg = "остановлено, прежние коэффициенты возвращены"; }
-    else tc.msg = "остановлено";
+    if (restore_old && !tc.old_tc.empty()) { queue({ "-tc " + tc.old_tc }); tc.msg = T("dev.tc.stopped_restored"); }
+    else tc.msg = T("dev.tc.stopped");
 }
 
 void Device::tc_tick(double now)
@@ -708,7 +716,7 @@ void Device::tc_tick(double now)
         send_cmd("-sto"); send_cmd("-rst"); send_cmd("-sta");
         for (auto& v : spectrum) v = 0;
         tc.tsum = 0; tc.tn = 0; tc.t0 = now; tc.phase = 1;
-        if (tc.pts.empty()) tc.msg = "набор первой точки…";
+        if (tc.pts.empty()) tc.msg = T("dev.tc.first");
         break;
     case 1:
         if (gst_rx_ > tc_last_gst_ && gstr("pt", "-") == "ok") { tc.tsum += gnum("t"); tc.tn++; }
@@ -721,10 +729,9 @@ void Device::tc_tick(double now)
         if (tc.tn > 0 && peak_stats(spectrum, (int)tc.lo, (int)tc.hi, m, sd, n) && n >= 200) {
             TcPoint p; p.t = tc.tsum / tc.tn; p.peak = m; p.sd = sd; p.n = n;
             tc.pts.push_back(p);
-            char b[96]; snprintf(b, sizeof b, "точка %d: %.2f °C, пик %.2f", (int)tc.pts.size(), p.t, m);
-            tc.msg = b;
+            tc.msg = TF("dev.tc.point", (int)tc.pts.size(), p.t, m);
         } else {
-            tc.msg = tc.tn == 0 ? "нет температуры (Pt1000 не ok)" : "пик в окне не найден";
+            tc.msg = tc.tn == 0 ? T("dev.tc.no_temp") : T("dev.tc.nopeak");
         }
         tc.phase = 0;
         break;
@@ -767,14 +774,14 @@ void Device::logd_start(uint32_t only_session)
     logd.only_session = only_session;
     logd_wait_ = false;
     logd_list_done_ = logd_rec_done_ = logd_rec_err_ = false;
-    logd.msg = "читаю список записей…";
+    logd.msg = T("dev.lg.list");
 }
 
 void Device::logd_abort()
 {
     if (!logd.running) return;
     logd.running = false;
-    logd.msg = "выгрузка прервана";
+    logd.msg = T("dev.lg.aborted");
 }
 
 void Device::logd_tick(double now)
@@ -783,13 +790,13 @@ void Device::logd_tick(double now)
         if (!logd_wait_) { send_cmd("-log list", true); logd_wait_ = true; logd_t_ = now; return; }
         if (logd_list_done_) {
             logd_wait_ = false;
-            if (logd_rec_err_) { logd.running = false; logd.msg = "прибор не отдал список (" + log_status + ")"; return; }
+            if (logd_rec_err_) { logd.running = false; logd.msg = TF("dev.lg.no_list", log_status.c_str()); return; }
             std::sort(logd.items.begin(), logd.items.end(), [](const LogDump::Item& a, const LogDump::Item& b) { return a.seq < b.seq; });
             logd.phase = 1;
             logd.idx = 0;
             return;
         }
-        if (now - logd_t_ > 60.0) { logd.running = false; logd.msg = "нет ответа на -log list"; }
+        if (now - logd_t_ > 60.0) { logd.running = false; logd.msg = T("dev.lg.no_reply"); }
         return;
     }
     // чтение записей по одной
@@ -810,10 +817,8 @@ void Device::logd_tick(double now)
     if (logd.idx >= logd.items.size()) {
         logd.running = false;
         logd.done = true;
-        char b[96];
-        snprintf(b, sizeof b, "выгружено записей: %zu, испорчено %d", logd.recs.size(), logd.bad);
-        logd.msg = b;
-        log_add(0, "регистратор: " + logd.msg);
+        logd.msg = TF("dev.lg.done", logd.recs.size(), logd.bad);
+        log_add(0, TF("dev.lg.log", logd.msg.c_str()));
         return;
     }
     char c[40];
@@ -824,7 +829,5 @@ void Device::logd_tick(double now)
     send_cmd(c, true);
     logd_wait_ = true;
     logd_t_ = now;
-    char b[64];
-    snprintf(b, sizeof b, "читаю запись %zu из %zu…", logd.idx + 1, logd.items.size());
-    logd.msg = b;
+    logd.msg = TF("dev.lg.reading", logd.idx + 1, logd.items.size());
 }

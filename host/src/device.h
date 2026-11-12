@@ -170,6 +170,7 @@ private:
     void old_tc_from(const std::string& t);
     uint32_t lin_seq_ = 0, hvp_seq_ = 0, tc_seq_ = 0;
     double hvp_eval_t_ = 0;                  // когда последний раз считали пик в проходе подбора ВВ
+    bool hvp_msg_progress_ = false;          // в hvp.msg — ход подбора (а не итог/ошибка): прерывание его заменит
     std::deque<std::string> q_;
     bool q_wait_ = false; double q_t_ = 0;
     std::vector<uint16_t> raw_cur_;
