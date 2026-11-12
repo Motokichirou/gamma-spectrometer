@@ -117,7 +117,7 @@ static float     sec_vrefint, sec_vbat, sec_pt;
 static bool      sec_vrefint_new, sec_vbat_new, sec_pt_new;
 
 /* ---- состояние приложения ---- */
-static settings_t live;
+static CCM_BSS settings_t live;
 static hv_ctl_t   hv;
 /* Данные детектора — в ОЗУ (SRAM1), а не в CCM рядом с его кодом: код медленного пути исполняется
    из CCM, и обращение к данным там же идёт в тот же банк, что и выборка команд (I- и D-шина, AN4296) —

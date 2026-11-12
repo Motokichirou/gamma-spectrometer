@@ -123,7 +123,7 @@ static void test_load_rejects(void)
     CHECK(!fstore_load(img, &out));
 
     settings_t v = s;                                            /* старая/новая версия структуры */
-    v.version = 3u;                                              /* ни v1, ни v2 */
+    v.version = 4u;                                              /* ни v1, ни v2, ни v3 */
     settings_seal(&v);
     memcpy(img, &v, sizeof v);
     CHECK(!fstore_load(img, &out));
@@ -226,7 +226,8 @@ static void test_migrate_v1(void)
     CHECK(out.thr_codes == 7);
     CHECK(out.becq_valid == 1 && out.becq_words[0] == 0x12345678u);
     CHECK(out.tpl_valid == 1 && out.tpl[3][2] == -1234);
-    CHECK(out.version == 2u && settings_valid(&out));
+    CHECK(out.version == 3u && settings_valid(&out));
+    CHECK(out.tail_valid == 0 && out.pile_on == 1);
     CHECK(out.setup.done_unix == SETUP_DONE_UNKNOWN);
     CHECK(out.setup.chk_unix == 0 && out.setup.hv_unix == 0 && out.setup.res_unix == 0);
 
@@ -236,6 +237,77 @@ static void test_migrate_v1(void)
     CHECK(out.setup.done_unix == 0 && out.thr_codes == 7 && out.tpl_valid == 0);
 
     mk_v1(&v, 1);                                   /* битый CRC v1 */
+    v.crc32 ^= 1u;
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    CHECK(!fstore_load(img, &out));
+}
+
+/* замороженная копия раскладки settings_t версии 2 (как на приборе до v3) */
+typedef struct {
+    uint32_t magic, version, size;
+    float hv_mon_zero_mv, hv_mon_k_mv_per_v;
+    float hv_setpoint_v;
+    uint8_t reserved_boot;
+    float pt_rpu_ohm;
+    float tc_t0_c, tc_k1, tc_k2;
+    uint16_t thr_codes;
+    uint32_t becq_words[11];
+    uint8_t becq_valid;
+    int16_t tpl[64][7];
+    uint8_t tpl_valid;
+    setup_rec_t setup;
+    uint8_t reserved[8];
+    uint32_t crc32;
+} v2_t;
+
+static void mk_v2(v2_t *v)
+{
+    memset(v, 0, sizeof *v);
+    v->magic = SETTINGS_MAGIC; v->version = 2; v->size = (uint32_t)sizeof *v;
+    v->hv_mon_zero_mv = 2461.8f; v->hv_mon_k_mv_per_v = 1.640f; v->hv_setpoint_v = 755.0f;
+    v->reserved_boot = 0; v->pt_rpu_ohm = 10031.0f; v->tc_t0_c = 25.0f; v->tc_k1 = 0.002f; v->tc_k2 = 1e-5f;
+    v->thr_codes = 11; v->becq_valid = 1; v->becq_words[10] = 0xCAFEBABEu;
+    v->tpl_valid = 1; v->tpl[63][6] = -4321; v->tpl[0][0] = 77;
+    v->setup.chk_unix = 111; v->setup.chk_ok = 1; v->setup.zero_unix = 222;
+    v->setup.hv_unix = 333; v->setup.hv_v = 755.5f; v->setup.hv_peak_ch = 1234.5f;
+    v->setup.tpl_unix = 444; v->setup.res_unix = 555; v->setup.res_fwhm_pct = 7.1f;
+    v->setup.res_peak_ch = 999.0f; v->setup.done_unix = 666;
+    v->crc32 = crc32_zip((const uint8_t *)v, offsetof(v2_t, crc32));
+}
+
+static void test_settings_v2_to_v3(void)
+{
+    uint8_t img[PAGE];
+    v2_t v; settings_t out;
+
+    mk_v2(&v);
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    memset(&out, 0xAA, sizeof out);
+    CHECK(fstore_load(img, &out));
+    CHECK(out.version == 3u && out.size == (uint32_t)sizeof(settings_t) && settings_valid(&out));
+    CHECK_NEAR(out.hv_mon_zero_mv, 2461.8, 1e-3);
+    CHECK_NEAR(out.hv_mon_k_mv_per_v, 1.640, 1e-6);
+    CHECK_NEAR(out.hv_setpoint_v, 755.0, 1e-6);
+    CHECK_NEAR(out.pt_rpu_ohm, 10031.0, 1e-3);
+    CHECK_NEAR(out.tc_k1, 0.002, 1e-9);
+    CHECK_NEAR(out.tc_k2, 1e-5, 1e-10);
+    CHECK(out.thr_codes == 11);
+    CHECK(out.becq_valid == 1 && out.becq_words[10] == 0xCAFEBABEu);
+    CHECK(out.tpl_valid == 1 && out.tpl[63][6] == -4321 && out.tpl[0][0] == 77);
+    CHECK(out.setup.chk_unix == 111 && out.setup.chk_ok == 1 && out.setup.zero_unix == 222);
+    CHECK(out.setup.hv_unix == 333 && out.setup.tpl_unix == 444 && out.setup.res_unix == 555);
+    CHECK_NEAR(out.setup.hv_v, 755.5, 1e-3);
+    CHECK_NEAR(out.setup.res_fwhm_pct, 7.1, 1e-4);
+    CHECK(out.setup.done_unix == 666);
+    CHECK(out.tail_valid == 0 && out.pile_on == 1);
+    {   /* таблица хвоста пуста */
+        const uint8_t *t = (const uint8_t *)&out.tail;
+        int nz = 0;
+        for (size_t i = 0; i < sizeof out.tail; i++) nz |= t[i];
+        CHECK(nz == 0);
+    }
+
+    mk_v2(&v);                                      /* битый CRC v2 */
     v.crc32 ^= 1u;
     memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
     CHECK(!fstore_load(img, &out));
@@ -263,6 +335,7 @@ int main(void)
     test_save_unsealed_refused();
     test_save_failures();
     test_migrate_v1();
+    test_settings_v2_to_v3();
     test_same_as_image();
     return T_DONE();
 }

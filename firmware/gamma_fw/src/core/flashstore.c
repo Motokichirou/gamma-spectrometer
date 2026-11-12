@@ -7,7 +7,7 @@ static uint32_t rd32(const uint8_t *p)
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
-/* Проверка прямо по образу, побайтно (без копии settings_t на стеке ~1 КБ: запись зовётся
+/* Проверка прямо по образу, побайтно (без копии settings_t на стеке ~3 КБ: запись зовётся
    из глубины proto_rx, стек 4 КБ) — то же, что settings_valid (только текущая версия). */
 static bool img_valid(const uint8_t *img)
 {
@@ -20,7 +20,7 @@ static bool img_valid(const uint8_t *img)
 bool fstore_load(const uint8_t *img, settings_t *out)
 {
     if (!img) return false;
-    return settings_from_image(img, out);      /* v2 как есть, v1 с переносом полей */
+    return settings_from_image(img, out);      /* v3 как есть, v2 и v1 с переносом полей */
 }
 
 bool fstore_save(const settings_t *s, const fstore_ops_t *ops)

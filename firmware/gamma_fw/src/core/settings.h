@@ -9,9 +9,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "detector.h"   /* det_tail_t */
 
 #define SETTINGS_MAGIC   0x47534631u   /* "GSF1" */
-#define SETTINGS_VERSION 2u
+#define SETTINGS_VERSION 3u
 #define SETUP_DONE_UNKNOWN 1u   /* done_unix: настроен до появления записи, дата неизвестна */
 
 /* Запись о настройке прибора (мастер на PC): что и когда сделано; 0 в *_unix — не делалось. */
@@ -38,7 +39,10 @@ typedef struct {
     int16_t tpl[64][7];                      /* эталон с реального тракта (Q14) */
     uint8_t tpl_valid;
     setup_rec_t setup;                       /* запись о настройке */
-    uint8_t reserved[8];            /* до кратности 8: флеш пишется двойными словами */
+    det_tail_t tail;                         /* таблица хвоста для разбора наложений (-tlw/-tlm) */
+    uint8_t tail_valid;                      /* таблица принята (-tlok) */
+    uint8_t pile_on;                         /* разбор наложений включён (-pile); по умолчанию 1 */
+    uint8_t reserved[6];            /* до кратности 8: флеш пишется двойными словами */
     uint32_t crc32;                          /* по всем байтам до crc32; последнее поле */
 } settings_t;
 /* sizeof(settings_t) кратен 8 и ≤ страницы 4 КБ — проверяется при сборке в settings.c */
@@ -50,7 +54,7 @@ bool settings_valid(const settings_t *s);
 /* Пересчитать crc32. */
 void settings_seal(settings_t *s);
 
-/* Образ страницы флеш → настройки: v2 как есть (settings_valid), v1 — перенос всех полей,
+/* Образ страницы флеш → настройки: v3 как есть (settings_valid), v2 и v1 — перенос всех полей (таблицы хвоста нет, pile_on = 1),
    setup пустой (done_unix = SETUP_DONE_UNKNOWN, если у v1 были эталон и калибровка BecqMoni).
    false — образ пустой/битый/чужой; *out не тронут. */
 bool settings_from_image(const uint8_t *img, settings_t *out);

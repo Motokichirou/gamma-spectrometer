@@ -24,6 +24,25 @@ typedef struct {
     uint32_t crc32;
 } settings_v1_t;
 
+/* Раскладка settings_t версии 2 (прежняя, на приборах в поле): v3 дописала поля после setup,
+   поэтому всё до конца setup совпадает байт в байт — v2 переносится одним memcpy. */
+typedef struct {
+    uint32_t magic, version, size;
+    float hv_mon_zero_mv, hv_mon_k_mv_per_v;
+    float hv_setpoint_v;
+    uint8_t reserved_boot;
+    float pt_rpu_ohm;
+    float tc_t0_c, tc_k1, tc_k2;
+    uint16_t thr_codes;
+    uint32_t becq_words[11];
+    uint8_t becq_valid;
+    int16_t tpl[64][7];
+    uint8_t tpl_valid;
+    setup_rec_t setup;
+    uint8_t reserved[8];
+    uint32_t crc32;
+} settings_v2_t;
+
 uint32_t crc32_zip(const uint8_t *p, size_t n)
 {
     uint32_t crc = 0xFFFFFFFFu;
@@ -63,6 +82,8 @@ void settings_defaults(settings_t *s)
     s->thr_codes = 0;
     s->becq_valid = 0;
     s->tpl_valid = 0;
+    s->tail_valid = 0;
+    s->pile_on = 1;
     settings_seal(s);
 }
 
@@ -87,34 +108,43 @@ bool settings_from_image(const uint8_t *img, settings_t *out)
     const uint32_t ver = rd32(img + offsetof(settings_t, version));
     const uint32_t size = rd32(img + offsetof(settings_t, size));
 
+    /* Без копии settings_t на стеке (≈ 3 КБ, стек 4 КБ): CRC проверяется прямо по образу,
+       результат собирается сразу в *out (после проверки — при отказе *out не тронут). */
     if (ver == SETTINGS_VERSION && size == (uint32_t)sizeof(settings_t)) {
-        settings_t t;
-        memcpy(&t, img, sizeof t);
-        if (!settings_valid(&t)) return false;
-        *out = t;
+        if (rd32(img + offsetof(settings_t, crc32)) != crc32_zip(img, offsetof(settings_t, crc32)))
+            return false;
+        memcpy(out, img, sizeof *out);
+        return true;
+    }
+    if (ver == 2u && size == (uint32_t)sizeof(settings_v2_t)) {
+        if (rd32(img + offsetof(settings_v2_t, crc32)) != crc32_zip(img, offsetof(settings_v2_t, crc32)))
+            return false;
+        settings_defaults(out);                   /* tail нули, tail_valid 0, pile_on 1 */
+        memcpy(out, img, offsetof(settings_v2_t, setup) + sizeof out->setup);
+        out->version = SETTINGS_VERSION;          /* magic/size из образа v2 — перекрыть */
+        out->size = (uint32_t)sizeof *out;
+        settings_seal(out);
         return true;
     }
     if (ver == 1u && size == (uint32_t)sizeof(settings_v1_t)) {
         if (rd32(img + offsetof(settings_v1_t, crc32)) != crc32_zip(img, offsetof(settings_v1_t, crc32)))
             return false;
-        settings_v1_t v;
+        settings_v1_t v;                          /* ≈ 1.1 КБ, как и раньше */
         memcpy(&v, img, sizeof v);
-        settings_t t;
-        settings_defaults(&t);
-        t.hv_mon_zero_mv = v.hv_mon_zero_mv;
-        t.hv_mon_k_mv_per_v = v.hv_mon_k_mv_per_v;
-        t.hv_setpoint_v = v.hv_setpoint_v;
-        t.reserved_boot = v.reserved_boot;
-        t.pt_rpu_ohm = v.pt_rpu_ohm;
-        t.tc_t0_c = v.tc_t0_c; t.tc_k1 = v.tc_k1; t.tc_k2 = v.tc_k2;
-        t.thr_codes = v.thr_codes;
-        memcpy(t.becq_words, v.becq_words, sizeof t.becq_words);
-        t.becq_valid = v.becq_valid;
-        memcpy(t.tpl, v.tpl, sizeof t.tpl);
-        t.tpl_valid = v.tpl_valid;
-        if (v.tpl_valid && v.becq_valid) t.setup.done_unix = SETUP_DONE_UNKNOWN;
-        settings_seal(&t);
-        *out = t;
+        settings_defaults(out);
+        out->hv_mon_zero_mv = v.hv_mon_zero_mv;
+        out->hv_mon_k_mv_per_v = v.hv_mon_k_mv_per_v;
+        out->hv_setpoint_v = v.hv_setpoint_v;
+        out->reserved_boot = v.reserved_boot;
+        out->pt_rpu_ohm = v.pt_rpu_ohm;
+        out->tc_t0_c = v.tc_t0_c; out->tc_k1 = v.tc_k1; out->tc_k2 = v.tc_k2;
+        out->thr_codes = v.thr_codes;
+        memcpy(out->becq_words, v.becq_words, sizeof out->becq_words);
+        out->becq_valid = v.becq_valid;
+        memcpy(out->tpl, v.tpl, sizeof out->tpl);
+        out->tpl_valid = v.tpl_valid;
+        if (v.tpl_valid && v.becq_valid) out->setup.done_unix = SETUP_DONE_UNKNOWN;
+        settings_seal(out);
         return true;
     }
     return false;
