@@ -12,6 +12,7 @@
 #include "tpl_learn.h"
 #include "i18n.h"
 #include "theme.h"
+#include <algorithm>
 #include "implot.h"
 #include <windows.h>
 #include <atomic>
@@ -95,6 +96,7 @@ struct TplView {
     tpl::PulseRing ring{ 30 };
     std::vector<uint16_t> blk;                 // последняя разобранная порция
     std::vector<float> ok_x, ok_y, bad_x, bad_y;   // метки на осциллограмме
+    double base = 0;                           // база порции, коды
     size_t seen = 0;                           // порций в g_dev.raw при последнем разборе
     double t = -1e9;
 };
@@ -105,20 +107,47 @@ TplView g_tv;
 // между порциями прибор сигнал не пишет; лента замедлена ≈1000× и показывает часть порций.
 constexpr double TAPE_WIN = 1500.0;           // ширина окна, отсчётов
 constexpr double TAPE_SPEED = 300.0;          // отсчётов в секунду экрана: окно проходит за 5 с
+// сегмент ленты: порция без тишины — от каждого импульса кусок −TAPE_PRE…+TAPE_POST, между кусками
+// TAPE_GAP отсчётов базы; метки пересчитаны в новые координаты. Время на ленте не в масштабе.
+constexpr int TAPE_PRE = 15, TAPE_POST = 45, TAPE_GAP = 8;
 struct TapeSeg {
     std::vector<float> y, ok_x, ok_y, bad_x, bad_y;
     size_t seen = 0;
+    double base = 0;
     bool have = false;
+    double len() const { return (double)y.size(); }
     void take(const TplView& v) {
-        y.assign(v.blk.begin(), v.blk.end());
-        ok_x = v.ok_x; ok_y = v.ok_y; bad_x = v.bad_x; bad_y = v.bad_y;
-        seen = v.seen; have = true;
+        y.clear(); ok_x.clear(); ok_y.clear(); bad_x.clear(); bad_y.clear();
+        seen = v.seen; base = v.base; have = true;
+        // куски вокруг всех отмеченных импульсов (принятых и отбракованных), слитые при перекрытии
+        std::vector<std::pair<int, int>> cuts;
+        std::vector<float> c(v.ok_x); c.insert(c.end(), v.bad_x.begin(), v.bad_x.end());
+        std::sort(c.begin(), c.end());
+        const int n = (int)v.blk.size();
+        for (float f : c) {
+            int lo = (std::max)(0, (int)f - TAPE_PRE), hi = (std::min)(n, (int)f + TAPE_POST + 1);
+            if (!cuts.empty() && lo <= cuts.back().second + TAPE_GAP) cuts.back().second = (std::max)(cuts.back().second, hi);
+            else cuts.push_back({ lo, hi });
+        }
+        auto remap = [&](const std::vector<float>& xs, const std::vector<float>& ys, std::vector<float>& ox, std::vector<float>& oy, int lo, int hi, int at) {
+            for (size_t i = 0; i < xs.size(); i++)
+                if (xs[i] >= lo && xs[i] < hi) { ox.push_back((float)(at + (xs[i] - lo))); oy.push_back(ys[i]); }
+        };
+        for (auto& ct : cuts) {
+            for (int i = 0; i < TAPE_GAP; i++) y.push_back((float)base);
+            int at = (int)y.size();
+            for (int i = ct.first; i < ct.second; i++) y.push_back((float)v.blk[i]);
+            remap(v.ok_x, v.ok_y, ok_x, ok_y, ct.first, ct.second, at);
+            remap(v.bad_x, v.bad_y, bad_x, bad_y, ct.first, ct.second, at);
+        }
+        if (y.empty()) for (int i = 0; i < 200; i++) y.push_back((float)base);   // порция без импульсов
     }
 };
 struct TplTape {
     TapeSeg cur, nxt;                         // играет / в буфере
     double pos = 0;                           // левый край окна в отсчётах порции cur
     double t = -1;                            // время прошлого кадра
+    double ytop = 0;                          // верх оси Y: быстро растёт, медленно опускается
 };
 TplTape g_tape;
 
@@ -136,7 +165,7 @@ void TplViewTick(double now)
     const std::vector<uint16_t>& b = B.back();
     if (b.size() != (size_t)tpl::BLK) return;
     tpl::BlockView bv = tpl::view_block(b);
-    v.blk = b;
+    v.blk = b; v.base = bv.base;
     for (const auto& p : bv.pulses) v.ring.push(p);
     v.ok_x.clear(); v.ok_y.clear(); v.bad_x.clear(); v.bad_y.clear();
     for (int i : bv.ok)  { v.ok_x.push_back((float)i);  v.ok_y.push_back((float)b[i]); }
@@ -1165,13 +1194,13 @@ void TplPulsePlots(const tpl::Result* res)
     if (v.seen < tp.cur.seen) tp = TplTape{};                    // новый сбор
     if (!tp.cur.have) { tp.cur.take(v); tp.pos = 0; tp.t = now; }
     // буфер: свежая разобранная порция, пока буфер ещё не начал играть
-    if (v.seen != tp.cur.seen && v.seen != tp.nxt.seen && tp.pos + TAPE_WIN < tpl::BLK) tp.nxt.take(v);
+    if (v.seen != tp.cur.seen && v.seen != tp.nxt.seen && tp.pos + TAPE_WIN < tp.cur.len()) tp.nxt.take(v);
     double dt = tp.t < 0 ? 0 : now - tp.t;
     tp.t = now;
     if (dt > 0.1) dt = 0.1;                                      // окно свёрнуто/подвисло — без скачка
     tp.pos += dt * TAPE_SPEED;
-    if (!tp.nxt.have && tp.pos > tpl::BLK - TAPE_WIN) tp.pos = tpl::BLK - TAPE_WIN;   // ждём следующую
-    if (tp.nxt.have && tp.pos >= tpl::BLK) { tp.cur = tp.nxt; tp.nxt = TapeSeg{}; tp.pos -= tpl::BLK; }
+    if (!tp.nxt.have && tp.pos > tp.cur.len() - TAPE_WIN) tp.pos = (std::max)(0.0, tp.cur.len() - TAPE_WIN);   // ждём следующую
+    if (tp.nxt.have && tp.pos >= tp.cur.len()) { tp.pos -= tp.cur.len(); tp.cur = tp.nxt; tp.nxt = TapeSeg{}; }
 
     ImGui::Spacing();
     Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)tp.cur.ok_x.size(), (int)tp.cur.bad_x.size()).c_str());
@@ -1180,12 +1209,15 @@ void TplPulsePlots(const tpl::Result* res)
         ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_n"));
         ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_code"));
         ImPlot::SetupAxisLimits(ImAxis_X1, tp.pos, tp.pos + TAPE_WIN, ImPlotCond_Always);
-        float ymin = 4095, ymax = 0;
-        for (const TapeSeg* sg : { &tp.cur, &tp.nxt })
-            for (float y : sg->y) { if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
-        if (ymax < ymin) { ymin = 0; ymax = 4095; }
-        double padv = (ymax - ymin) * 0.08 + 10;                 // запас сверху: метки упора в 4095 видны
-        ImPlot::SetupAxisLimits(ImAxis_Y1, ymin - padv, ymax + padv, ImPlotCond_Always);
+        // ось Y без скачков: низ — база −60, верх — не ниже база+1300 (рабочее окно 100…1200),
+        // растёт сразу до пришедшего максимума, опускается медленно (≈ за 20 с)
+        float ymax = 0;
+        for (const TapeSeg* sg : { &tp.cur, &tp.nxt }) for (float y : sg->y) if (y > ymax) ymax = y;
+        double floor_top = tp.cur.base + 1300.0;
+        double want = (std::max)((double)ymax + 40.0, floor_top);
+        if (want > tp.ytop) tp.ytop = want;
+        else tp.ytop = (std::max)(want, tp.ytop - (tp.ytop - want) * (std::min)(1.0, dt / 20.0) - 0.5);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, tp.cur.base - 60.0, tp.ytop, ImPlotCond_Always);
         ImPlot::SetupLegend(ImPlotLocation_NorthEast);
         static std::vector<float> ox, oy, bx, by;
         ox.clear(); oy.clear(); bx.clear(); by.clear();
@@ -1200,9 +1232,9 @@ void TplPulsePlots(const tpl::Result* res)
             for (size_t i = 0; i < sg.bad_x.size(); i++) { bx.push_back(sg.bad_x[i] + (float)off); by.push_back(sg.bad_y[i]); }
         };
         seg(tp.cur, 0);
-        seg(tp.nxt, tpl::BLK);
+        seg(tp.nxt, tp.cur.len());
         if (tp.nxt.have) {                                       // стык порций
-            static const double xs = tpl::BLK;
+            const double xs = tp.cur.len();
             ImPlot::SetNextLineStyle(c_text_dim, 1.0f);
             ImPlot::PlotInfLines("##join", &xs, 1);
         }
