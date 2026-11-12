@@ -642,11 +642,36 @@ static void test_report_not_run()
     CHECK(r.find(".11.2025)") != std::string::npos);
 }
 
+// наложение на хвост: второй импульс садится, пока первый ещё выше порога, — нового пересечения
+// порога снизу нет, а импульс не одиночный (найдено при приёмке 2026-11-12 на реальных порциях)
+static void test_tail_pileup()
+{
+    uint32_t rs = 777;
+    auto rnd = [&]() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) * (1.0 / 16777216.0); };
+    std::vector<double> x(tpl::BLK);
+    for (int i = 0; i < tpl::BLK; i++) x[i] = 400.0 + 2.0 * (rnd() + rnd() + rnd() - 1.5);
+    auto put = [&](int c0, double a) {
+        for (int k = 0; k < 40 && c0 + k < tpl::BLK; k++) x[c0 + k] += a * (k / 4.0) * exp(1.0 - k / 4.0);
+    };
+    put(1000, 600);                    // чистый
+    put(2000, 600); put(2012, 150);    // второй на хвосте (+12: хвост первого ≈ 240 кодов над базой)
+    put(3000, 800); put(3022, 300);    // второй позже (+22: хвост ≈ 50 кодов, всё ещё выше порога 10σ)
+    std::vector<uint16_t> blk(tpl::BLK);
+    for (int i = 0; i < tpl::BLK; i++) blk[i] = (uint16_t)(x[i] + 0.5);
+    tpl::BlockView v = tpl::view_block(blk);
+    CHECK(v.ok.size() == 1);
+    if (!v.ok.empty()) CHECK(v.ok[0] == 1004);
+    std::vector<std::vector<uint16_t>> one{ blk };
+    CHECK(tpl::count_singles(one, 0, 1) == 1);
+    CHECK(tpl::find_singles(one).wins.size() == 1);
+}
+
 int main()
 {
     test_peak_count();
     test_weak_source();
     test_pulse_view();
+    test_tail_pileup();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();

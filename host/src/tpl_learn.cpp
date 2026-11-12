@@ -55,6 +55,17 @@ static double singles_block(const std::vector<uint16_t>& blk, double thr, double
         for (int i = c; i < c + 10; i++) if (x[i] > x[im]) im = i;   // argmax(y[c:c+10]) — первый максимум
         double A = x[im] - b;
         if (im - PRE < 0 || im + POST >= BLK) continue;
+        // наложение на хвост: второй импульс, севший, пока первый выше порога, не даёт пересечения
+        // снизу — ловим по подъёму над текущим минимумом спада больше порога (шум σ ≈ 3 кода ≪ 10σ)
+        {
+            bool rise = false;
+            double mn = x[im];
+            for (int i = im + 1; i <= c + ISO && i < BLK; i++) {
+                if (x[i] < mn) mn = x[i];
+                else if (x[i] - mn > th) { rise = true; break; }
+            }
+            if (rise) { if (view) view->bad.push_back(im); continue; }
+        }
         double mx = 0;
         for (int i = im - PRE; i <= im + POST; i++) mx = std::max(mx, x[i]);
         if (!(A >= amin && A <= amax) || mx >= clip) { if (view) view->bad.push_back(im); continue; }
