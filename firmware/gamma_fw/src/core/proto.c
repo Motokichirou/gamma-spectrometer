@@ -40,6 +40,8 @@ static uint32_t cal_stage[BECQ_WORDS];
 static uint16_t cal_mask;         /* бит i — слово i получено */
 static int16_t  tpl_stage[TPL_ROWS][TPL_COLS];
 static uint64_t tpl_mask;         /* бит i — строка i получена */
+static uint64_t tl_mask;          /* бит 4·r + c — кусок -tlw r c получен (пишется прямо в L->tail) */
+static uint8_t  tlm_mask;         /* бит c — кусок -tlm c получен */
 static uint32_t rx_frames;       /* корректных кадров (CRC сошёлся) с пуска — сторож -baud */
 static uint8_t  out_step;         /* 0…15 — кадр 0x01, 16 — статус 0x04, OUT_IDLE — нет выдачи */
 
@@ -238,8 +240,70 @@ static void cmd_tplok(void)
     memcpy(L->tpl, tpl_stage, sizeof L->tpl);   /* между порциями: детектор сейчас не работает */
     L->tpl_valid = 1;
     tpl_mask = 0;
-    changed(PROTO_APPLY_TPL);
+    L->tail_valid = 0; tl_mask = 0; tlm_mask = 0;   /* таблица хвоста строилась по прежнему эталону */
+    changed(PROTO_APPLY_TPL | PROTO_APPLY_TAIL);
     proto_send_text("-ok tpl\r\n");
+}
+
+/* ---- таблица хвоста разбора наложений ----
+ * Куски пишутся прямо в L->tail (отдельного буфера нет: ОЗУ). Пока не принят -tlok, tail_valid = 0 и
+ * детектор таблицу не видит; принятая таблица при первом же новом куске снимается (иначе разбор шёл бы
+ * по полузаписанной). */
+static void tail_drop(void)
+{
+    if (L->tail_valid) { L->tail_valid = 0; changed(PROTO_APPLY_TAIL); }
+}
+
+static void cmd_tlw(const char *args)
+{
+    long v[2 + 16];
+    if (parse_longs(args, v, 2 + 16, 10) != 2 + 16 || v[0] < 0 || v[0] >= (long)DET_TL_ROWS || v[1] < 0 || v[1] > 3) {
+        proto_send_text("-err tlw\r\n");
+        return;
+    }
+    for (int i = 2; i < 2 + 16; i++)
+        if (v[i] < -32768 || v[i] > 32767) { proto_send_text("-err tlw\r\n"); return; }
+    tail_drop();
+    for (int i = 0; i < 16; i++) L->tail.s[v[0]][16 * v[1] + i] = (int16_t)v[2 + i];
+    tl_mask |= 1ull << (4 * v[0] + v[1]);
+    proto_send_text("-ok\r\n");
+}
+
+static void cmd_tlm(const char *args)
+{
+    long v[1 + 16];
+    if (parse_longs(args, v, 1 + 16, 10) != 1 + 16 || v[0] < 0 || v[0] > 3) { proto_send_text("-err tlm\r\n"); return; }
+    for (int i = 1; i < 1 + 16; i++)
+        if (v[i] < 0 || v[i] >= (long)DET_TL_ROWS) { proto_send_text("-err tlm\r\n"); return; }
+    tail_drop();
+    for (int i = 0; i < 16; i++) L->tail.row[16 * v[0] + i] = (uint8_t)v[1 + i];
+    tlm_mask |= (uint8_t)(1u << v[0]);
+    proto_send_text("-ok\r\n");
+}
+
+static void cmd_tlok(void)
+{
+    if (tl_mask != ~0ull || tlm_mask != 0x0Fu) { proto_send_text("-err tl\r\n"); return; }
+    tl_mask = 0; tlm_mask = 0;
+    L->tail_valid = 1;
+    changed(PROTO_APPLY_TAIL);
+    proto_send_text("-ok tl\r\n");
+}
+
+static void cmd_pile(const char *args)
+{
+    while (*args == ' ' || *args == '\t') args++;
+    size_t n = strcspn(args, " \t");
+    const char *rest = args + n;
+    while (*rest == ' ' || *rest == '\t') rest++;
+    if (n) {
+        if (*rest) { proto_send_text("-err pile\r\n"); return; }
+        if (n == 2 && memcmp(args, "on", 2) == 0) L->pile_on = 1;
+        else if (n == 3 && memcmp(args, "off", 3) == 0) L->pile_on = 0;
+        else { proto_send_text("-err pile\r\n"); return; }
+        changed(PROTO_APPLY_TAIL);
+    }
+    proto_send_text(L->pile_on ? "-ok pile on\r\n" : "-ok pile off\r\n");
 }
 
 static void cmd_save(void)
@@ -296,7 +360,7 @@ static void handle_text(const uint8_t *p, size_t n)
     } else if (tok_is(s, tl, "-defaults")) {
         if (P->hv_on && P->hv_on()) { proto_send_text("-err hv_on\r\n"); return; }
         settings_defaults(L);
-        cal_mask = 0; tpl_mask = 0;
+        cal_mask = 0; tpl_mask = 0; tl_mask = 0; tlm_mask = 0;
         /* умолчания — только в ОЗУ: отложенная запись (-cal/-save во время набора) отменяется,
            иначе -sto записал бы во флеш умолчания вместо отложенного */
         if (pending) { pending = false; flash_st = flash_st_prev; }
@@ -310,10 +374,19 @@ static void handle_text(const uint8_t *p, size_t n)
         cmd_tplw(args);
     } else if (tok_is(s, tl, "-tplok")) {
         cmd_tplok();
+    } else if (tok_is(s, tl, "-tlw")) {
+        cmd_tlw(args);
+    } else if (tok_is(s, tl, "-tlm")) {
+        cmd_tlm(args);
+    } else if (tok_is(s, tl, "-tlok")) {
+        cmd_tlok();
+    } else if (tok_is(s, tl, "-pile")) {
+        cmd_pile(args);
     } else if (tok_is(s, tl, "-tplclr")) {
         L->tpl_valid = 0;
         tpl_mask = 0;
-        changed(PROTO_APPLY_TPL);
+        L->tail_valid = 0; tl_mask = 0; tlm_mask = 0;
+        changed(PROTO_APPLY_TPL | PROTO_APPLY_TAIL);
         proto_send_text("-ok tpl builtin\r\n");
     } else {
         char r[512];
@@ -339,7 +412,7 @@ void proto_init(const proto_port_t *port, settings_t *live)
     boot_idx = 0;
     temp_c = 0.0f;
     cal_mask = 0;
-    tpl_mask = 0;
+    tpl_mask = 0; tl_mask = 0; tlm_mask = 0;
     out_step = OUT_IDLE;
     rx_frames = 0;
 }

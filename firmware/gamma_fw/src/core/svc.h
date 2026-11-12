@@ -108,6 +108,8 @@ typedef struct {
     uint32_t overrun;           /* порций, перезаписанных DMA во время обработки */
     uint16_t thr;               /* действующий порог детектора, коды */
     uint32_t rej_shape, rej_width, rej_pile, rej_budget;   /* отбраковка по причинам с пуска */
+    int8_t   pile;              /* разбор наложений: 1 = включён, 0 = выключен, −1 = нет таблицы */
+    uint32_t rec;               /* восстановлено разбором с пуска (накопительно) */
     float live_s, real_s, cpu_pct;
     uint16_t pwm;               /* текущая скважность ШИМ ВВ */
     const char *flash;          /* proto_flash_status() */

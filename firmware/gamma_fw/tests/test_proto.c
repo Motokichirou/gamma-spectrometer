@@ -569,6 +569,115 @@ static void test_template_staging(void)
     CHECK(live.tpl_valid == 0 && (applied & PROTO_APPLY_TPL));
 }
 
+/* ---- таблица хвоста (разбор наложений) ---- */
+static void send_tpl_full(void)
+{
+    char s[120];
+    for (int ph = 0; ph < 64; ph++) {
+        snprintf(s, sizeof s, "-tplw %d 1 2 3 4 5 6 7", ph);
+        CHECK(eq(cmd(s), "-ok\r\n"));
+    }
+    CHECK(eq(cmd("-tplok"), "-ok tpl\r\n"));
+}
+
+static void send_tail_rows(int skip_r, int skip_m)
+{
+    char s[400];
+    for (int r = 0; r < 16; r++)
+        for (int c = 0; c < 4; c++) {
+            if (r == skip_r && c == 0) continue;
+            int o = snprintf(s, sizeof s, "-tlw %d %d", r, c);
+            for (int i = 0; i < 16; i++)
+                o += snprintf(s + o, sizeof s - (size_t)o, " %d", r * 1000 + c * 16 + i - 300);
+            CHECK(eq(cmd(s), "-ok\r\n"));
+        }
+    for (int c = 0; c < 4; c++) {
+        if (c == skip_m) continue;
+        int o = snprintf(s, sizeof s, "-tlm %d", c);
+        for (int i = 0; i < 16; i++) o += snprintf(s + o, sizeof s - (size_t)o, " %d", (c * 16 + i) % 16);
+        CHECK(eq(cmd(s), "-ok\r\n"));
+    }
+}
+
+static void test_tl_commands(void)
+{
+    reset();
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+    send_tail_rows(-1, -1);
+    CHECK(live.tail_valid == 0);                      /* пока -tlok не пришёл — разбор не включён */
+    applied = 0;
+    CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
+    CHECK(live.tail_valid == 1 && (applied & PROTO_APPLY_TAIL));
+    CHECK(live.tail.s[3][5] == 3000 + 5 - 300);
+    CHECK(live.tail.s[15][63] == 15000 + 48 + 15 - 300);
+    CHECK(live.tail.row[0] == 0 && live.tail.row[15] == 15 && live.tail.row[63] == 15 && live.tail.row[17] == 1);
+    /* не хватает куска -tlw */
+    reset();
+    send_tail_rows(7, -1);
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+    CHECK(live.tail_valid == 0);
+    /* не хватает куска -tlm */
+    reset();
+    send_tail_rows(-1, 2);
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+    CHECK(live.tail_valid == 0);
+    /* границы и мусор */
+    CHECK(eq(cmd("-tlw 16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16"), "-err tlw\r\n"));
+    CHECK(eq(cmd("-tlw 0 4 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16"), "-err tlw\r\n"));
+    CHECK(eq(cmd("-tlw 0 0 1 2 3"), "-err tlw\r\n"));
+    CHECK(eq(cmd("-tlw 0 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 32768"), "-err tlw\r\n"));
+    CHECK(eq(cmd("-tlw 0 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 -32769"), "-err tlw\r\n"));
+    CHECK(eq(cmd("-tlw 0 0 32767 -32768 3 4 5 6 7 8 9 10 11 12 13 14 15 16"), "-ok\r\n"));
+    CHECK(eq(cmd("-tlm 4 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"), "-err tlm\r\n"));
+    CHECK(eq(cmd("-tlm 0 16 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"), "-err tlm\r\n"));
+    CHECK(eq(cmd("-tlm 0 -1 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"), "-err tlm\r\n"));
+    CHECK(eq(cmd("-tlm 0 1 2 3"), "-err tlm\r\n"));
+}
+
+static void test_tl_rewrite_invalidates(void)
+{
+    reset();
+    send_tail_rows(-1, -1);
+    CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
+    applied = 0;
+    CHECK(eq(cmd("-tlw 0 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16"), "-ok\r\n"));
+    CHECK(live.tail_valid == 0 && (applied & PROTO_APPLY_TAIL));   /* детектор не держит полузаписанную */
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+}
+
+static void test_tplok_invalidates_tail(void)
+{
+    reset();
+    send_tail_rows(-1, -1);
+    CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
+    CHECK(live.tail_valid == 1);
+    applied = 0;
+    send_tpl_full();
+    CHECK(live.tail_valid == 0);
+    CHECK(applied & PROTO_APPLY_TAIL);
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));            /* куски после -tplok надо слать заново */
+    CHECK(eq(cmd("-pile"), "-ok pile on\r\n"));
+}
+
+static void test_pile_cmd(void)
+{
+    reset();
+    CHECK(live.pile_on == 1);
+    CHECK(eq(cmd("-pile"), "-ok pile on\r\n"));
+    applied = 0;
+    CHECK(eq(cmd("-pile off"), "-ok pile off\r\n"));
+    CHECK(live.pile_on == 0 && (applied & PROTO_APPLY_TAIL));
+    CHECK(eq(cmd("-pile"), "-ok pile off\r\n"));
+    CHECK(eq(cmd("-pile on"), "-ok pile on\r\n"));
+    CHECK(live.pile_on == 1);
+    CHECK(eq(cmd("-pile maybe"), "-err pile\r\n"));
+    CHECK(eq(cmd("-pile on off"), "-err pile\r\n"));
+    send_tail_rows(-1, -1);
+    CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
+    CHECK(live.tail_valid == 1);
+    CHECK(n_commit == 0);
+}
+
 static void test_defaults(void)
 {
     reset();
@@ -717,6 +826,10 @@ int main(void)
     test_unknown_cmd();
     test_thr_tc();
     test_template_staging();
+    test_tl_commands();
+    test_tl_rewrite_invalidates();
+    test_tplok_invalidates_tail();
+    test_pile_cmd();
     test_defaults();
     test_defaults_hv_on();
     test_flash_defaults_status();

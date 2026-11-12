@@ -26,6 +26,13 @@
  *      -tplok                  → все 64 строки получены → копия в live->tpl, tpl_valid = 1,
  *                                 apply(PROTO_APPLY_TPL) (приложение зовёт det_set_template)
  *      -tplclr                 → tpl_valid = 0 (встроенный эталон), apply(PROTO_APPLY_TPL)
+ *      -tlw <r 0..15> <c 0..3> <16 чисел>  → отсчёты 16·c… строки r таблицы хвоста разбора наложений
+ *                                 (Q15, −32768…32767) прямо в live->tail; пока таблица не принята — tail_valid = 0
+ *                                 (принятая таблица при первом же куске снимается: apply(TAIL))
+ *      -tlm <c 0..3> <16 чисел 0..15>      → row[16·c…] (фаза эталона → строка)
+ *      -tlok                   → пришли все 64 куска -tlw и 4 куска -tlm → tail_valid = 1, apply(TAIL);
+ *                                 иначе "-err tl". -tplok / -tplclr таблицу хвоста снимают (tail_valid = 0)
+ *      -pile [on|off]          → "-ok pile on|off"; разбор в ОЗУ и settings (во флеш — -save)
  *  - Прочие "-…" (-baud, -hv, -hvzero, -hvk, -ptcal, -gst, -diag, -osc, -dac, …) — в port->service;
  *    пустой ответ сервиса (или нет сервиса) → "-err unknown\r\n".
  *  - Текст не с '-' и нетекстовые кадры — тишина (как этап 1).
@@ -88,6 +95,7 @@
 #define PROTO_APPLY_THR     0x01u
 #define PROTO_APPLY_TC      0x02u
 #define PROTO_APPLY_TPL     0x04u
+#define PROTO_APPLY_TAIL    0x08u          /* таблица хвоста / -pile (приложение зовёт det_set_tail, det_set_pile) */
 #define PROTO_APPLY_ALL     0xFFFFFFFFu    /* -defaults */
 
 typedef struct { uint32_t elapsed_s; uint16_t cpu_x10; uint32_t cps; uint32_t invalid; } proto_status_t;

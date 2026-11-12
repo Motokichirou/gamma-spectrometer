@@ -239,6 +239,13 @@ static void p_status(proto_status_t *st)
 }
 static bool p_hv_on(void) { return hv_enabled(&hv); }
 
+/* разбор наложений: таблица — только принятая (-tlok), на время серии ЦАП — выключен */
+static void pile_apply(void)
+{
+    det_set_tail(&det, live.tail_valid ? &live.tail : NULL);
+    det_set_pile(&det, dac_mode ? 0 : live.pile_on);
+}
+
 static void p_apply(uint32_t what)
 {
     /* -defaults (proto пускает только при выключенном ВВ): калибровка монитора — и в hv_ctl */
@@ -248,6 +255,7 @@ static void p_apply(uint32_t what)
         tpl_now = live.tpl_valid ? (const int16_t (*)[DET_NS])live.tpl : tpl_pmt;
         if (!dac_mode) det_set_template(&det, tpl_now);   /* в режиме ЦАП — по его окончании */
     }
+    if (what & PROTO_APPLY_TAIL) pile_apply();
 }
 
 /* ---- сервис (core/svc.c) ---- */
@@ -270,6 +278,8 @@ static void s_fill_gst(svc_gst_t *g)
     g->rej_width = ds.rej_width;
     g->rej_pile = ds.rej_pileup;
     g->rej_budget = ds.rej_budget;
+    g->pile = live.tail_valid ? (live.pile_on ? 1 : 0) : -1;
+    g->rec = ds.recovered;
     g->pwm = hv_duty;
     g->flash = proto_flash_status();
     const uint8_t *img = flash_settings_image();   /* тот же адрес, что читает flash_settings_load */
@@ -423,6 +433,7 @@ static void dac_mode_set(bool on)
     else det_set_thr(&det, live.thr_codes);
     dac_mode = on;
     dac_end_ms = 0;
+    pile_apply();                              /* разбор — выключен на время серии */
 }
 static bool d_start(uint16_t step, uint16_t n, uint16_t per)
 {
@@ -608,6 +619,7 @@ int main(void)
     logger_init(&lport);
     det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
     det_init(&det, &cfg, tpl_now, emit);
+    pile_apply();
     spectrum_clear();
     {
         det_stats_t ds = stats();

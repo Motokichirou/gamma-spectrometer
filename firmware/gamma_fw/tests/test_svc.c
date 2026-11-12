@@ -387,6 +387,24 @@ static void test_cmd_gst(void)
     CHECK(strstr(g, " hv_off=cmd") != NULL);
 }
 
+static void test_gst_pile_keys(void)
+{
+    reset();
+    run_aux(5, 2507.0f, 3296.0f, 1300.0f);
+    gst_stub.pile = -1; gst_stub.rec = 12345u;
+    const char *g = svc("-gst");
+    char b[64];
+    CHECK(kv(g, "pile", b, sizeof b) && strcmp(b, "-") == 0);
+    CHECK(kv(g, "rec", b, sizeof b) && strcmp(b, "12345") == 0);
+    const char *a = strstr(g, " pile="), *c = strstr(g, " rec="), *d = strstr(g, " rej_swpb=");
+    CHECK(a && c && d && a < c && c < d);               /* перед rej_swpb */
+    gst_stub.pile = 1;
+    CHECK(kv(svc("-gst"), "pile", b, sizeof b) && strcmp(b, "on") == 0);
+    gst_stub.pile = 0;
+    CHECK(kv(svc("-gst"), "pile", b, sizeof b) && strcmp(b, "off") == 0);
+    CHECK(strlen(svc("-gst")) < 500);
+}
+
 static void test_cmd_diag(void)
 {
     reset();
@@ -487,6 +505,7 @@ int main(void)
     test_cmd_hvk();
     test_cmd_ptcal();
     test_cmd_gst();
+    test_gst_pile_keys();
     test_cmd_diag();
     test_setup_roundtrip();
     test_setup_bad();
