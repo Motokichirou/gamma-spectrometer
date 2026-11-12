@@ -676,8 +676,31 @@ static void test_pulse_frames(void)
     CHECK(rd16(fr[2].pl + 4 + 2 * 75) == s[1099]);
 }
 
+/* счётчик корректных кадров (сторож -baud): любой cmd с верной CRC; битый кадр и мусор — нет */
+static void test_rx_frames(void)
+{
+    reset();
+    CHECK(proto_rx_frames() == 0);
+    cmd("-inf");
+    CHECK(proto_rx_frames() == 1);
+    cmd("hello");                                   /* не команда, но кадр корректный */
+    CHECK(proto_rx_frames() == 2);
+    uint8_t f[64];
+    size_t n = shproto_build(0x7E, (const uint8_t *)"x", 1, f);   /* нетекстовый кадр */
+    proto_rx(f, n);
+    CHECK(proto_rx_frames() == 3);
+    n = shproto_build(SHPROTO_CMD_TEXT, (const uint8_t *)"-inf", 4, f);
+    for (size_t i = 0; i < n; i++) if (f[i] == 'i') { f[i] = 'j'; break; }   /* CRC не сойдётся */
+    proto_rx(f, n);
+    proto_rx((const uint8_t *)"garbage", 7);
+    CHECK(proto_rx_frames() == 3);
+    reset();
+    CHECK(proto_rx_frames() == 0);
+}
+
 int main(void)
 {
+    test_rx_frames();
     test_sta_sto_rst();
     test_inf_both_parsers();
     test_cal_read_40_regs();

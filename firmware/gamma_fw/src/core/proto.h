@@ -26,7 +26,7 @@
  *      -tplok                  → все 64 строки получены → копия в live->tpl, tpl_valid = 1,
  *                                 apply(PROTO_APPLY_TPL) (приложение зовёт det_set_template)
  *      -tplclr                 → tpl_valid = 0 (встроенный эталон), apply(PROTO_APPLY_TPL)
- *  - Прочие "-…" (-hv, -hvzero, -hvk, -ptcal, -gst, -diag, -osc, -dac, …) — в port->service;
+ *  - Прочие "-…" (-baud, -hv, -hvzero, -hvk, -ptcal, -gst, -diag, -osc, -dac, …) — в port->service;
  *    пустой ответ сервиса (или нет сервиса) → "-err unknown\r\n".
  *  - Текст не с '-' и нетекстовые кадры — тишина (как этап 1).
  *
@@ -118,6 +118,8 @@ void proto_send_text(const char *s);            /* произвольный те
 /* Температура для -inf (T1), °C; приложение обновляет раз в секунду. */
 void proto_set_temperature(float t_c);
 bool proto_acquiring(void);
+/* корректных входных кадров (любой cmd, CRC сошёлся) с proto_init — для сторожа -baud (baud.h) */
+uint32_t proto_rx_frames(void);
 /* набор начат приложением, а не хостом (регистратор): выдача спектра и отложенная запись настроек — как при -sta */
 void proto_acq_started(void);
 /* произвольный кадр (регистратор: SHPROTO_CMD_LOG) — та же оговорка, что для proto_send_pulse */

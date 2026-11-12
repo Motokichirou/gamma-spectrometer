@@ -61,6 +61,12 @@ bool parse_tc(const std::string& reply, double& t0, double& k1, double& k2);
 struct LogState { bool enabled = false, active = false; long records = 0; };
 bool parse_log_status(const std::string& reply, LogState& out);
 
+// ---- временная скорость UART (-baud, только для опытов; прошивка: core/baud.c) ----
+constexpr uint32_t BAUD_DEFAULT = 600000;
+bool baud_allowed(uint32_t baud);                // 600 000, 1 000 000, 1 500 000, 2 000 000, 3 000 000
+// ответ на "-baud [N]": N из "-ok baud N"; −1 — "-err baud" / "-err unknown" (старая прошивка); 0 — не ответ -baud
+long parse_baud_reply(const std::string& reply);
+
 // ключ строки i18n по коду GetLastError() открытия порта
 const char* connect_hint_key(unsigned long win_error);
 

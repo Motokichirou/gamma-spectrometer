@@ -18,6 +18,8 @@ public:
     bool is_open() const { return handle_ != nullptr; }
     unsigned long last_error() const { return last_error_; }   // GetLastError() неудачного open (0 — успех)
 
+    bool set_baud(int baud);                      // сменить скорость на открытом порту (SetCommState), без переоткрытия
+    void purge_rx();                              // выбросить принятое (мусор после смены скорости)
     int  read(uint8_t* buf, int maxlen);          // байт прочитано (0 если нет), -1 ошибка
     bool write(const uint8_t* buf, int len);
 

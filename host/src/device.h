@@ -61,7 +61,13 @@ public:
     void refresh_ports();
 
     bool connect(const std::string& port);
-    void disconnect();
+    void disconnect();                       // скорость ≠ 600 000 — сначала "-baud 600000"
+    // ---- временная скорость UART (только для опытов: сбор сырых порций) ----
+    // "-baud N" → ждать "-ok baud N" (на старой) → переключить порт → проверить "-baud" за ≤ 1 с.
+    // Не вышло — порт обратно на 600 000, ждать 6 с (сторож прибора возвращает 600 000 сам), false + err.
+    // Блокирует (крутит poll); звать без очереди команд и сценариев.
+    bool set_baud(uint32_t baud, std::string& err);
+    uint32_t baud() const { return baud_; }
     void poll();                             // звать часто (каждый кадр UI / цикл CLI)
     void send_cmd(const std::string& cmd, bool quiet = false);
     void start();
@@ -118,6 +124,7 @@ public:
     struct RawRun {
         bool running = false, was_acq = false;
         int target = 2000, bad = 0;
+        int got = 0;                         // принято порций (blocks можно опустошать по ходу — CLI пишет их на диск)
         std::vector<std::vector<uint16_t>> blocks;
         std::string msg;
     } raw;
@@ -159,6 +166,9 @@ public:
 
 private:
     serialport::Serial serial_;
+    uint32_t baud_ = 600000;
+    bool baud_wait_ = false; long baud_reply_ = 0;
+    bool baud_wait_reply_(double secs);      // крутить poll, пока не придёт ответ на -baud
     shproto::Parser parser_;
     double last_ka_ = 0.0, last_gst_tx_ = 0.0, gst_rx_ = -1.0;
     uint32_t chunk_mask_ = 0;                // какие куски пришли с момента сброса маски

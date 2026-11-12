@@ -8,7 +8,9 @@
 //   gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]
 //                     (проход: до --count импульсов в фотопике ±1.5·FWHM, не дольше --timeout с)
 //   gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]   (запись термокомпенсации)
-//   gammapult tpl collect --port COMx [--n 2000] --out raw.bin   (сырые порции uint16 × 8192 подряд)
+//   gammapult tpl collect --port COMx [--n 2000] --out raw.bin [--baud 3000000]
+//                         (сырые порции uint16 × 8192 подряд, дописываются по мере прихода; --baud — временно
+//                          поднять скорость UART на время сбора, после — обратно 600000)
 //   gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]
 //   gammapult log status|on P [D]|off|start|stop|time|erase --yes --port COMx   (регистратор, SPEC_logger.md)
 //   gammapult log dump --port COMx --out <папка> [--session N] [--lo 300 --hi 6000] [--thermo] [--sum]
@@ -70,7 +72,7 @@ static void usage()
            "  gammapult setpage erase|restore --port COMx [--from DIR]  (страница настроек 0x0801F000)\n"
            "  gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
-           "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
+           "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin [--baud 3000000]   (пишет по ходу)\n"
            "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n"
            "  gammapult log status|off|start|stop|time --port COMx      (регистратор: состояние/управление)\n"
            "  gammapult log on <период_с> [выдержка_с] --port COMx     (автозапуск регистратора)\n"
@@ -365,18 +367,46 @@ int run_cli(int argc, char** argv)
         int n = atoi(opt(argc, argv, "--n", "2000").c_str());
         std::string out = opt(argc, argv, "--out");
         if (out.empty()) { printf("нужен --out raw.bin\n"); dev.disconnect(); return 1; }
-        dev.raw_start(n);
-        size_t shown = 0;
-        while (dev.raw.running) {
-            pump(dev, 0.1);
-            if (dev.raw.blocks.size() >= shown + 100) { shown = dev.raw.blocks.size(); printf("  порций %zu/%d, сбоев %d\n", shown, n, dev.raw.bad); fflush(stdout); }
-        }
+        uint32_t baud = (uint32_t)strtoul(opt(argc, argv, "--baud", "600000").c_str(), nullptr, 10);
+        if (!ds::baud_allowed(baud)) { printf("--baud: 600000, 1000000, 1500000, 2000000 или 3000000\n"); dev.disconnect(); return 1; }
         FILE* f = fopen(out.c_str(), "wb");
-        if (!f) { printf("не открыть %s\n", out.c_str()); rc = 3; }
-        else {
-            for (auto& b : dev.raw.blocks) fwrite(b.data(), 2, b.size(), f);
-            fclose(f);
-            printf("%s -> %s\n", dev.raw.msg.c_str(), out.c_str());
+        if (!f) { printf("не открыть %s\n", out.c_str()); dev.disconnect(); return 3; }
+        if (baud != ds::BAUD_DEFAULT) {
+            std::string err;
+            if (!dev.set_baud(baud, err)) { printf("скорость %u: %s\n", baud, err.c_str()); fclose(f); dev.disconnect(); return 6; }
+            printf("скорость UART %u\n", baud);
+        }
+        dev.raw_start(n);
+        // порции — на диск по мере прихода (и из памяти вон): при сбое собранное остаётся в файле
+        size_t written = 0, shown = 0, w_last = 0;
+        bool wok = true;
+        auto t_start = std::chrono::steady_clock::now(), t_last = t_start;
+        auto drain = [&]() {
+            bool ok = true;
+            written += tpl::append_blocks(f, dev.raw.blocks, ok);
+            if (!ok && wok) { wok = false; printf("ошибка записи в %s — сбор прерван\n", out.c_str()); dev.raw_abort(); }
+        };
+        while (dev.raw.running) {
+            pump(dev, 0.05);
+            if (!dev.raw.blocks.empty()) drain();
+            if (written >= shown + 100) {
+                auto now = std::chrono::steady_clock::now();
+                double dt = std::chrono::duration<double>(now - t_last).count();
+                double rate = dt > 0 ? (written - w_last) / dt : 0.0;
+                shown = written; w_last = written; t_last = now;
+                printf("  порций %zu/%d, сбоев %d, %.1f порций/с\n", written, n, dev.raw.bad, rate);
+                fflush(stdout);
+            }
+        }
+        drain();
+        fclose(f);
+        double tot = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_start).count();
+        printf("%s -> %s (%zu порций, %.1f порций/с в среднем)\n", dev.raw.msg.c_str(), out.c_str(), written,
+               tot > 0 ? written / tot : 0.0);
+        if (!wok) rc = 3;
+        if (dev.baud() != ds::BAUD_DEFAULT) {   // вернуть 600000 явно (disconnect сделал бы то же)
+            std::string err;
+            if (!dev.set_baud(ds::BAUD_DEFAULT, err)) printf("возврат на 600000: %s\n", err.c_str());
         }
     } else if (sub == "log") {
         std::string a2 = argc >= 3 ? argv[2] : "status";

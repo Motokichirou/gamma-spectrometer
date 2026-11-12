@@ -73,6 +73,22 @@ void Serial::close()
     if (handle_) { CloseHandle((HANDLE)handle_); handle_ = nullptr; }
 }
 
+bool Serial::set_baud(int baud)
+{
+    if (!handle_) return false;
+    DCB dcb = {};
+    dcb.DCBlength = sizeof(dcb);
+    if (!GetCommState((HANDLE)handle_, &dcb)) { last_error_ = GetLastError(); return false; }
+    dcb.BaudRate = (DWORD)baud;
+    if (!SetCommState((HANDLE)handle_, &dcb)) { last_error_ = GetLastError(); return false; }
+    return true;
+}
+
+void Serial::purge_rx()
+{
+    if (handle_) PurgeComm((HANDLE)handle_, PURGE_RXCLEAR);
+}
+
 int Serial::read(uint8_t* buf, int maxlen)
 {
     if (!handle_) return -1;

@@ -6,6 +6,7 @@
 #include <array>
 #include <string>
 #include <cstdint>
+#include <cstdio>
 
 namespace tpl {
 
@@ -77,5 +78,10 @@ Result build(const Singles& s, int refine = 3, bool pp = true, int pp_iters = 4)
 
 std::string header(const Result& r, const char* name = "tpl_pmt", const char* note = "эталон с реального тракта (gammapult)");
 std::vector<std::string> commands(const Result& r);   // 64 × "-tplw p v0..v6" (без -tplok)
+
+// дописать порции в открытый файл (uint16 LE × BLK подряд, как raw.bin) и выбросить их из памяти:
+// сбор сотен тысяч порций не копится в ОЗУ и при сбое не теряется. Порции не длины BLK — пропускаются.
+// Возврат — сколько записано; false в ok — ошибка записи.
+size_t append_blocks(FILE* f, std::vector<std::vector<uint16_t>>& blocks, bool& ok);
 
 } // namespace tpl

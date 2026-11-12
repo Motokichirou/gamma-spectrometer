@@ -71,6 +71,7 @@
 #include "spiflash.h"
 #include "spi1.h"
 #include "logger.h"
+#include "baud.h"
 
 #ifndef FW_TAG
 #define FW_TAG "dev"
@@ -78,6 +79,7 @@
 
 #define OSC_MAX       64u                       /* окон -osc за раз (CCM: 64·32·2 = 4 КБ) */
 #define OSC_W         (DET_CAP_PRE_DEF + DET_CAP_POST_DEF)
+#define BAUD_FLUSH_MS 1000u                     /* -baud: дождаться ответа (и выдачи спектра ≈0.6 с) */
 #define BLK_WAIT_MS   20u                       /* ожидание порции для -noise/-osc raw (порция 2.4…3 мс) */
 #define AUX_START_MS  1500u                     /* калибровка АЦП — не раньше 1.5 с (SPEC §3.3) */
 #define DAC_MODE_TAIL_MS 20u                    /* режим ЦАП держится после серии: порции в DMA (≤ 5 мс) */
@@ -441,9 +443,19 @@ static void dac_mode_poll(uint32_t now)
 }
 static const dact_ctx_t dact_ctx = { d_start, dac_test_stop, dac_test_busy, dac_test_done, dac_test_total };
 
+/* -baud (core/baud.c): ответ уже в кольце на старой скорости — дождаться его ухода и сменить делитель */
+static void b_set(uint32_t baud)
+{
+    uart_flush(BAUD_FLUSH_MS);
+    uart_set_baud(baud);
+}
+static uint32_t b_clk(void) { return clock_hz(); }
+static const baud_port_t baud_port = { b_set, b_clk };
+
 static void p_service(const char *cmd, char *reply, size_t cap)
 {
     if (svc_handle(cmd, reply, cap)) return;
+    if (baud_handle(cmd, reply, cap)) return;
     if (logger_handle(cmd, reply, cap)) return;
     if (acq_handle(&acq_ctx, cmd, reply, cap)) return;
     if (dact_handle(&dact_ctx, cmd, reply, cap)) return;
@@ -591,6 +603,7 @@ int main(void)
     hv_init(&hv, live.hv_mon_zero_mv, live.hv_mon_k_mv_per_v);
     svc_aux_init(&aux, adc_aux_vrefint_cal());
     svc_init(&svc_ctx);
+    baud_init(&baud_port);
     spi1_init();                               /* флешка: из сна spiflash_sleep() — в работу регистратора */
     logger_init(&lport);
     det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
@@ -625,6 +638,7 @@ int main(void)
         size_t n;
         while ((n = uart_rx(rb, sizeof rb)) != 0)
             proto_rx(rb, n);                   /* "!boot" отсюда не возвращается */
+        baud_poll(millis(), proto_rx_frames());  /* -baud после ответа; сторож 5 с → 600 000 */
         proto_poll();
         logger_poll(millis());                 /* регистратор: не больше одной операции с флешкой */
         if (dac_test_finished()) {

@@ -291,4 +291,22 @@ std::string report_not_run(uint32_t last_unix)
     return "не проводилось в этот раз (последний раз: " + d + ")";
 }
 
+bool baud_allowed(uint32_t baud)
+{
+    return baud == 600000u || baud == 1000000u || baud == 1500000u || baud == 2000000u || baud == 3000000u;
+}
+
+long parse_baud_reply(const std::string& r0)
+{
+    std::string r = r0;
+    while (!r.empty() && (r.back() == '\r' || r.back() == '\n' || r.back() == ' ')) r.pop_back();
+    if (r == "-err baud" || r == "-err unknown") return -1;
+    if (r.rfind("-ok baud ", 0) != 0) return 0;
+    const char* p = r.c_str() + 9;
+    char* e;
+    unsigned long v = strtoul(p, &e, 10);
+    if (e == p || *e || !baud_allowed((uint32_t)v)) return 0;
+    return (long)v;
+}
+
 } // namespace ds

@@ -40,6 +40,7 @@ static uint32_t cal_stage[BECQ_WORDS];
 static uint16_t cal_mask;         /* бит i — слово i получено */
 static int16_t  tpl_stage[TPL_ROWS][TPL_COLS];
 static uint64_t tpl_mask;         /* бит i — строка i получена */
+static uint32_t rx_frames;       /* корректных кадров (CRC сошёлся) с пуска — сторож -baud */
 static uint8_t  out_step;         /* 0…15 — кадр 0x01, 16 — статус 0x04, OUT_IDLE — нет выдачи */
 
 static uint8_t txbuf[PROTO_TX_FRAME_MAX];
@@ -340,6 +341,7 @@ void proto_init(const proto_port_t *port, settings_t *live)
     cal_mask = 0;
     tpl_mask = 0;
     out_step = OUT_IDLE;
+    rx_frames = 0;
 }
 
 void proto_acq_started(void) { acquiring = true; }
@@ -364,8 +366,10 @@ void proto_rx(const uint8_t *p, size_t n)
         } else {
             boot_idx = (b == '!') ? 1u : 0u;
         }
-        if (shproto_rx_byte(&rx, b) && rx.cmd == SHPROTO_CMD_TEXT)
-            handle_text(rx.buf, rx.len);
+        if (shproto_rx_byte(&rx, b)) {
+            rx_frames++;
+            if (rx.cmd == SHPROTO_CMD_TEXT) handle_text(rx.buf, rx.len);
+        }
     }
 }
 
@@ -419,6 +423,7 @@ void proto_flash_defaults(void) { flash_st = FL_DEFAULTS; }
 void proto_flash_loaded(void) { flash_st = FL_OK; }
 void proto_set_temperature(float t_c) { temp_c = t_c; }
 bool proto_acquiring(void) { return acquiring; }
+uint32_t proto_rx_frames(void) { return rx_frames; }
 
 const char *proto_flash_status(void)
 {

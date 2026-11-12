@@ -454,3 +454,22 @@ std::vector<std::string> commands(const Result& r)
 }
 
 } // namespace tpl
+
+namespace tpl {
+
+size_t append_blocks(FILE* f, std::vector<std::vector<uint16_t>>& blocks, bool& ok)
+{
+    ok = f != nullptr;
+    size_t n = 0;
+    for (auto& b : blocks) {
+        if (!ok) break;
+        if (b.size() != (size_t)BLK) continue;
+        if (fwrite(b.data(), 2, b.size(), f) != b.size()) { ok = false; break; }
+        n++;
+    }
+    if (ok && fflush(f) != 0) ok = false;
+    blocks.clear();
+    return n;
+}
+
+} // namespace tpl

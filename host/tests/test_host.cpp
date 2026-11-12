@@ -736,8 +736,54 @@ static void test_tail_pileup()
     CHECK(tpl::find_singles(one).wins.size() == 1);
 }
 
+// -baud: допустимые скорости и разбор ответа прибора
+static void test_baud()
+{
+    CHECK(ds::BAUD_DEFAULT == 600000u);
+    CHECK(ds::baud_allowed(600000) && ds::baud_allowed(1000000) && ds::baud_allowed(1500000) &&
+          ds::baud_allowed(2000000) && ds::baud_allowed(3000000));
+    CHECK(!ds::baud_allowed(115200) && !ds::baud_allowed(0) && !ds::baud_allowed(2500000) && !ds::baud_allowed(6000000));
+    CHECK(ds::parse_baud_reply("-ok baud 3000000") == 3000000);
+    CHECK(ds::parse_baud_reply("-ok baud 600000\r\n") == 600000);
+    CHECK(ds::parse_baud_reply("-err baud") == -1);
+    CHECK(ds::parse_baud_reply("-err baud\r\n") == -1);
+    CHECK(ds::parse_baud_reply("-err unknown") == -1);      // старая прошивка
+    CHECK(ds::parse_baud_reply("-ok baud 115200") == 0);    // не из списка — не наш ответ
+    CHECK(ds::parse_baud_reply("-ok baud 3000000x") == 0);
+    CHECK(ds::parse_baud_reply("-ok baud") == 0);
+    CHECK(ds::parse_baud_reply("-ok hv 500") == 0);
+    CHECK(ds::parse_baud_reply("-err hv") == 0);
+}
+
+// сбор порций: дописать в файл по ходу и выбросить из памяти
+static void test_append_blocks()
+{
+    FILE* f = tmpfile();
+    CHECK(f != nullptr);
+    if (!f) return;
+    std::vector<std::vector<uint16_t>> b(2, std::vector<uint16_t>(tpl::BLK));
+    for (int i = 0; i < tpl::BLK; i++) { b[0][i] = (uint16_t)i; b[1][i] = (uint16_t)(60000 - i); }
+    b.push_back(std::vector<uint16_t>(10, 7));               // не той длины — пропуск
+    bool ok = false;
+    CHECK(tpl::append_blocks(f, b, ok) == 2);
+    CHECK(ok && b.empty());
+    b.assign(1, std::vector<uint16_t>(tpl::BLK, 1234));
+    CHECK(tpl::append_blocks(f, b, ok) == 1 && ok && b.empty());
+    CHECK(ftell(f) == 3L * tpl::BLK * 2);
+    rewind(f);
+    std::vector<uint16_t> r(tpl::BLK);
+    CHECK(fread(r.data(), 2, tpl::BLK, f) == (size_t)tpl::BLK && r[0] == 0 && r[8191] == 8191);
+    CHECK(fread(r.data(), 2, tpl::BLK, f) == (size_t)tpl::BLK && r[0] == 60000 && r[100] == 59900);
+    CHECK(fread(r.data(), 2, tpl::BLK, f) == (size_t)tpl::BLK && r[5] == 1234);
+    fclose(f);
+    b.assign(1, std::vector<uint16_t>(tpl::BLK));
+    CHECK(tpl::append_blocks(nullptr, b, ok) == 0 && !ok && b.empty());
+}
+
 int main()
 {
+    test_baud();
+    test_append_blocks();
     test_peak_count();
     test_weak_source();
     test_pulse_view();

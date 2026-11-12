@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <thread>
 
 static const int tpl_blk = 8192;   // порция АЦП (-osc raw)
 
@@ -50,7 +51,8 @@ bool Device::connect(const std::string& port)
     disconnect();
     state = State::Connecting;
     status_text = T("conn.connecting");
-    if (!serial_.open(port, 600000)) {
+    baud_ = ds::BAUD_DEFAULT; baud_wait_ = false;
+    if (!serial_.open(port, (int)ds::BAUD_DEFAULT)) {
         last_open_error = serial_.last_error();
         state = State::Error;
         status_text = TF("dev.open_fail", port.c_str());
@@ -105,6 +107,12 @@ void Device::disconnect()
     raw.running = false; raw_wait_ = false;
     tc.running = false;
     q_.clear(); q_wait_ = false;
+    if (serial_.is_open() && baud_ != ds::BAUD_DEFAULT) {   // вернуть прибор на 600 000 (иначе — сторож через 5 с)
+        baud_reply_ = 0; baud_wait_ = true;
+        send_cmd("-baud 600000");
+        baud_wait_reply_(0.5);
+    }
+    baud_ = ds::BAUD_DEFAULT; baud_wait_ = false;
     serial_.close();
     state = State::Disconnected;
     status_text = T("dev.closed");
@@ -115,6 +123,54 @@ void Device::disconnect()
     setup = ds::SetupRec(); setup_known = ds::SetupKnown::Unknown; setup_wait_ = false;
     gst.clear(); gst_rx_ = -1.0; thr_codes = -1;
     port_name.clear();
+}
+
+bool Device::baud_wait_reply_(double secs)
+{
+    double t0 = now_sec();
+    while (baud_wait_ && now_sec() - t0 < secs) {
+        poll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return !baud_wait_;
+}
+
+bool Device::set_baud(uint32_t n, std::string& err)
+{
+    if (!serial_.is_open() || !connected()) { err = "нет связи"; return false; }
+    if (!ds::baud_allowed(n)) { err = "скорость " + std::to_string(n) + " не поддерживается"; return false; }
+    if (n == baud_) return true;
+    if (queue_busy() || raw_wait_ || logd.running) { err = "занят: идёт обмен"; return false; }
+    const uint32_t old = baud_;
+    baud_reply_ = 0; baud_wait_ = true;
+    send_cmd("-baud " + std::to_string(n));
+    if (!baud_wait_reply_(1.5)) { baud_wait_ = false; err = "нет ответа на -baud"; return false; }
+    if (baud_reply_ != (long)n) {
+        err = baud_reply_ < 0 ? "прибор отказал (-err baud / старая прошивка без -baud)" : "неожиданный ответ на -baud";
+        return false;
+    }
+    // прибор переключается, как только ответ ушёл с линии
+    bool ok = serial_.set_baud((int)n);
+    if (ok) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        serial_.purge_rx();
+        parser_ = shproto::Parser();
+        baud_ = n;
+        baud_reply_ = 0; baud_wait_ = true;
+        send_cmd("-baud", true);
+        ok = baud_wait_reply_(1.0) && baud_reply_ == (long)n;
+    }
+    if (ok) { log_add(0, "скорость UART " + std::to_string(n)); return true; }
+    // связи нет: порт обратно, ждём сторожа прибора (5 с без кадров → 600 000)
+    baud_wait_ = false;
+    serial_.set_baud((int)ds::BAUD_DEFAULT);
+    baud_ = ds::BAUD_DEFAULT;
+    std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+    serial_.purge_rx();
+    parser_ = shproto::Parser();
+    err = "связь на " + std::to_string(n) + " не установилась; порт возвращён на 600000 (было " + std::to_string(old) + ")";
+    log_add(3, err);
+    return false;
 }
 
 void Device::send_cmd(const std::string& cmd, bool quiet)
@@ -259,9 +315,13 @@ void Device::on_text(const std::string& t0)
     if (starts(t, "-ok log read")) { logd_rec_done_ = true; return; }
     if (starts(t, "-err log read") || (logd.running && starts(t, "-err log"))) { logd_rec_err_ = true; logd_list_done_ = true; log_add(3, t); return; }
     if (starts(t, "-ok log") || starts(t, "-err log")) log_status = t;
+    if (baud_wait_ && !q_wait_) {                     // ответ на -baud (set_baud / disconnect)
+        long r = ds::parse_baud_reply(t);
+        if (r) { baud_reply_ = r; baud_wait_ = false; log_add(2, t); last_reply = t; return; }
+    }
     if (raw_wait_ && (starts(t, "-ok osc raw") || starts(t, "-err"))) {   // порция для эталона — без лога
         raw_wait_ = false;
-        if (starts(t, "-ok osc raw") && raw_total_ == tpl_blk && raw_got_ == tpl_blk) raw.blocks.push_back(raw_cur_);
+        if (starts(t, "-ok osc raw") && raw_total_ == tpl_blk && raw_got_ == tpl_blk) { raw.blocks.push_back(raw_cur_); raw.got++; }
         else { raw.bad++; if (t.find("acq") != std::string::npos) send_cmd("-sto", true); }
         return;
     }
@@ -671,13 +731,13 @@ void Device::raw_abort()
     if (!raw.running) return;
     raw.running = false; raw_wait_ = false;
     if (raw.was_acq) send_cmd("-sta");
-    raw.msg = TF("dev.raw.aborted", (int)raw.blocks.size());
+    raw.msg = TF("dev.raw.aborted", raw.got);
 }
 
 void Device::raw_finish()
 {
     // цель = уже собранное: raw_tick закончит сбор штатно (дождётся порции в пути, вернёт -sta)
-    if (raw.running) raw.target = std::max(1, (int)raw.blocks.size());
+    if (raw.running) raw.target = std::max(1, raw.got);
 }
 
 void Device::raw_tick(double now)
@@ -686,14 +746,14 @@ void Device::raw_tick(double now)
         if (now - raw_t_ > 5.0) { raw_wait_ = false; raw.bad++; }
         return;
     }
-    if ((int)raw.blocks.size() >= raw.target) {
+    if (raw.got >= raw.target) {
         raw.running = false;
         if (raw.was_acq) send_cmd("-sta");
-        raw.msg = TF("dev.raw.done", (int)raw.blocks.size(), raw.bad);
+        raw.msg = TF("dev.raw.done", raw.got, raw.bad);
         log_add(0, TF("dev.raw.log", raw.msg.c_str()));
         return;
     }
-    if (raw.bad > 50 && raw.bad > (int)raw.blocks.size()) {
+    if (raw.bad > 50 && raw.bad > raw.got) {
         raw.running = false;
         raw.msg = T("dev.raw.too_bad");
         return;

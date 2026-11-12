@@ -113,6 +113,23 @@ void uart_init(uint32_t baud)
     NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 }
 
+bool uart_set_baud(uint32_t baud)
+{
+    uint32_t brr = hw_uart_brr(clock_hz(), baud);
+    if (!brr) return false;
+    /* BRR пишется только при UE = 0 (RM0440 §37.8.1). Кольца и DMA не трогаем: CR1/CR3 сохраняются,
+       при UE = 0 теряется лишь содержимое FIFO; незаконченная передача DMA (flush не дождался)
+       продолжится уже на новой скорости по запросу TXE */
+    NVIC_DisableIRQ(USART1_IRQn);
+    USART1->CR1 &= ~USART_CR1_UE;
+    USART1->BRR = brr;
+    USART1->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NECF | USART_ICR_PECF | USART_ICR_IDLECF;
+    USART1->CR1 |= USART_CR1_UE;
+    NVIC_ClearPendingIRQ(USART1_IRQn);
+    NVIC_EnableIRQ(USART1_IRQn);
+    return true;
+}
+
 void uart_tx(const uint8_t *p, size_t n)
 {
     const uint32_t lim = (clock_hz() / 1000u) * UART_TX_STALL_MS;

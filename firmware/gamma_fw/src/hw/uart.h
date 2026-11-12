@@ -14,6 +14,9 @@
 #define UART_TX_STALL_MS 100u
 
 void   uart_init(uint32_t baud);              /* после clock_init: делитель от clock_hz() */
+/* новая скорость на ходу (-baud): только делитель, кольца и DMA целы; false — делитель вне 16…65535.
+   Перед вызовом — uart_flush, иначе хвост передачи уйдёт на новой скорости. */
+bool   uart_set_baud(uint32_t baud);
 void   uart_tx(const uint8_t *p, size_t n);
 size_t uart_tx_free(void);
 size_t uart_rx(uint8_t *dst, size_t cap);
