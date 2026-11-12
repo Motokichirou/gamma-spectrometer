@@ -2,6 +2,7 @@
 // Макросы — общие с тестами прошивки: firmware/gamma_fw/tests/t.h.
 #include "t.h"
 #include "devstate.h"
+#include "theme_tokens.h"
 #include <cstring>
 
 using namespace ds;
@@ -178,6 +179,24 @@ static void test_display_serial()
     CHECK(display_serial("") == "");
 }
 
+// WCAG-контраст токенов темы (спека: основной ≥ 7:1, вторичный ≥ 4.5:1)
+static void test_contrast()
+{
+    using theme::contrast; const theme::Tok& k = theme::tok;
+    double bw = contrast(0xffffff, 0x000000);
+    CHECK(bw > 20.99 && bw < 21.01);
+    CHECK(contrast(0x000000, 0xffffff) == bw);                      // порядок аргументов не важен
+    CHECK(contrast(k.text, k.bg) >= 7.0);
+    CHECK(contrast(k.text, k.panel) >= 7.0);
+    CHECK(contrast(k.text, k.panel2) >= 7.0);
+    CHECK(contrast(k.text, k.sel_bg) >= 7.0);
+    for (unsigned b : { k.bg, k.panel, k.panel2, k.sel_bg }) CHECK(contrast(k.text2, b) >= 4.5);
+    CHECK(contrast(k.on_accent, k.accent) >= 4.5);
+    for (unsigned c : { k.ok, k.warn, k.danger, k.hv }) CHECK(contrast(c, k.panel) >= 4.5);
+    CHECK(contrast(k.hv, k.hv_bg) >= 4.5);                          // чип «ВВ включено»
+    CHECK(contrast(k.warn, k.warn_bg) >= 4.5);
+}
+
 int main()
 {
     test_parse_setup();
@@ -188,5 +207,6 @@ int main()
     test_top_bar();
     test_connect_hint();
     test_display_serial();
+    test_contrast();
     return T_DONE();
 }

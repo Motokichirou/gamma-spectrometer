@@ -1,6 +1,7 @@
 // theme.cpp — см. theme.h (дизайн-спека §9)
 #include "theme.h"
 #include "implot.h"
+#include "theme_tokens.h"
 
 namespace theme {
 
@@ -10,29 +11,35 @@ static inline ImVec4 hx(unsigned rgb, float a = 1.0f) {
                   (rgb & 0xFF) / 255.0f, a);
 }
 
-// Палитра
-ImVec4 c_accent        = hx(0x4c8df0);
-ImVec4 c_accent_hover  = hx(0x5e9bf5);
-ImVec4 c_accent_active = hx(0x3b7ae0);
-ImVec4 c_accent_sel    = ImVec4(0x4c/255.0f, 0x8d/255.0f, 0xf0/255.0f, 0.22f);
-ImVec4 c_accent_line   = ImVec4(0x4c/255.0f, 0x8d/255.0f, 0xf0/255.0f, 0.55f);
-ImVec4 c_ok            = hx(0x4fb07a);
-ImVec4 c_warn          = hx(0xe0a23c);
-ImVec4 c_danger        = hx(0xe5484d);
-ImVec4 c_danger_bg     = ImVec4(0xe5/255.0f, 0x48/255.0f, 0x4d/255.0f, 0.14f);
-ImVec4 c_trace         = hx(0x6fb0f0);
-ImVec4 c_trace2        = hx(0x4fb07a);
-ImVec4 c_cursor        = hx(0xe0a23c);
-ImVec4 c_text_strong   = hx(0xe9edf3);
-ImVec4 c_text          = hx(0xc6ccd6);
-ImVec4 c_text_dim      = hx(0x79818e);
-ImVec4 c_text_faint    = hx(0x555d6a);
+static inline ImVec4 tk(unsigned rgb, float a = 1.0f) { return hx(rgb, a); }
+
+// Палитра — из семантических токенов (theme_tokens.h); прежние имена c_* оставлены для кода панелей
+ImVec4 c_accent        = tk(tok.accent);
+ImVec4 c_accent_hover  = hx(0x8ab9ff);
+ImVec4 c_accent_active = hx(0x5a94ec);
+ImVec4 c_accent_sel    = tk(tok.sel_bg);
+ImVec4 c_accent_line   = tk(tok.accent, 0.55f);
+ImVec4 c_on_accent     = tk(tok.on_accent);
+ImVec4 c_ok            = tk(tok.ok);
+ImVec4 c_warn          = tk(tok.warn);
+ImVec4 c_warn_bg       = tk(tok.warn_bg);
+ImVec4 c_danger        = tk(tok.danger);
+ImVec4 c_danger_bg     = tk(tok.danger, 0.16f);
+ImVec4 c_hv            = tk(tok.hv);
+ImVec4 c_hv_bg         = tk(tok.hv_bg);
+ImVec4 c_trace         = tk(tok.accent);
+ImVec4 c_trace2        = tk(tok.ok);
+ImVec4 c_cursor        = tk(tok.warn);
+ImVec4 c_text_strong   = hx(0xf4f5f7);
+ImVec4 c_text          = tk(tok.text);
+ImVec4 c_text_dim      = tk(tok.text2);
+ImVec4 c_text_faint    = hx(0x80878f);   // неактивные элементы и мелкие засечки осей (не основной текст)
 ImVec4 c_white         = hx(0xffffff);
-ImVec4 c_plot_bg       = hx(0x10131a);
-ImVec4 c_grid          = hx(0x1f2630);
-ImVec4 c_border        = hx(0x2e3540);
-ImVec4 c_head          = hx(0x232a35);
-ImVec4 c_child         = hx(0x1b1f27);
+ImVec4 c_plot_bg       = hx(0x111316);
+ImVec4 c_grid          = hx(0x262a30);
+ImVec4 c_border        = tk(tok.border);
+ImVec4 c_head          = tk(tok.panel2);
+ImVec4 c_child         = tk(tok.panel);
 
 ImFont *font_ui = nullptr, *font_small = nullptr, *font_mono = nullptr,
        *font_mono_time = nullptr, *font_mono_big = nullptr;
@@ -86,45 +93,45 @@ void ApplyStyle()
     s.GrabMinSize   = 10.0f;
 
     ImVec4* c = s.Colors;
-    c[ImGuiCol_WindowBg]            = hx(0x15181e);
-    c[ImGuiCol_ChildBg]             = hx(0x1b1f27);
-    c[ImGuiCol_PopupBg]             = hx(0x1b1f27);
+    c[ImGuiCol_WindowBg]            = tk(tok.bg);
+    c[ImGuiCol_ChildBg]             = tk(tok.panel);
+    c[ImGuiCol_PopupBg]             = tk(tok.panel);
     c[ImGuiCol_Border]              = c_border;
     c[ImGuiCol_BorderShadow]        = ImVec4(0, 0, 0, 0);
-    c[ImGuiCol_FrameBg]             = hx(0x20252e);
-    c[ImGuiCol_FrameBgHovered]      = hx(0x2a313c);
-    c[ImGuiCol_FrameBgActive]       = hx(0x323a47);
-    c[ImGuiCol_TitleBg]             = hx(0x15181e);
-    c[ImGuiCol_TitleBgActive]       = hx(0x1c212a);
-    c[ImGuiCol_TitleBgCollapsed]    = hx(0x15181e);
-    c[ImGuiCol_MenuBarBg]           = hx(0x15181e);
-    c[ImGuiCol_ScrollbarBg]         = hx(0x10131a);
-    c[ImGuiCol_ScrollbarGrab]       = hx(0x2e3540);
-    c[ImGuiCol_ScrollbarGrabHovered]= hx(0x3a434f);
-    c[ImGuiCol_ScrollbarGrabActive] = hx(0x4c8df0);
+    c[ImGuiCol_FrameBg]             = tk(tok.panel2);
+    c[ImGuiCol_FrameBgHovered]      = hx(0x31363e);
+    c[ImGuiCol_FrameBgActive]       = tk(tok.border);
+    c[ImGuiCol_TitleBg]             = tk(tok.bg);
+    c[ImGuiCol_TitleBgActive]       = tk(tok.panel);
+    c[ImGuiCol_TitleBgCollapsed]    = tk(tok.bg);
+    c[ImGuiCol_MenuBarBg]           = tk(tok.panel);
+    c[ImGuiCol_ScrollbarBg]         = tk(tok.bg);
+    c[ImGuiCol_ScrollbarGrab]       = tk(tok.border);
+    c[ImGuiCol_ScrollbarGrabHovered]= hx(0x4a505a);
+    c[ImGuiCol_ScrollbarGrabActive] = c_accent;
     c[ImGuiCol_CheckMark]           = c_accent;
     c[ImGuiCol_SliderGrab]          = c_accent;
     c[ImGuiCol_SliderGrabActive]    = c_accent_active;
-    c[ImGuiCol_Button]              = hx(0x20252e);
-    c[ImGuiCol_ButtonHovered]       = hx(0x2a313c);
-    c[ImGuiCol_ButtonActive]        = hx(0x323a47);
+    c[ImGuiCol_Button]              = tk(tok.panel2);
+    c[ImGuiCol_ButtonHovered]       = hx(0x31363e);
+    c[ImGuiCol_ButtonActive]        = tk(tok.border);
     c[ImGuiCol_Header]              = c_accent_sel;
-    c[ImGuiCol_HeaderHovered]       = ImVec4(0x4c/255.0f, 0x8d/255.0f, 0xf0/255.0f, 0.32f);
-    c[ImGuiCol_HeaderActive]        = ImVec4(0x4c/255.0f, 0x8d/255.0f, 0xf0/255.0f, 0.42f);
-    c[ImGuiCol_Separator]           = hx(0x242a33);
-    c[ImGuiCol_SeparatorHovered]    = hx(0x3a434f);
+    c[ImGuiCol_HeaderHovered]       = hx(0x324566);
+    c[ImGuiCol_HeaderActive]        = hx(0x3a5077);
+    c[ImGuiCol_Separator]           = tk(tok.border);
+    c[ImGuiCol_SeparatorHovered]    = hx(0x4a505a);
     c[ImGuiCol_SeparatorActive]     = c_accent;
-    c[ImGuiCol_Tab]                 = hx(0x1b1f27);
+    c[ImGuiCol_Tab]                 = tk(tok.panel);
     c[ImGuiCol_TabHovered]          = c_accent_sel;
-    c[ImGuiCol_TabActive]           = hx(0x232a35);
-    c[ImGuiCol_TabUnfocused]        = hx(0x15181e);
-    c[ImGuiCol_TabUnfocusedActive]  = hx(0x1b1f27);
+    c[ImGuiCol_TabActive]           = tk(tok.sel_bg);
+    c[ImGuiCol_TabUnfocused]        = tk(tok.bg);
+    c[ImGuiCol_TabUnfocusedActive]  = tk(tok.panel);
     c[ImGuiCol_Text]                = c_text;
     c[ImGuiCol_TextDisabled]        = c_text_faint;
     c[ImGuiCol_TextSelectedBg]      = c_accent_sel;
-    c[ImGuiCol_TableHeaderBg]       = hx(0x232a35);
-    c[ImGuiCol_TableBorderStrong]   = hx(0x2e3540);
-    c[ImGuiCol_TableBorderLight]    = hx(0x242a33);
+    c[ImGuiCol_TableHeaderBg]       = tk(tok.panel2);
+    c[ImGuiCol_TableBorderStrong]   = tk(tok.border);
+    c[ImGuiCol_TableBorderLight]    = hx(0x2e3239);
     c[ImGuiCol_TableRowBg]          = ImVec4(0, 0, 0, 0);
     c[ImGuiCol_TableRowBgAlt]       = ImVec4(1, 1, 1, 0.02f);
     c[ImGuiCol_NavHighlight]        = c_accent;

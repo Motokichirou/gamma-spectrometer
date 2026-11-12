@@ -90,7 +90,7 @@ static bool PrimaryButton(const char* label, const ImVec2& sz = ImVec2(0, 0))
     ImGui::PushStyleColor(ImGuiCol_Button,        c_accent);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, c_accent_hover);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  c_accent_active);
-    ImGui::PushStyleColor(ImGuiCol_Text,          c_white);
+    ImGui::PushStyleColor(ImGuiCol_Text,          c_on_accent);
     bool r = ImGui::Button(label, sz);
     ImGui::PopStyleColor(4);
     return r;
@@ -401,7 +401,7 @@ static void PanelSpectrum(ImVec2 pos, ImVec2 size)
     auto seg = [&](const char* lbl, bool active) {
         if (active) {
             ImGui::PushStyleColor(ImGuiCol_Button, c_accent);
-            ImGui::PushStyleColor(ImGuiCol_Text, c_white);
+            ImGui::PushStyleColor(ImGuiCol_Text, c_on_accent);
         }
         bool r = ImGui::Button(lbl, ImVec2(42, 0));
         if (active) ImGui::PopStyleColor(2);

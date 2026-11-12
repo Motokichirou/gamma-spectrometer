@@ -1,13 +1,15 @@
 // theme.h — палитра, шрифты и стиль «ГаммаПульт» (дизайн-спека §9)
 #pragma once
 #include "imgui.h"
+#include "theme_tokens.h"
 struct ImFont;
 
 namespace theme {
 
-// Палитра (sRGB)
+// Палитра (sRGB), выводится из семантических токенов theme_tokens.h (tok)
 extern ImVec4 c_accent, c_accent_hover, c_accent_active, c_accent_sel, c_accent_line;
-extern ImVec4 c_ok, c_warn, c_danger, c_danger_bg;
+extern ImVec4 c_on_accent;
+extern ImVec4 c_ok, c_warn, c_warn_bg, c_danger, c_danger_bg, c_hv, c_hv_bg;
 extern ImVec4 c_trace, c_trace2, c_cursor;
 extern ImVec4 c_text_strong, c_text, c_text_dim, c_text_faint, c_white;
 extern ImVec4 c_plot_bg, c_grid, c_border, c_head, c_child;
