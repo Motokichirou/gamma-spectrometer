@@ -129,6 +129,8 @@ typedef struct {
     uint32_t accepted, rej_pileup, rej_shape, rej_width;
     uint32_t rej_budget;     /* триггеров, пропущенных из-за исчерпания бюджета порции */
     uint32_t base_jumps;     /* скачков базы (пересчёт без EMA) */
+    uint32_t recovered, rej_front;   /* поля разбора наложений detector.h (здесь всегда 0): раскладка
+                                        как у det_stats_t — test_det_equiv сверяет memcmp */
     uint64_t dead_samples;
 } detref_stats_t;
 

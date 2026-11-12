@@ -785,6 +785,431 @@ static void test_spectrum_saturates(void)
     spectrum_clear();
 }
 
+/* ======================================================================================
+ * Разбор хвостовых наложений (det_set_tail / det_set_pile). Длинный импульс шейпера V2: форма —
+ * замер по 10 564 одиночным Cs (tools/pileup/out/S.npz, нормирована на пик), узлы через отсчёт
+ * τ = −3…+72 от момента CFD 50 %, между узлами — кубический сплайн Катмулла — Рома (до τ = −1 —
+ * линейно, без выброса перед фронтом); после +72 выброс в минус спадает с τ = 40 отсчётов (на
+ * приборе ≈ 450 — укорочен, чтобы не тянуть базу между парами). Эталон 64 × 7 и таблица хвоста
+ * 16 × 64 строятся по этой же форме, как это сделает пульт по одиночным импульсам.
+ * ====================================================================================== */
+static const float lp_knot[76] = {                 /* τ = −3, −2, …, +72 */
+    0.00000f, 0.00000f, 0.18006f, 0.50387f, 0.75450f, 0.90838f, 0.98324f, 0.99969f, 0.97727f, 0.92881f,
+    0.86435f, 0.79142f, 0.71551f, 0.63995f, 0.56806f, 0.50098f, 0.43888f, 0.38259f, 0.33184f, 0.28603f,
+    0.24593f, 0.21069f, 0.17983f, 0.15293f, 0.12973f, 0.10979f, 0.09262f, 0.07777f, 0.06502f, 0.05406f,
+    0.04469f, 0.03678f, 0.03011f, 0.02436f, 0.01946f, 0.01534f, 0.01187f, 0.00893f, 0.00650f, 0.00451f,
+    0.00288f, 0.00152f, 0.00041f, -0.00045f, -0.00119f, -0.00182f, -0.00235f, -0.00280f, -0.00316f, -0.00344f,
+    -0.00372f, -0.00394f, -0.00412f, -0.00426f, -0.00439f, -0.00452f, -0.00463f, -0.00472f, -0.00479f, -0.00484f,
+    -0.00488f, -0.00492f, -0.00494f, -0.00494f, -0.00495f, -0.00498f, -0.00499f, -0.00500f, -0.00501f, -0.00502f,
+    -0.00502f, -0.00502f, -0.00500f, -0.00500f, -0.00500f, -0.00499f,
+};
+#define LP_T0   (-3)
+#define LP_NK   76
+#define LP_BASE 620.0f
+#define LP_SIG  3.0f
+#define LP_THR  15u                                  /* 5σ */
+
+static double lp_max = 1.0;                          /* максимум сырой формы */
+static double lp_xs;                                 /* f(xs) = f(xs + 1): граница «своего» отсчёта максимума */
+#define LP_E(ph) (lp_xs - 0.15 + 1.3 * (ph) / DET_NPH) /* фаза эталона → отсчёт максимума − опорный момент */
+static int16_t tplL[DET_NPH][DET_NS];
+static det_tail_t tailL;
+
+static double lp_raw(double tau)
+{
+    double u = tau - LP_T0;
+    if (u <= 0.0) return 0.0;
+    if (u >= LP_NK - 1) return lp_knot[LP_NK - 1] * exp(-(u - (LP_NK - 1)) / 40.0);
+    int i = (int)u;
+    double f = u - i;
+    if (tau < -1.0) return lp_knot[i] + (lp_knot[i + 1] - lp_knot[i]) * f;
+    double y0 = i > 0 ? lp_knot[i - 1] : 0.0, y1 = lp_knot[i], y2 = lp_knot[i + 1];
+    double y3 = (i + 2 < LP_NK) ? lp_knot[i + 2] : y2;
+    double m1 = 0.5 * (y2 - y0), m2 = 0.5 * (y3 - y1);
+    double f2 = f * f, f3 = f2 * f;
+    return (2 * f3 - 3 * f2 + 1) * y1 + (f3 - 2 * f2 + f) * m1 + (-2 * f3 + 3 * f2) * y2 + (f3 - f2) * m2;
+}
+
+static float lp_shape(double tau) { return (float)(lp_raw(tau) / lp_max); }
+
+static void lp_setup(void)
+{
+    double m = 0.0, tm = 0.0;
+    for (double t = 0.0; t < 8.0; t += 1.0 / 4096) {
+        double v = lp_raw(t);
+        if (v > m) { m = v; tm = t; }
+    }
+    lp_max = m;
+    double a = tm - 1.0, b = tm;                     /* f(x) − f(x + 1): + слева, − справа */
+    for (int k = 0; k < 60; k++) {
+        double c = 0.5 * (a + b);
+        if (lp_raw(c) - lp_raw(c + 1.0) > 0.0) b = c; else a = c;
+    }
+    lp_xs = 0.5 * (a + b);
+    /* фаза p: отсчёт максимума отстоит от опорного момента на e = xs − 0.15 + 1.3·(p + 0.5)/64. Как у
+       эталона с тракта (tpl_cs.h: 1.22 отсчёта), фазы перекрывают больше отсчёта: у вершины два отсчёта
+       почти равны, и шум выбирает максимум «не тот» — без перекрытия такой импульс уходил бы в брак
+       по форме (≈ 0.5 %) */
+    for (int p = 0; p < (int)DET_NPH; p++) {
+        double e = LP_E(p + 0.5);
+        for (int j = 0; j < (int)DET_NS; j++)
+            tplL[p][j] = (int16_t)lround(16384.0 * lp_shape(e - DET_IPK + j));
+    }
+    /* строка r — фазы 4r…4r+3, середина */
+    for (int r = 0; r < (int)DET_TL_ROWS; r++) {
+        double e = LP_E(4.0 * r + 2.0);
+        for (int j = 1; j <= (int)DET_TL_LEN; j++) {
+            long v = lround(32768.0 * lp_shape(e + j));
+            tailL.s[r][j - 1] = (int16_t)(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));
+        }
+    }
+    for (int p = 0; p < (int)DET_NPH; p++) tailL.row[p] = (uint8_t)(p / 4);
+}
+
+static void reset_long(int pile)
+{
+    det_cfg_t cfg = { LP_THR, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 0 };
+    det_init(&det, &cfg, (const int16_t (*)[DET_NS])tplL, emit);
+    if (pile) det_set_tail(&det, &tailL);
+    nch = 0;
+}
+
+/* шум на всём отрезке, импульсы — по списку (t — опорный момент, вершина ≈ t + 3.7) */
+static void lp_stream(size_t n, const double *t, const float *a, int np, uint32_t seed)
+{
+    pg_init_fn(&pg, lp_shape, 4, 330, seed);
+    memset(fbuf, 0, n * sizeof fbuf[0]);
+    for (int k = 0; k < np; k++)
+        pg_add_pulse(&pg, fbuf, n, t[k], a[k]);
+    pg_add_noise(&pg, fbuf, n, LP_SIG);
+    pg_quantize(fbuf, sbuf, n, LP_BASE);
+}
+
+#define LP_STEP 400u                                 /* шаг пар: хвост и выброс в минус спадают */
+#define LP_NPMAX 400
+static double lp_t[2 * LP_NPMAX];
+static float  lp_a[2 * LP_NPMAX];
+
+typedef struct {
+    int    both, one, zero, more;                    /* пар с 2 / 1 / 0 / >2 каналами */
+    double e1, e2;                                   /* средняя ошибка A (коды) у пар, где оба */
+    uint32_t rec, acc, pile, front;                  /* приращения счётчиков */
+    uint64_t dead;
+} lp_res_t;
+
+/* npair пар: A1 в t, A2 в t + dlt (вершина — вершина); по пачке на пару — каналы пары видны */
+static lp_res_t lp_pairs(int pile, int npair, float a1, float a2, double dlt, uint32_t seed, int rnd)
+{
+    pg_init_fn(&pg, lp_shape, 4, 330, seed);
+    size_t n = 2 * BLK + (size_t)npair * LP_STEP;
+    int np = 0;
+    for (int k = 0; k < npair; k++) {
+        double t = 2.0 * BLK + 50.0 + (double)k * LP_STEP + (rnd ? pg_uniform(&pg) : 0.0);
+        lp_t[np] = t; lp_a[np++] = a1;
+        if (a2 > 0.0f) { lp_t[np] = t + dlt; lp_a[np++] = a2; }
+    }
+    lp_stream(n, lp_t, lp_a, np, seed + 1u);
+    reset_long(pile);
+    feed(2 * BLK, BLK);
+    det_stats_t s0, s1;
+    det_get_stats(&det, &s0);
+    lp_res_t r;
+    memset(&r, 0, sizeof r);
+    double s1e = 0.0, s2e = 0.0;
+    for (int k = 0; k < npair; k++) {
+        int c0 = nch;
+        det_process_block(&det, sbuf + 2 * BLK + (size_t)k * LP_STEP, LP_STEP);
+        int c = nch - c0;
+        if (c == 2) {
+            r.both++;
+            s1e += chans[c0] / 2.0 - a1;
+            s2e += chans[c0 + 1] / 2.0 - a2;
+        } else if (c == 1) r.one++;
+        else if (c == 0) r.zero++;
+        else r.more++;
+    }
+    det_get_stats(&det, &s1);
+    r.e1 = r.both ? s1e / r.both : 0.0;
+    r.e2 = r.both ? s2e / r.both : 0.0;
+    r.rec = s1.recovered - s0.recovered;
+    r.acc = s1.accepted - s0.accepted;
+    r.pile = s1.rej_pileup - s0.rej_pileup;
+    r.front = s1.rej_front - s0.rej_front;
+    r.dead = s1.dead_samples - s0.dead_samples;
+    return r;
+}
+
+/* выключенный разбор: det_set_tail(NULL) — тот же det_t бит в бит, что и без вызова; таблица при
+   det_set_pile(0) — те же каналы и счётчики */
+static uint16_t chans_b[200000];
+static int      nch_b;
+static det_t    det_b;
+static void emit_b(uint16_t c) { if (nch_b < (int)(sizeof chans_b / sizeof chans_b[0])) chans_b[nch_b++] = c; }
+
+static void test_pile_off_equiv(void)
+{
+    /* поток: одиночные и пары на Δ 6…60, 40 кимп/с, порции разной длины */
+    pg_init_fn(&pg, lp_shape, 4, 330, 2024u);
+    size_t n = 30 * BLK;
+    int np = 0;
+    for (double t = 2.0 * BLK; t < n - 400 && np < 2 * LP_NPMAX - 1; t += 60.0 + 300.0 * pg_uniform(&pg)) {
+        lp_t[np] = t; lp_a[np++] = (float)(20.0 + 1200.0 * pg_uniform(&pg));
+        if (pg_uniform(&pg) < 0.5) {
+            lp_t[np] = t + 6.0 + 54.0 * pg_uniform(&pg); lp_a[np++] = (float)(20.0 + 1200.0 * pg_uniform(&pg));
+        }
+    }
+    lp_stream(n, lp_t, lp_a, np, 2025u);
+    for (int mode = 0; mode < 2; mode++) {
+        det_cfg_t cfg = { LP_THR, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 0 };
+        det_init(&det, &cfg, (const int16_t (*)[DET_NS])tplL, emit);
+        det_init(&det_b, &cfg, (const int16_t (*)[DET_NS])tplL, emit);
+        det_b.emit = emit;                           /* один и тот же адрес — для memcmp */
+        if (mode == 0) det_set_tail(&det_b, NULL);
+        else { det_set_tail(&det_b, &tailL); det_set_pile(&det_b, 0); det_b.emit = emit_b; }
+        nch = 0; nch_b = 0;
+        int bad_t = 0, bad_s = 0;
+        size_t i = 0, k = 0;
+        static const size_t blks[] = { BLK, 3000, 77, BLK, 5000, 1, 8191, 4096 };
+        while (i < n) {
+            size_t b = blks[k++ % (sizeof blks / sizeof blks[0])];
+            if (b > n - i) b = n - i;
+            if (mode == 0) {
+                int c0 = nch;
+                det_process_block(&det, sbuf + i, b);
+                int c1 = nch;                        /* каналы det_b — следом в тот же chans */
+                det_process_block(&det_b, sbuf + i, b);
+                if (nch - c1 != c1 - c0 || memcmp(chans + c0, chans + c1, (size_t)(c1 - c0) * 2)) bad_s++;
+                nch = c0 + (c1 - c0);                /* копия от det_b не нужна */
+                if (memcmp(&det, &det_b, sizeof det)) bad_t++;
+            } else {
+                det_process_block(&det, sbuf + i, b);
+                det_process_block(&det_b, sbuf + i, b);
+                det_stats_t a, c;
+                det_get_stats(&det, &a);
+                det_get_stats(&det_b, &c);
+                if (memcmp(&a, &c, sizeof a)) bad_s++;
+            }
+            i += b;
+        }
+        if (mode == 1) {
+            if (nch != nch_b || memcmp(chans, chans_b, (size_t)nch * 2)) bad_s++;
+            CHECK(det_pile_active(&det_b) == 0);
+        }
+        det_stats_t st;
+        det_get_stats(&det, &st);
+        printf("  разбор выкл (%s): импульсов %d, принято %u, наложения %u, расхождений det_t %d, "
+               "каналов/счёта %d\n", mode ? "таблица, -pile off" : "det_set_tail(NULL)", np, st.accepted,
+               st.rej_pileup, bad_t, bad_s);
+        CHECK(bad_t == 0);
+        CHECK(bad_s == 0);
+        CHECK(st.recovered == 0 && st.rej_front == 0);
+        CHECK(st.accepted > 500u);
+    }
+}
+
+static void test_tail_pairs(void)
+{
+    static const float a2s[2] = { 600.0f, 60.0f };
+    int bad_acc = 0, bad_e = 0, bad_glue = 0;
+    for (int q = 0; q < 2; q++) {
+        /* «оба приняты» — не хуже пар без перекрытия (Δ 200): одиночный импульс и сам изредка уходит в
+           брак по форме — шум выбирает максимумом соседний отсчёт вершины (у A 60 ≈ 1.5 %) */
+        lp_res_t c = lp_pairs(1, 200, 600.0f, a2s[q], 200.0, 4900u + q, 1);
+        printf("  пары 600 + %.0f (200 на Δ; без перекрытия, Δ 200: оба %d): Δ: оба / ср. ошибка A1, A2, коды / "
+               "восстановлено\n   ", a2s[q], c.both);
+        for (int dlt = 8; dlt <= 60; dlt++) {
+            lp_res_t r = lp_pairs(1, 200, 600.0f, a2s[q], dlt, 5000u + 97u * dlt + q, 1);
+            if (dlt <= 16 || dlt % 4 == 0)
+                printf(" %d: %d/%+.2f/%+.2f/%u", dlt, r.both, r.e1, r.e2, r.rec);
+            if (dlt >= 14) {
+                if (r.both < c.both - 4) { bad_acc++; printf(" [мало: %d]", r.both); }
+                if (fabs(r.e2) > 0.005 * a2s[q] + 2.0 || fabs(r.e1) > 0.005 * 600.0 + 2.0) {
+                    bad_e++; printf(" [ошибка %+.2f/%+.2f]", r.e1, r.e2);
+                }
+                CHECK(r.rec == (uint32_t)r.both);
+            }
+            if (dlt <= 11) {
+                if (r.rec != 0u || r.both + r.more != 0) { bad_glue++; printf(" [два: %d, вост. %u]", r.both, r.rec); }
+            }
+        }
+        printf("\n");
+    }
+    CHECK(bad_acc == 0);
+    CHECK(bad_e == 0);
+    CHECK(bad_glue == 0);
+}
+
+static void test_front_k2(void)
+{
+    /* опорный момент целый: максимум на τ = 4 (фаза ≈ 42), спад — к imax + 5; триггер второго
+       (600) — на imax₂ − 5, т. е. imax₁ + 6 при Δ = 11 и imax₁ + 7 при Δ = 12 */
+    for (int dlt = 11; dlt <= 12; dlt++) {
+        lp_res_t r = lp_pairs(1, 100, 600.0f, 600.0f, dlt, 777u + dlt, 0);
+        printf("  фронт k = 2, Δ = %d (триггер на imax₁ + %d): принято %u, наложения %u (фронт %u)\n",
+               dlt, dlt - 5, r.acc, r.pile, r.front);
+        CHECK(r.acc == 0u);
+        CHECK(r.pile == 200u);
+        CHECK(r.front == 200u);
+        CHECK(r.rec == 0u);
+    }
+    /* Δ = 14: триггер на imax₁ + 9 — за проверкой фронта, оба приняты */
+    lp_res_t r = lp_pairs(1, 100, 600.0f, 600.0f, 14, 790u, 0);
+    printf("  Δ = 14 (триггер на imax₁ + 9): оба %d, принято %u, фронт %u\n", r.both, r.acc, r.front);
+    CHECK(r.both == 100 && r.front == 0u);
+}
+
+static void test_tail_after_threshold(void)
+{
+    for (int k = 0; k < 2; k++) {
+        double dlt = k ? 45.0 : 30.0;
+        lp_res_t on = lp_pairs(1, 200, 600.0f, 60.0f, dlt, 3030u + k, 1);
+        lp_res_t off = lp_pairs(0, 200, 600.0f, 60.0f, dlt, 3030u + k, 1);
+        printf("  600 + 60 на Δ = %.0f: разбор — оба %d, ошибка A2 %+.2f кода (%+.1f %%); без разбора — оба %d, "
+               "%+.2f (%+.1f %%)\n", dlt, on.both, on.e2, 100.0 * on.e2 / 60.0, off.both, off.e2,
+               100.0 * off.e2 / 60.0);
+        CHECK(on.both >= 198);
+        CHECK(fabs(on.e2) <= 1.0);
+    }
+}
+
+static void test_tail_across_blocks(void)
+{
+    /* 10 пар Δ = 20 в одной порции (меньше DET_BASE_N отсчётов — база между частями не обновится);
+       вариант Б режет порцию между импульсами пары на imax₁ + c, c = −1 … 18 */
+    static const int cut[10] = { -1, 2, 5, 6, 7, 8, 10, 13, 15, 18 };
+    pg_init_fn(&pg, lp_shape, 4, 330, 4040u);
+    size_t n = 4 * BLK;
+    int np = 0;
+    for (int k = 0; k < 10; k++) {
+        double t = 2.0 * BLK + 30.0 + 400.0 * k;
+        lp_t[np] = t; lp_a[np++] = 600.0f;
+        lp_t[np] = t + 20.0; lp_a[np++] = (k & 1) ? 60.0f : 600.0f;
+    }
+    lp_stream(n, lp_t, lp_a, np, 4041u);
+    reset_long(1);
+    feed(n, BLK);
+    int na = nch;
+    static uint16_t ca[64];
+    memcpy(ca, chans, (size_t)(na < 64 ? na : 64) * 2);
+    det_stats_t sa, sb;
+    det_get_stats(&det, &sa);
+
+    reset_long(1);
+    feed(2 * BLK, BLK);
+    size_t i = 2 * BLK;
+    for (int k = 0; k < 10; k++) {
+        size_t c = (size_t)(lp_t[2 * k] + 4.0) + (size_t)(long)cut[k];   /* imax₁ = t + 4 */
+        det_process_block(&det, sbuf + i, c - i);
+        i = c;
+    }
+    det_process_block(&det, sbuf + i, 3 * BLK - i);
+    det_process_block(&det, sbuf + 3 * BLK, BLK);
+    det_get_stats(&det, &sb);
+    printf("  стык порций между импульсами пары: принято %u / %u, восстановлено %u / %u, каналы %s\n",
+           sa.accepted, sb.accepted, sa.recovered, sb.recovered,
+           (na == nch && !memcmp(ca, chans, (size_t)na * 2)) ? "совпали" : "РАЗНЫЕ");
+    CHECK(sa.accepted == 20u && sa.recovered == 10u);
+    CHECK(na == nch && memcmp(ca, chans, (size_t)na * 2) == 0);
+    CHECK(memcmp(&sa, &sb, sizeof sa) == 0);
+}
+
+static void test_tail_reset_on_lost(void)
+{
+    /* импульс 1 в конце порции (принят, хвост ещё идёт — TAIL), потеря 1 отсчёта, в следующей порции —
+       другой поток с импульсом 2 (вершина на 12-м отсчёте, j ≈ 23 от импульса 1): старый хвост вычитать
+       нельзя — без сброса A₂ вышла бы ниже на ≈ 30 кодов */
+    int ch[2] = { -1, -1 };
+    for (int v = 0; v < 2; v++) {
+        int np = 0;
+        if (v == 0) { lp_t[np] = 3.0 * BLK - 14.0; lp_a[np++] = 600.0f; }     /* imax₁ = 3·BLK − 10 */
+        lp_stream(3 * BLK, lp_t, lp_a, np, 6061u);
+        static float tmp[BLK];
+        pulsegen_t g2;
+        pg_init_fn(&g2, lp_shape, 4, 330, 6062u);
+        memset(tmp, 0, sizeof tmp);
+        pg_add_pulse(&g2, tmp, BLK, 8.0, 600.0f);
+        pg_add_noise(&g2, tmp, BLK, LP_SIG);
+        pg_quantize(tmp, sbuf + 3 * BLK, BLK, LP_BASE);
+        reset_long(1);
+        feed(3 * BLK, BLK);
+        int c3 = nch;
+        if (v == 0) CHECK(det.tl_n == 1);
+        det_add_lost(&det, 1);
+        CHECK(det.tl_n == 0);
+        det_process_block(&det, sbuf + 3 * BLK, BLK);
+        if (v == 0) CHECK(c3 == 1);
+        if (nch - c3 == 1) ch[v] = chans[c3];
+    }
+    printf("  потеря порции посреди хвоста: канал второго %d, в чистом потоке %d\n", ch[0], ch[1]);
+    CHECK(ch[0] >= 0 && ch[1] >= 0);
+    CHECK(abs(ch[0] - ch[1]) <= 2);
+}
+
+static void test_no_tail_after_reject(void)
+{
+    /* зашкал: 5000 кодов при базе 620 — срезан на 4095, отбраковка по форме; через 40 — импульс 300 */
+    int ch[2] = { -1, -1 }, nc[2];
+    det_stats_t st[2];
+    for (int pile = 0; pile < 2; pile++) {
+        size_t n = 3 * BLK;
+        lp_t[0] = 2.0 * BLK + 100.0; lp_a[0] = 5000.0f;
+        lp_t[1] = lp_t[0] + 40.0;    lp_a[1] = 300.0f;
+        lp_stream(n, lp_t, lp_a, 2, 7070u);
+        reset_long(pile);
+        feed(n, BLK);
+        det_get_stats(&det, &st[pile]);
+        nc[pile] = nch;
+        if (nch >= 1) ch[pile] = chans[nch - 1];
+    }
+    printf("  зашкал + импульс через 40: каналов %d / %d (без разбора / с разбором), второй %d / %d, "
+           "форма %u / %u, восстановлено %u\n", nc[0], nc[1], ch[0], ch[1], st[0].rej_shape, st[1].rej_shape,
+           st[1].recovered);
+    CHECK(nc[0] == 1 && nc[1] == 1);
+    CHECK(ch[0] == ch[1]);
+    /* 300 → канал 600, минус выброс в минус зашкала (≈ −0.35 % от 5000 на +40…+46): ≈ 566 */
+    CHECK(ch[0] >= 540 && ch[0] <= 600);
+    CHECK(st[0].rej_shape >= 1u && st[1].rej_shape >= 1u);
+    CHECK(st[1].recovered == 0u);
+}
+
+static void test_dead_time_peel(void)
+{
+    /* одиночные: мёртвое время с разбором не больше, чем без */
+    uint64_t dd[2];
+    uint32_t acc[2];
+    for (int pile = 0; pile < 2; pile++) {
+        pg_init_fn(&pg, lp_shape, 4, 330, 8080u);
+        size_t n = 2 * BLK + 300u * 300u;
+        int np = 0;
+        for (int k = 0; k < 300; k++) {
+            lp_t[np] = 2.0 * BLK + 50.0 + 300.0 * k + pg_uniform(&pg);
+            lp_a[np++] = (float)(100.0 + 900.0 * pg_uniform(&pg));
+        }
+        lp_stream(n, lp_t, lp_a, np, 8081u);
+        reset_long(pile);
+        feed(2 * BLK, BLK);
+        det_stats_t s0, s1;
+        det_get_stats(&det, &s0);
+        for (size_t i = 2 * BLK; i < n; i += BLK)
+            det_process_block(&det, sbuf + i, (n - i < BLK) ? n - i : BLK);
+        det_get_stats(&det, &s1);
+        dd[pile] = s1.dead_samples - s0.dead_samples;
+        acc[pile] = s1.accepted - s0.accepted;
+    }
+    /* пары Δ = 20: отсчёты TAIL живые — мёртвы только «триггер … imax + 5 + k» у каждого */
+    lp_res_t on = lp_pairs(1, 200, 600.0f, 600.0f, 20.0, 8282u, 1);
+    lp_res_t off = lp_pairs(0, 200, 600.0f, 600.0f, 20.0, 8282u, 1);
+    printf("  мёртвое время: одиночные %llu / %llu (без / с разбором, принято %u / %u); пары Δ 20 — "
+           "%llu / %llu, на пару %.1f / %.1f\n", (unsigned long long)dd[0], (unsigned long long)dd[1],
+           acc[0], acc[1], (unsigned long long)off.dead, (unsigned long long)on.dead, off.dead / 200.0,
+           on.dead / 200.0);
+    CHECK(dd[1] <= dd[0]);
+    CHECK(acc[1] == acc[0]);
+    CHECK(on.both == 200 && on.rec == 200u);
+    CHECK(on.dead <= 200u * 30u);
+    CHECK(on.dead < off.dead);
+}
+
 int main(void)
 {
     test_spectrum_saturates();
@@ -807,5 +1232,14 @@ int main(void)
     test_budget_exact();
     test_capture();
     test_spectrum();
+    lp_setup();
+    test_pile_off_equiv();
+    test_tail_pairs();
+    test_front_k2();
+    test_tail_after_threshold();
+    test_tail_across_blocks();
+    test_tail_reset_on_lost();
+    test_no_tail_after_reject();
+    test_dead_time_peel();
     return T_DONE();
 }

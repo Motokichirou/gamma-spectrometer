@@ -16,6 +16,9 @@ void pg_init(pulsegen_t *g, const int16_t (*tpl)[PG_NS], int nph, uint32_t seed)
     for (int p = 0; p + 1 < nph; p++)
         if (tpl[p][0] - tpl[p + 1][0] > 3000) { ps = p + 1; break; }
     g->rng = seed ? seed : 1u;
+    g->fn = NULL;
+    g->pre = 4;
+    g->post = 16;
     g->nph = nph;
     g->len = PG_NS * nph;
     g->i0  = 2 * nph - ps;
@@ -35,8 +38,21 @@ void pg_init(pulsegen_t *g, const int16_t (*tpl)[PG_NS], int nph, uint32_t seed)
     }
 }
 
+void pg_init_fn(pulsegen_t *g, pg_shape_fn fn, int pre, int post, uint32_t seed)
+{
+    g->rng = seed ? seed : 1u;
+    g->fn = fn;
+    g->pre = pre;
+    g->post = post;
+    g->nph = 0;
+    g->i0 = 0;
+    g->len = 0;
+}
+
 float pg_shape(const pulsegen_t *g, double tau)
 {
+    if (g->fn)
+        return g->fn(tau);
     double u = tau * g->nph + g->i0;
     if (u < 0.0)
         return 0.0f;
@@ -67,7 +83,7 @@ double pg_gauss(pulsegen_t *g)
 
 void pg_add_pulse(const pulsegen_t *g, float *buf, size_t n, double t_peak, float amp)
 {
-    long k0 = (long)floor(t_peak) - 4, k1 = (long)ceil(t_peak) + 16;
+    long k0 = (long)floor(t_peak) - g->pre, k1 = (long)ceil(t_peak) + g->post;
     if (k0 < 0) k0 = 0;
     if (k1 > (long)n) k1 = (long)n;
     for (long k = k0; k < k1; k++)

@@ -34,6 +34,16 @@ static inline uint32_t SMUAD(uint32_t a, uint32_t b) { return SMLAD(a, b, 0u); }
 /* уточнение фазы в fit() без «& 63»: грубые фазы кратны DET_COARSE ≥ 3 и c + 2 < DET_NPH */
 typedef char det_coarse_ok[(DET_COARSE >= 3u && DET_NPH % DET_COARSE == 0u) ? 1 : -1];
 
+/* Тело, которое разворачивается в две функции с постоянным параметром (slow/slow_p, fit/fit_p): без
+   разбора компилятор выбрасывает его ветки целиком, и прежний путь собирается как раньше. */
+#if defined(__GNUC__)
+#define DET_INLINE static inline __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define DET_INLINE static __forceinline
+#else
+#define DET_INLINE static inline
+#endif
+
 /* Развернуть грубый поиск фазы (16 фаз): без развёртки — счётчик, адрес строки и переход на фазу. */
 #if defined(__GNUC__) && !defined(__clang__)
 #define DET_UNROLL16 _Pragma("GCC unroll 16")
@@ -48,8 +58,9 @@ typedef uint32_t __attribute__((may_alias)) u32_alias;
 typedef uint32_t u32_alias;
 #endif
 
-/* DET_S_SKIP — бюджет порции исчерпан: остаток порции только считается (см. detector.h) */
-enum { DET_S_IDLE = 0, DET_S_PULSE, DET_S_POST, DET_S_GUARD, DET_S_SKIP };
+/* DET_S_SKIP — бюджет порции исчерпан: остаток порции только считается (см. detector.h);
+   DET_S_FRONT, DET_S_TAIL — только при разборе наложений: проверка фронта и хвост по остатку */
+enum { DET_S_IDLE = 0, DET_S_PULSE, DET_S_POST, DET_S_GUARD, DET_S_SKIP, DET_S_FRONT, DET_S_TAIL };
 
 static int32_t iround(float x) { return (int32_t)(x >= 0.0f ? x + 0.5f : x - 0.5f); }
 
@@ -91,6 +102,7 @@ void det_init(det_t *d, const det_cfg_t *cfg, const int16_t (*tpl)[DET_NS], det_
     d->gain = 1.0f;
     d->emit = emit;
     d->armed = 1;
+    d->pile_on = 1;
     det_set_template(d, tpl);
 }
 
@@ -171,11 +183,116 @@ float det_sigma(const det_t *d)
 
 void det_get_stats(const det_t *d, det_stats_t *st) { *st = d->st; }
 
+/* ---- разбор хвостовых наложений: список активных хвостов ---- */
+
+/* сумма хвостов на отсчёте q потока, коды (округление): A·s[j−1]/32768, j = q − t0 = 1…DET_TL_LEN */
+static inline int32_t tl_pred(const det_t *d, uint32_t q)
+{
+    int64_t acc = 0x80000000;                        /* коды·2^32 (A·2^17 · Q15), +0.5 — округление */
+    for (unsigned k = 0; k < d->tl_n; k++) {
+        const uint32_t j = q - d->tl_t[k] - 1u;      /* 0…DET_TL_LEN − 1 — в таблице */
+        if (j < DET_TL_LEN)
+            acc += (int64_t)d->tl_a[k] * d->tl_r[k][j];   /* SMLAL */
+    }
+    return (int32_t)(acc >> 32);
+}
+
+/* выбросить хвосты, кончившиеся к отсчёту q (j = q − t0 > DET_TL_LEN) */
+static void tl_purge(det_t *d, uint32_t q)
+{
+    unsigned m = 0;
+    for (unsigned k = 0; k < d->tl_n; k++) {
+        if (q - d->tl_t[k] <= DET_TL_LEN) {
+            d->tl_a[m] = d->tl_a[k]; d->tl_t[m] = d->tl_t[k]; d->tl_r[m] = d->tl_r[k];
+            m++;
+        }
+    }
+    d->tl_n = (uint8_t)m;
+}
+
+/* Подогнанный (до проверки фронта) импульс — в список: максимум buf[imax], A и фаза — pend_*.
+   pend_rec — в окне вычитался хвост предыдущего. Полный список — старейший вытесняется. */
+static void tl_add(det_t *d)
+{
+    const uint32_t t0 = d->bpos + d->imax;
+    tl_purge(d, t0 - 1u);                            /* остаются дошедшие до окна imax − 1… */
+    d->pend_rec = d->tl_n != 0u;
+    unsigned m = d->tl_n;
+    if (m == DET_TL_MAXACT) {
+        for (unsigned k = 1; k < DET_TL_MAXACT; k++) {
+            d->tl_a[k - 1] = d->tl_a[k]; d->tl_t[k - 1] = d->tl_t[k]; d->tl_r[k - 1] = d->tl_r[k];
+        }
+        m--;
+    }
+    const float a = (d->pend_a < 8191.0f) ? d->pend_a : 8191.0f;    /* A > 0 (fit) */
+    d->tl_a[m] = (int32_t)(a * 131072.0f + 0.5f);   /* A·2^17: A·2^17 · s(Q15) = A·s/2^15 · 2^32 */
+    d->tl_t[m] = t0;
+    d->tl_r[m] = d->tl->s[d->tl->row[d->pend_ph] % DET_TL_ROWS];
+    d->tl_n = (uint8_t)(m + 1u);
+}
+
+/* проверка фронта пройдена (или прервана сбросом списка): выдача ждущего импульса */
+static void front_accept(det_t *d)
+{
+    d->st.accepted++;
+    if (d->pend_rec) d->st.recovered++;
+    if (d->emit) d->emit(d->pend_ch);
+    if (d->cap_on) {                  /* окно с чужим хвостом эталону не годится */
+        if (d->pend_rec) d->cap_on = 0;
+        else d->cap_fit = 1;
+    }
+}
+
+/* Сброс списка хвостов. Ждущий проверки фронта импульс — принят без хвоста; хвост по остатку — в
+   обычный GUARD (взвод как был). Без разбора состояний FRONT/TAIL не бывает и список пуст — no-op. */
+static void tl_reset(det_t *d)
+{
+    d->tl_n = 0;
+    if (d->state == DET_S_FRONT) {
+        front_accept(d);
+        d->state = DET_S_GUARD;
+        d->guard_left = DET_GUARD;
+        d->armed = 0;
+    } else if (d->state == DET_S_TAIL) {
+        d->state = DET_S_GUARD;
+        d->guard_left = DET_GUARD;
+    }
+}
+
+/* разбор включился: импульс, начатый без него, бросается (номер buf[0] — bpos — не записан) */
+static void pa_update(det_t *d)
+{
+    const uint8_t was = d->pa;
+    d->pa = (d->tl != NULL && d->pile_on) ? 1u : 0u;
+    if (d->pa && !was && (d->state == DET_S_PULSE || d->state == DET_S_POST)) {
+        d->state = DET_S_GUARD;
+        d->guard_left = DET_GUARD;
+        d->armed = 0;
+        d->cap_on = 0;
+    }
+    tl_reset(d);
+}
+
+void det_set_tail(det_t *d, const det_tail_t *t)
+{
+    d->tl = t;
+    pa_update(d);
+}
+
+void det_set_pile(det_t *d, int on)
+{
+    d->pile_on = on ? 1u : 0u;
+    pa_update(d);
+}
+
+int det_pile_active(const det_t *d) { return d->pa; }
+
 void det_add_lost(det_t *d, uint32_t n)
 {
     d->st.dead_samples += n;
     d->pos0 += n;
     d->cap_on = 0;                    /* окно с дырой не годится */
+    tl_reset(d);                      /* хвосты до дыры к потоку после неё не относятся */
 }
 
 /* авто-порог: round(5σ) по замеру v этого обновления базы (sqrtf → VSQRT при -fno-math-errno) */
@@ -265,11 +382,12 @@ static void rebase_stuck(det_t *d)
     d->var  = (v > 0.0f) ? v : 0.0f;
     d->bint = iround(d->base);
     d->qn = 0; d->qsum = 0; d->qsq = 0;
-    d->state = DET_S_IDLE;
+    d->state = DET_S_IDLE;            /* начатый (и ждущий проверки фронта) импульс бросается */
     d->armed = 1;
     d->guard_left = 0;
     d->st.base_jumps++;
     d->cap_on = 0;
+    d->tl_n = 0;                      /* остаток по прежней базе не годится */
     stuck_reset(d);
 }
 
@@ -367,8 +485,9 @@ static inline int32_t fbits(float x)
 
 /* Подгонка эталона по окну buf[imax−IPK … +NS) и выдача: канал — в emit и в запись окна, иначе
    отбраковка по форме (st.rej_shape, окно записи — в отказ). Прежние fit() и finish() в одной
-   функции: результаты не ходят через память. */
-CCM_FUNC static void fit(det_t *d)
+   функции: результаты не ходят через память. defer ≠ 0 (разбор) — принятый не выдаётся, а ждёт
+   проверки фронта: канал, A и фаза — в pend_*. Возврат: 1 — принят, 0 — отбракован. */
+DET_INLINE int fit_impl(det_t *d, const int defer)
 {
     /* максимум на до-триггерном отсчёте buf[0] (порог снижен или база упала между порциями):
        окно ушло бы за начало буфера — отбраковка по форме */
@@ -421,6 +540,8 @@ CCM_FUNC static void fit(det_t *d)
     if (c2 < 0.0f) c2 = 0.0f;
     if (c2 > (float)(DET_CHANNELS - 1u)) c2 = (float)(DET_CHANNELS - 1u);
     const uint16_t ch = (uint16_t)c2;
+    if (defer)
+        goto deferred;
     d->st.accepted++;
     if (d->emit) d->emit(ch);
     if (d->cap_on) {
@@ -431,11 +552,26 @@ CCM_FUNC static void fit(det_t *d)
         d->cap_cur.base = d->pbase;
         d->cap_fit = 1;           /* фиксация — когда поток пройдёт конец окна без триггера */
     }
-    return;
+    return 1;
+deferred:                         /* cap_fit — после проверки фронта (front_accept) */
+    d->pend_ch = ch;
+    d->pend_a = A;
+    d->pend_ph = (uint8_t)bp;
+    if (d->cap_on) {
+        d->cap_cur.channel = ch;
+        d->cap_cur.amp = A;
+        d->cap_cur.phase = (uint8_t)bp;
+        d->cap_cur.peak = (int8_t)((int)d->imax - 1);
+        d->cap_cur.base = d->pbase;
+    }
+    return 1;
 reject:
     d->st.rej_shape++;
     d->cap_on = 0;
+    return 0;
 }
+CCM_FUNC static void fit(det_t *d) { (void)fit_impl(d, 0); }
+CCM_FUNC static int fit_p(det_t *d) { return fit_impl(d, 1); }
 
 /*
  * Медленный путь от s[i] до конца порции: импульс, хвост окна, GUARD, затем быстрый проход до
@@ -504,7 +640,7 @@ static inline void stk_flush(det_t *d, uint32_t n_, int carried, const uint16_t 
     d->stk_n = n_; d->stk_s1 = s1; d->stk_s2 = s2;
 }
 
-CCM_FUNC static size_t slow(det_t *d, const uint16_t *s, size_t i, size_t n, int trig)
+DET_INLINE size_t slow_impl(det_t *d, const uint16_t *s, size_t i, size_t n, int trig, const uint32_t pa)
 {
     const int32_t thr = d->cfg.thr, half = thr / 2, thr2 = 2 * thr;
     const int32_t bint = d->bint;
@@ -543,10 +679,17 @@ CCM_FUNC static size_t slow(det_t *d, const uint16_t *s, size_t i, size_t n, int
     case DET_S_POST:
         bp = buf + d->len; ip = buf + d->imax;
         post_left = d->post_left; armed = d->armed;
+        if (pa) goto post_t;
         goto post;
     case DET_S_GUARD:
         armed = d->armed; guard_left = d->guard_left;
         goto guard;
+    case DET_S_FRONT:
+        armed = d->armed; post_left = d->post_left;
+        goto front;
+    case DET_S_TAIL:
+        armed = d->armed;
+        goto tail;
     default:
         return i;
     }
@@ -561,21 +704,27 @@ trigger:                                     /* *p — триггер: нача�
             goto out;
         }
         d->fits_left--;
-        const int32_t pre = it ? (int32_t)p[-1] : (int32_t)d->last;
+        int32_t pre = it ? (int32_t)p[-1] : (int32_t)d->last;
         if (d->cap_buf) cap_start(d, s, it, n);
         state = DET_S_PULSE;
         pbint = bint;
         d->pbint = bint;
         d->pbase = d->base;
+        if (pa) {
+            d->bpos = d->pos0 + (uint32_t)it - 1u;
+            pre -= tl_pred(d, d->bpos);
+        }
         peak = CLIP16(pre - pbint);
         buf[0] = (int16_t)peak;
         bp = buf + 1; ip = buf;
         lpeak = 0; falling = 0; pileup = 0; npile = 0;
         bmax = buf + d->cfg.max_w + 1;
+        if (pa) goto pulse_t;
         goto pulse_f;                        /* pbint == bint, счёт ступеньки — с нуля: быстрый режим */
     }
 pulse:
     bmax = buf + d->cfg.max_w + 1;
+    if (pa) goto pulse_t;
     /* общий режим и тогда, когда между порциями поменялись порог или ширина: порог вырос при
        falling (быстрый спад не проверяет lpeak ≥ 2·thr) или max_w уменьшилась ниже набранной
        ширины (bp > bmax — plim ниже переполнился бы) */
@@ -729,6 +878,142 @@ post_end:
     if (!d->cap_fit) d->cap_on = 0;
     goto guard;
 
+/* ---- разбор хвостовых наложений (pa): те же правила по остатку s − bint − хвосты ---- */
+pulse_t:                                     /* импульс; конец — ниже порога или окно дописано на спаде */
+    while (p < pe) {
+        v = *p;
+        STUCK(v, p + 1);
+        p++;
+        dead++;
+        dev = v - pbint - tl_pred(d, d->bpos + (uint32_t)(bp - buf));
+        PUT(dev);
+        if (!falling && dev > lpeak) lpeak = CLIP16(dev);
+        if (lpeak >= thr2) {
+            if (!falling) {
+                if (4 * dev + 4 <= 3 * lpeak) { falling = 1; fall_min = CLIP16(dev); }
+            } else if (dev < fall_min) {
+                fall_min = CLIP16(dev);
+            } else {
+                rise = (lpeak / 4 > thr) ? lpeak / 4 : thr;
+                if (dev > fall_min + rise && 3 * lpeak < 5 * dev) {
+                    pileup = 1;
+                    npile = (uint8_t)(npile + 1u);
+                    falling = 0;
+                    lpeak = CLIP16(dev);
+                }
+            }
+        }
+        /* триггер (buf[1]) — начало импульса в любом случае: в GUARD/IDLE он найден по сырым
+           отсчётам, а по остатку может оказаться чуть ниже порога */
+        if (dev <= thr && bp - buf > 2) {
+            if (bp - bmax > 1) goto wide;
+            goto term_t;
+        }
+        if (falling && bp >= ip + (DET_NS - DET_IPK)) goto fall_t;
+        if (bp > bmax) goto wide;
+    }
+    goto out;
+term_t:                                      /* ниже порога: width = len − 2 */
+    if (pileup) {
+        d->st.rej_pileup += 1u + npile;
+        goto to_guard;
+    }
+    if ((uint32_t)(bp - buf) - 2u < d->cfg.min_w) {
+        d->st.rej_width++;
+        goto to_guard;
+    }
+    armed = (dev < half);
+    if (ip + (DET_NS - DET_IPK) > bp) {      /* дописать хвост окна эталона */
+        state = DET_S_POST;
+        post_left = (uint32_t)(ip + (DET_NS - DET_IPK) - bp);
+        goto post_t;
+    }
+    goto fit_t;
+fall_t:                                      /* окно дописано на спаде, отсчёт выше порога: width = len − 1 */
+    if (pileup) {
+        d->st.rej_pileup += 1u + npile;
+        goto to_guard;
+    }
+    if ((uint32_t)(bp - buf) - 1u < d->cfg.min_w) {
+        d->st.rej_width++;
+        goto to_guard;
+    }
+    armed = 0;
+fit_t:
+    d->imax = (uint16_t)(ip - buf);
+    if (fit_p(d)) goto front_t;
+    goto to_guard;
+post_t:
+    while (p < pe) {
+        v = *p;
+        dev = v - pbint - tl_pred(d, d->bpos + (uint32_t)(bp - buf));
+        if (armed && dev > thr) goto post_trig;
+        STUCK(v, p + 1);
+        p++;
+        if (dev < half) armed = 1;
+        dead++;
+        *bp++ = (int16_t)CLIP16(dev);
+        if (--post_left == 0u) goto post_end_t;
+    }
+    goto out;
+post_end_t:
+    d->imax = (uint16_t)(ip - buf);
+    if (fit_p(d)) goto front_t;
+    state = DET_S_GUARD;                     /* взвод — как был */
+    guard_left = DET_GUARD;
+    d->cap_on = 0;
+    goto guard;
+front_t:                                     /* принят: хвост — в список уже сейчас (остаток фронта) */
+    tl_add(d);
+    state = DET_S_FRONT;
+    post_left = DET_FRONT_K;
+/* Взвод и триггер в TAIL — с допуском |pred|/32 (η прототипа tools/pileup/pumodel.py): шум может выбрать
+   максимумом соседний отсчёт вершины, и строка хвоста съезжает на доли отсчёта — без допуска на крутом
+   хвосте остаток не опускается ниже thr/2, взвода нет, и следующий импульс теряется молча. Проверка
+   фронта — строго r > thr: с допуском (≈ 12 кодов на +6 у A 600) пропускала бы мелкий второй импульс
+   (A 60) с триггером на imax + 7 (Δ 11). */
+front:                                       /* DET_FRONT_K отсчётов после окна: триггер — фронт лежал в окне */
+    while (p < pe) {
+        v = *p;
+        const int32_t pr = tl_pred(d, d->pos0 + (uint32_t)(p - s));
+        const int32_t tol = (pr < 0 ? -pr : pr) >> 5;
+        dev = v - bint - pr;
+        if (dev > thr) goto front_rej;
+        STUCK(v, p + 1);
+        p++;
+        if (dev < half + tol) armed = 1;
+        dead++;
+        if (--post_left == 0u) goto front_ok;
+    }
+    goto out;
+front_rej:                                   /* оба — в брак, как прежняя пара; хвост не записан */
+    if (d->tl_n) d->tl_n--;                  /* свой (последний) хвост — из списка */
+    d->st.rej_pileup += 2u;
+    d->st.rej_front += 2u;
+    d->cap_on = 0;
+    goto to_guard;
+front_ok:
+    front_accept(d);
+    state = DET_S_TAIL;
+tail:                                        /* пока хвосты > thr/2: взвод и триггер по остатку, время живое */
+    while (p < pe) {
+        const int32_t pr = tl_pred(d, d->pos0 + (uint32_t)(p - s));
+        if (pr <= half) goto tail_end;
+        const int32_t tol = pr >> 5;
+        v = *p;
+        dev = v - bint - pr;
+        if (armed && dev > thr + tol) goto trigger;
+        STUCK(v, p + 1);
+        p++;
+        if (dev < half + tol) armed = 1;
+    }
+    goto out;
+tail_end:                                    /* дальше — обычный GUARD (хвост не идёт в базу) */
+    tl_purge(d, d->pos0 + (uint32_t)(p - s));
+    state = DET_S_GUARD;
+    guard_left = DET_GUARD;
+    goto guard;
+
 to_guard:                                    /* импульс кончился или отбракован */
     state = DET_S_GUARD;
     guard_left = DET_GUARD;
@@ -825,6 +1110,13 @@ out:
         d->armed = (uint8_t)armed;
         d->guard_left = (uint16_t)guard_left;
         break;
+    case DET_S_FRONT:
+        d->post_left = (uint8_t)post_left;
+        d->armed = (uint8_t)armed;
+        break;
+    case DET_S_TAIL:
+        d->armed = (uint8_t)armed;
+        break;
     default:
         break;
     }
@@ -832,6 +1124,16 @@ out:
     d->st.dead_samples += dead;
     if (rb) rebase_stuck(d);                 /* база по залипшим, IDLE со взводом */
     return (size_t)(p - s);
+}
+
+/* без разбора — прежний медленный путь; с разбором (pa) — отдельная функция */
+CCM_FUNC static size_t slow(det_t *d, const uint16_t *s, size_t i, size_t n, int trig)
+{
+    return slow_impl(d, s, i, n, trig, 0u);
+}
+CCM_FUNC static size_t slow_p(det_t *d, const uint16_t *s, size_t i, size_t n, int trig)
+{
+    return slow_impl(d, s, i, n, trig, 1u);
 }
 
 /* Быстрый проход: первый отсчёт > bint + thr; суммы Σs, Σs² по пройденным. */
@@ -958,13 +1260,13 @@ CCM_FUNC void det_process_block(det_t *d, const uint16_t *s, size_t n)
             break;
         }
         if (d->state != DET_S_IDLE) {
-            i = slow(d, s, i, n, 0);
+            i = d->pa ? slow_p(d, s, i, n, 0) : slow(d, s, i, n, 0);
             continue;
         }
         size_t j = fast_scan(d, s, i, n);
         if (j >= n)
             break;
-        i = slow(d, s, j, n, 1);     /* триггер (счёт ступеньки — с нуля); бюджет исчерпан — DET_S_SKIP */
+        i = d->pa ? slow_p(d, s, j, n, 1) : slow(d, s, j, n, 1);     /* триггер (счёт ступеньки — с нуля); бюджет исчерпан — DET_S_SKIP */
     }
     d->last = s[n - 1];
     keep_tail(d, s, n);
