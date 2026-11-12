@@ -100,6 +100,28 @@ struct TplView {
 };
 TplView g_tv;
 
+// бегущая лента, конвейер из трёх порций: одна играет, следующая ждёт в буфере (уже разобрана),
+// самая свежая разбирается (g_tv). Порции идут подряд, стык помечен чертой. Порция — 2.4 мс сигнала,
+// между порциями прибор сигнал не пишет; лента замедлена ≈1000× и показывает часть порций.
+constexpr double TAPE_WIN = 1500.0;           // ширина окна, отсчётов
+constexpr double TAPE_SPEED = 3000.0;         // отсчётов в секунду экрана
+struct TapeSeg {
+    std::vector<float> y, ok_x, ok_y, bad_x, bad_y;
+    size_t seen = 0;
+    bool have = false;
+    void take(const TplView& v) {
+        y.assign(v.blk.begin(), v.blk.end());
+        ok_x = v.ok_x; ok_y = v.ok_y; bad_x = v.bad_x; bad_y = v.bad_y;
+        seen = v.seen; have = true;
+    }
+};
+struct TplTape {
+    TapeSeg cur, nxt;                         // играет / в буфере
+    double pos = 0;                           // левый край окна в отсчётах порции cur
+    double t = -1;                            // время прошлого кадра
+};
+TplTape g_tape;
+
 void TplViewTick(double now)
 {
     TplView& v = g_tv;
@@ -1136,25 +1158,61 @@ void TplPulsePlots(const tpl::Result* res)
     if (have_tpl)
         Small(c_text_dim, Fmt(T("wiz.tpl.v_tpl_note"), res->resid_med, res->spread_before, res->spread_after).c_str());
 
-    // осциллограмма последней порции
-    if (v.blk.empty()) return;
+    // осциллограмма: бегущая лента
+    if (v.blk.empty()) { g_tape = TplTape{}; return; }
+    TplTape& tp = g_tape;
+    double now = ImGui::GetTime();
+    if (v.seen < tp.cur.seen) tp = TplTape{};                    // новый сбор
+    if (!tp.cur.have) { tp.cur.take(v); tp.pos = 0; tp.t = now; }
+    // буфер: свежая разобранная порция, пока буфер ещё не начал играть
+    if (v.seen != tp.cur.seen && v.seen != tp.nxt.seen && tp.pos + TAPE_WIN < tpl::BLK) tp.nxt.take(v);
+    double dt = tp.t < 0 ? 0 : now - tp.t;
+    tp.t = now;
+    if (dt > 0.1) dt = 0.1;                                      // окно свёрнуто/подвисло — без скачка
+    tp.pos += dt * TAPE_SPEED;
+    if (!tp.nxt.have && tp.pos > tpl::BLK - TAPE_WIN) tp.pos = tpl::BLK - TAPE_WIN;   // ждём следующую
+    if (tp.nxt.have && tp.pos >= tpl::BLK) { tp.cur = tp.nxt; tp.nxt = TapeSeg{}; tp.pos -= tpl::BLK; }
+
     ImGui::Spacing();
-    Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)v.ok_x.size(), (int)v.bad_x.size()).c_str());
-    if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+    Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)tp.cur.ok_x.size(), (int)tp.cur.bad_x.size()).c_str());
+    Small(c_text_dim, T("wiz.tpl.v_tape"));
+    if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle | ImPlotFlags_NoInputs)) {
         ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_n"));
-        ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_code"), ImPlotAxisFlags_AutoFit);
-        ImPlot::SetupAxisLimits(ImAxis_X1, 0, tpl::BLK, ImPlotCond_Once);
-        ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0, tpl::BLK);
+        ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_code"));
+        ImPlot::SetupAxisLimits(ImAxis_X1, tp.pos, tp.pos + TAPE_WIN, ImPlotCond_Always);
+        float ymin = 4095, ymax = 0;
+        for (const TapeSeg* sg : { &tp.cur, &tp.nxt })
+            for (float y : sg->y) { if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+        if (ymax < ymin) { ymin = 0; ymax = 4095; }
+        double padv = (ymax - ymin) * 0.08 + 10;                 // запас сверху: метки упора в 4095 видны
+        ImPlot::SetupAxisLimits(ImAxis_Y1, ymin - padv, ymax + padv, ImPlotCond_Always);
         ImPlot::SetupLegend(ImPlotLocation_NorthEast);
-        ImPlot::SetNextLineStyle(c_trace, 1.0f);
-        ImPlot::PlotLine("##raw", v.blk.data(), (int)v.blk.size());
-        if (!v.ok_x.empty()) {
-            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_ok, 1.0f, c_ok);
-            ImPlot::PlotScatter(T("wiz.tpl.v_ok"), v.ok_x.data(), v.ok_y.data(), (int)v.ok_x.size());
+        static std::vector<float> ox, oy, bx, by;
+        ox.clear(); oy.clear(); bx.clear(); by.clear();
+        auto seg = [&](const TapeSeg& sg, double off) {
+            if (!sg.have) return;
+            int a = (int)(std::max)(0.0, tp.pos - off), b = (int)(std::min)((double)sg.y.size(), tp.pos + TAPE_WIN + 1 - off);
+            if (b > a) {
+                ImPlot::SetNextLineStyle(c_trace, 1.0f);
+                ImPlot::PlotLine("##raw", sg.y.data() + a, b - a, 1.0, (double)a + off);
+            }
+            for (size_t i = 0; i < sg.ok_x.size(); i++)  { ox.push_back(sg.ok_x[i] + (float)off);  oy.push_back(sg.ok_y[i]); }
+            for (size_t i = 0; i < sg.bad_x.size(); i++) { bx.push_back(sg.bad_x[i] + (float)off); by.push_back(sg.bad_y[i]); }
+        };
+        seg(tp.cur, 0);
+        seg(tp.nxt, tpl::BLK);
+        if (tp.nxt.have) {                                       // стык порций
+            static const double xs = tpl::BLK;
+            ImPlot::SetNextLineStyle(c_text_dim, 1.0f);
+            ImPlot::PlotInfLines("##join", &xs, 1);
         }
-        if (!v.bad_x.empty()) {
+        if (!ox.empty()) {
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_ok, 1.0f, c_ok);
+            ImPlot::PlotScatter(T("wiz.tpl.v_ok"), ox.data(), oy.data(), (int)ox.size());
+        }
+        if (!bx.empty()) {
             ImPlot::SetNextMarkerStyle(ImPlotMarker_Square, 3.5f, c_danger, 1.0f, c_danger);
-            ImPlot::PlotScatter(T("wiz.tpl.v_bad"), v.bad_x.data(), v.bad_y.data(), (int)v.bad_x.size());
+            ImPlot::PlotScatter(T("wiz.tpl.v_bad"), bx.data(), by.data(), (int)bx.size());
         }
         ImPlot::EndPlot();
     }
