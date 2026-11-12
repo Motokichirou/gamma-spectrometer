@@ -35,6 +35,15 @@ uint64_t window_sum(const uint32_t* spec, int n, int lo, int hi);
 enum class Stop { Run, Count, Timeout };
 Stop count_stop(uint64_t in_peak, uint64_t target, double elapsed_s, double timeout_s);
 
+// сколько ещё ждать до N при скорости rate (в секунду): 0 — уже набрано, < 0 — скорость неизвестна
+double eta_s(double rate, uint64_t n, uint64_t target);
+
+// итог набора: набрано N — Full; меньше N, но не меньше min_n (вышел предел времени или нажали
+// «Хватит, посчитать») — Partial, результат принимается с пометкой; меньше min_n — Reject
+enum class Accept { Full, Partial, Reject };
+Accept accept(uint64_t n, uint64_t target, uint64_t min_n);
+constexpr uint64_t RES_MIN = 10000;            // «Разрешение»: меньше 10 000 в пике не принимаем
+
 // E(ch) = c0 + c1·ch + … c4·ch⁴ → 11 команд "-cal i HEX" (формат BecqMoni: double hi/lo + CRC-32)
 void becq_cal_commands(const double c[5], char out[11][40]);
 

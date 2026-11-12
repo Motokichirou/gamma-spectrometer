@@ -674,6 +674,12 @@ void Device::raw_abort()
     raw.msg = TF("dev.raw.aborted", (int)raw.blocks.size());
 }
 
+void Device::raw_finish()
+{
+    // цель = уже собранное: raw_tick закончит сбор штатно (дождётся порции в пути, вернёт -sta)
+    if (raw.running) raw.target = std::max(1, (int)raw.blocks.size());
+}
+
 void Device::raw_tick(double now)
 {
     if (raw_wait_) {

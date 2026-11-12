@@ -140,6 +140,20 @@ Stop count_stop(uint64_t in_peak, uint64_t target, double elapsed_s, double time
     return Stop::Run;
 }
 
+double eta_s(double rate, uint64_t n, uint64_t target)
+{
+    if (n >= target) return 0.0;
+    if (!(rate > 0)) return -1.0;
+    return (double)(target - n) / rate;
+}
+
+Accept accept(uint64_t n, uint64_t target, uint64_t min_n)
+{
+    if (n >= target) return Accept::Full;
+    if (n >= min_n) return Accept::Partial;
+    return Accept::Reject;
+}
+
 static uint32_t crc32_zip(const char* s, size_t n)
 {
     uint32_t c = 0xFFFFFFFFu;

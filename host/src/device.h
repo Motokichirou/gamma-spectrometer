@@ -123,6 +123,7 @@ public:
     } raw;
     void raw_start(int nblocks);
     void raw_abort();
+    void raw_finish();                         // закончить сбор на уже собранных порциях (как по достижении цели)
 
     // ---- термокомпенсация: пик источника против температуры (поправка в приборе выключена) ----
     struct TcPoint { double t = 0, peak = 0, sd = 0; uint64_t n = 0; };

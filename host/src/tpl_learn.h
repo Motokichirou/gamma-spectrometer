@@ -37,6 +37,11 @@ struct Result {
     double fwhm50 = 0;                        // ширина формы на половине высоты, отсчётов
 };
 
+// число одиночных импульсов (как Singles::amp) в порциях [from, to) — для живого счёта при сборе;
+// порции считаются независимо, поэтому сумма по кускам равна счёту по всем сразу
+int count_singles(const std::vector<std::vector<uint16_t>>& blocks, size_t from, size_t to,
+                  double thr = 10.0, double amin = 100.0, double amax = 1200.0, int clip = 4090);
+
 Result build(const Singles& s, int refine = 3, bool pp = true, int pp_iters = 4);
 
 std::string header(const Result& r, const char* name = "tpl_pmt", const char* note = "эталон с реального тракта (gammapult)");

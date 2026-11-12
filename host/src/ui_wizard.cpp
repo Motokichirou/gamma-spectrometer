@@ -53,15 +53,24 @@ struct Wiz {
     ds::Step hv_last = ds::Step::N;          // шаг, чей подбор закончился последним (показать итог или ошибку)
     float start_v = 450.0f;
     double hv1_v = 0, hv1_peak = 0, hv2_v = 0, hv2_peak = 0;
-    // эталон: 0 — нет, 1 — сбор, 2 — расчёт, 3 — загрузка, 4 — готово, 5 — ошибка
+    // эталон: 0 — нет, 1 — сбор, 2 — расчёт, 3 — загрузка, 4 — готово, 5 — ошибка.
+    // Сбор идёт до tpl_target одиночных импульсов в рабочем окне амплитуд, не дольше tpl_timeout с;
+    // одиночные считаются на лету по новым порциям (tpl::count_singles)
     int tpl_phase = 0, tpl_err0 = 0;
     std::atomic<int> tpl_state{ 0 };           // расчёт в потоке: 1 — считаю, 2 — готово
     tpl::Result tpl_res;
+    int tpl_target = 10000; float tpl_timeout = 900.0f;
+    double tpl_t0 = 0, tpl_el = 0;
+    size_t tpl_counted = 0; int tpl_n = 0;     // порций просчитано, одиночных в них
+    bool tpl_fin_req = false;                  // сбор останавливается (набрано или вышел предел)
+    bool tpl_partial = false, tpl_few = false; // набрано меньше заданного / меньше минимума build (640)
     // разрешение: 0 — нет, 1 — набор, 3 — оценено. Набор до fw_count импульсов в окне фотопика
-    // (±1.5·FWHM по живой подгонке), не дольше fw_timeout с
+    // (±1.5·FWHM по живой подгонке), не дольше fw_timeout с; «Хватит, посчитать» — с 10 000 в пике
     int fw_phase = 0; double fw_t0 = 0;
-    int fw_count = 100000; float fw_timeout = 600.0f;
+    int fw_count = 100000; float fw_timeout = 1800.0f;
     uint64_t fw_n = 0; double fw_el = 0, fw_eval_t = 0; bool fw_timeout_hit = false;
+    bool fw_user_stop = false;                 // нажата «Хватит, посчитать»
+    peakfit::Accept fw_acc = peakfit::Accept::Reject;   // итог: принят полностью / с пометкой / нет
     peakfit::PeakWin fw_win;                   // окно и подгонка: живые в ходе набора, итоговые после
     peakfit::Result fwr;
     // график: лог/лин, запрос вида (приблизить к пику / весь спектр) — по счётчику на каждый экземпляр
@@ -77,6 +86,14 @@ struct Wiz {
     bool rec_wait = false; int rec_err0 = 0; std::string rec_err;
 };
 Wiz g_wiz;
+const int TPL_MAX_BLOCKS = 6000;              // страховка по памяти: 6000 порций × 16 КБ ≈ 98 МБ (~30 мин сбора)
+
+// результат «Разрешения» принят (полностью или с пометкой) и пик найден
+bool ResAccepted()
+{
+    const Wiz& w = g_wiz;
+    return w.fw_phase == 3 && w.fwr.ok && w.fw_acc != peakfit::Accept::Reject;
+}
 
 // ---------- данные ----------
 
@@ -131,6 +148,14 @@ std::string MinSec(double s)
     char b[16];
     snprintf(b, sizeof b, "%d:%02d", t / 60, t % 60);
     return b;
+}
+
+// «≈ 3 мин» / «≈ 40 с»; пусто — оценки нет
+std::string Eta(double s)
+{
+    if (s < 0) return "";
+    if (s < 90) return Fmt(T("wiz.eta.sec"), (int)ceil(s));
+    return Fmt(T("wiz.eta.min"), (int)ceil(s / 60.0));
 }
 
 // ---------- виджеты ----------
@@ -308,7 +333,11 @@ void WriteReport()
     hv_line("ВВ по пику (до эталона)", w.hv1_v, w.hv1_peak);
 
     // эталон формы
-    if (w.tpl_phase == 4) fprintf(f, "Эталон формы: записан сейчас; %s\n", w.tpl_res.msg.c_str());
+    if (w.tpl_phase == 4) {
+        fprintf(f, "Эталон формы: записан сейчас; %s", w.tpl_res.msg.c_str());
+        if (w.tpl_partial) fprintf(f, " (одиночных %d из заданных %d: вышел предел времени)", w.tpl_n, w.tpl_target);
+        fprintf(f, "\n");
+    }
     else {
         std::string nr = NotRun(R.tpl_unix);
         if (rec && R.tpl) nr += "; эталон в приборе есть";
@@ -317,16 +346,20 @@ void WriteReport()
     hv_line("ВВ по пику (рабочее)", w.hv2_v, w.hv2_peak);
 
     // разрешение
-    if (w.fw_phase == 3 && w.fwr.ok && !w.fw_timeout_hit) {
-        fprintf(f, "Разрешение Cs-137 (%llu в пике, %.0f с): пик %.2f, FWHM %.2f ± %.2f %%\n",
+    if (ResAccepted()) {
+        fprintf(f, "Разрешение Cs-137 (%llu в пике, %.0f с): пик %.2f, FWHM %.2f ± %.2f %%",
                 (unsigned long long)w.fw_n, w.fw_el, w.fwr.peak, w.fwr.fwhm_pct, w.fwr.fwhm_err);
+        if (w.fw_acc == peakfit::Accept::Partial)
+            fprintf(f, " (набрано меньше заданных %d: %s)", w.fw_count, w.fw_user_stop ? "остановлено вручную" : "вышел предел времени");
+        fprintf(f, "\n");
     } else {
         std::string nr = NotRun(R.res_unix);
         if (rec && R.res_unix && R.res_fwhm > 0) {
             char b[96]; snprintf(b, sizeof b, "; в приборе: FWHM %.2f %%, пик %.1f", R.res_fwhm, R.res_peak_ch); nr += b;
         }
-        if (w.fw_phase == 3 && w.fw_timeout_hit) {
-            char b[160]; snprintf(b, sizeof b, "; набор сейчас прерван: не набралось %d в пике за %.0f с", w.fw_count, w.fw_el); nr += b;
+        if (w.fw_phase == 3 && !ResAccepted()) {
+            char b[160]; snprintf(b, sizeof b, "; набор сейчас прерван: в пике %llu (меньше 10 000) за %.0f с",
+                                  (unsigned long long)w.fw_n, w.fw_el); nr += b;
         }
         fprintf(f, "Разрешение Cs-137: %s\n", nr.c_str());
     }
@@ -591,23 +624,43 @@ void BodyTpl(bool primary)
     bool conn = g_dev.connected();
     Device::RawRun& R = g_dev.raw;
     ImGui::BeginDisabled(!conn || Busy() || w.tpl_phase == 2 || w.tpl_phase == 3);
-    if (ActionButton(T("wiz.tpl.btn"), primary)) { w.tpl_phase = 1; w.tpl_state = 0; g_dev.raw_start(2000); }
+    if (ActionButton(T("wiz.tpl.btn"), primary)) {
+        w.tpl_phase = 1; w.tpl_state = 0;
+        w.tpl_t0 = ImGui::GetTime(); w.tpl_el = 0;
+        w.tpl_counted = 0; w.tpl_n = 0;
+        w.tpl_fin_req = w.tpl_partial = w.tpl_few = false;
+        g_dev.raw_start(TPL_MAX_BLOCKS);
+    }
     ImGui::EndDisabled();
     ImGui::Spacing();
     if (w.tpl_phase == 1) {
-        float fr = R.target ? (float)R.blocks.size() / R.target : 0.0f;
-        ImGui::TextUnformatted(Fmt(T("wiz.tpl.collect"), (int)R.blocks.size(), R.target).c_str());
-        ImGui::ProgressBar(fr, ImVec2(-1, 0), "");
+        float fr = w.tpl_target > 0 ? (float)w.tpl_n / w.tpl_target : 0.0f;
+        ImGui::ProgressBar(fr > 1 ? 1.0f : fr, ImVec2(-1, 0), Fmt(T("wiz.tpl.collect"), w.tpl_n, w.tpl_target).c_str());
+        Small(c_text_dim, Fmt(T("wiz.tpl.live"), (int)R.blocks.size(), MinSec(w.tpl_el).c_str(), MinSec(w.tpl_timeout).c_str()).c_str());
+        if (w.tpl_el >= 10.0 && w.tpl_n > 0 && !w.tpl_fin_req) {
+            double rate = w.tpl_n / w.tpl_el;
+            double eta = peakfit::eta_s(rate, (uint64_t)w.tpl_n, (uint64_t)w.tpl_target);
+            Small(c_text_dim, Fmt(T("wiz.tpl.eta"), w.tpl_target, Eta(eta).c_str()).c_str());
+            double at_limit = rate * w.tpl_timeout;
+            if (at_limit < tpl::NPH * 10)
+                Small(c_warn, Fmt(T("wiz.tpl.eta_few"), MinSec(w.tpl_timeout).c_str(), at_limit).c_str());
+            else if (eta > w.tpl_timeout - w.tpl_el)
+                Small(c_text_dim, Fmt(T("wiz.tpl.eta_over"), MinSec(w.tpl_timeout).c_str(), at_limit).c_str());
+        }
     }
     if (w.tpl_phase == 2) ImGui::TextUnformatted(T("wiz.tpl.calc"));
     if (w.tpl_phase == 3) ImGui::TextUnformatted(T("wiz.tpl.load"));
     if (w.tpl_phase == 4) {
         PassLine(true, T("wiz.tpl.ok"));
+        if (w.tpl_partial) Small(c_warn, Fmt(T("wiz.tpl.partial"), w.tpl_n, w.tpl_target).c_str());
         PassLine(w.tpl_res.resid_med < 1.0 && w.tpl_res.spread_after < 1.0,
                  Fmt(T("wiz.tpl.quality"), w.tpl_res.resid_med, w.tpl_res.spread_after));
     }
     if (w.tpl_phase >= 3 && w.tpl_res.ok) Small(c_text_dim, w.tpl_res.msg.c_str());
-    if (w.tpl_phase == 5) Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg).c_str()).c_str());
+    if (w.tpl_phase == 5) {
+        if (w.tpl_few) Para(c_danger, Fmt(T("wiz.tpl.few"), w.tpl_n, MinSec(w.tpl_el).c_str()).c_str());
+        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg).c_str()).c_str());
+    }
 }
 
 // экземпляр тела шага: false — мастер, true — расширенный режим (у графика свой запрос вида)
@@ -706,7 +759,8 @@ void BodyRes(bool primary)
     if (ActionButton(T("wiz.res.btn"), primary)) {
         g_dev.stop(); g_dev.reset_spectrum(); g_dev.start();
         w.fw_phase = 1; w.fw_t0 = ImGui::GetTime(); w.fw_eval_t = w.fw_t0;
-        w.fw_n = 0; w.fw_el = 0; w.fw_timeout_hit = false;
+        w.fw_n = 0; w.fw_el = 0; w.fw_timeout_hit = false; w.fw_user_stop = false;
+        w.fw_acc = peakfit::Accept::Reject;
         w.fw_win = peakfit::PeakWin(); w.fwr = peakfit::Result();
     }
     ImGui::EndDisabled();
@@ -715,17 +769,44 @@ void BodyRes(bool primary)
         char ov[96];
         if (w.fw_win.ok) snprintf(ov, sizeof ov, T("wiz.in_peak"), (unsigned long long)w.fw_n, (double)w.fw_count);
         else snprintf(ov, sizeof ov, "%s", T("wiz.res.seeking"));
-        ImGui::ProgressBar(w.fw_count > 0 ? (float)((double)w.fw_n / w.fw_count) : 0.0f, ImVec2(-1, 0), ov);
+        float fr = w.fw_count > 0 ? (float)((double)w.fw_n / w.fw_count) : 0.0f;
+        ImGui::ProgressBar(fr > 1 ? 1.0f : fr, ImVec2(-1, 0), ov);
         Small(c_text_dim, Fmt(T("wiz.res.live"), (unsigned)g_dev.cps, MinSec(w.fw_el).c_str(), MinSec(w.fw_timeout).c_str()).c_str());
+        // скорость в пике и сколько ждать: когда пик найден и прошло 10 с
+        if (w.fw_win.ok && w.fw_el >= 10.0 && w.fw_n > 0) {
+            double rate = w.fw_n / w.fw_el;
+            double eta = peakfit::eta_s(rate, w.fw_n, (uint64_t)w.fw_count);
+            Small(c_text_dim, Fmt(T("wiz.res.eta"), w.fw_count, Eta(eta).c_str()).c_str());
+            double at_limit = rate * w.fw_timeout;
+            if (at_limit < (double)peakfit::RES_MIN)
+                Small(c_warn, Fmt(T("wiz.res.eta_few"), MinSec(w.fw_timeout).c_str(), at_limit).c_str());
+            else if (eta > w.fw_timeout - w.fw_el)
+                Small(c_text_dim, Fmt(T("wiz.res.eta_over"), MinSec(w.fw_timeout).c_str(), at_limit).c_str());
+        }
+        // второстепенная: остановить набор и принять то, что есть (не меньше 10 000 в пике)
+        ImGui::Spacing();
+        bool can = w.fw_win.ok && w.fw_n >= peakfit::RES_MIN;
+        ImGui::BeginDisabled(!can);
+        if (ImGui::Button(T("wiz.res.enough"))) w.fw_user_stop = true;
+        ImGui::EndDisabled();
+        if (!can) {
+            ImGui::SameLine();
+            ImGui::PushFont(font_small); ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(c_text_dim, "%s", T("wiz.res.enough_hint"));
+            ImGui::PopFont();
+        }
     }
     if (w.fw_phase == 3) {
-        if (w.fw_timeout_hit)
-            Para(c_warn, Fmt(T("wiz.res.timeout"), w.fw_count, MinSec(w.fw_el).c_str()).c_str());
+        if (w.fw_acc == peakfit::Accept::Reject && (w.fw_timeout_hit || w.fw_user_stop))
+            Para(c_warn, Fmt(T("wiz.res.timeout"), (unsigned long long)w.fw_n, MinSec(w.fw_el).c_str()).c_str());
         if (w.fwr.ok) {
-            PassLine(w.fwr.fwhm_pct < 8.5 && !w.fw_timeout_hit, Fmt(T("wiz.res.result"), w.fwr.fwhm_pct, w.fwr.fwhm_err, w.fwr.peak));
-            if (!w.fw_timeout_hit) {
-                const char* q = w.fwr.fwhm_pct < 7.5 ? "wiz.res.good" : w.fwr.fwhm_pct < 8.5 ? "wiz.res.norm" : "wiz.res.bad";
-                Small(w.fwr.fwhm_pct < 8.5 ? c_text_dim : c_warn, Fmt(T(q)).c_str());
+            bool acc = w.fw_acc != peakfit::Accept::Reject;
+            PassLine(acc && w.fwr.fwhm_pct <= 9.0, Fmt(T("wiz.res.result"), w.fwr.fwhm_pct, w.fwr.fwhm_err, w.fwr.peak));
+            if (acc) {
+                if (w.fw_acc == peakfit::Accept::Partial)
+                    Small(c_warn, Fmt(T("wiz.res.partial"), (unsigned long long)w.fw_n, w.fw_count, w.fwr.fwhm_err).c_str());
+                Small(c_text_dim, Fmt(T("wiz.res.typical")).c_str());   // «%%» в строке
+                if (w.fwr.fwhm_pct > 9.0) Small(c_warn, T("wiz.res.wide"));
             }
             Small(c_text_dim, Fmt(T("wiz.in_peak"), (unsigned long long)w.fw_n, (double)w.fw_count).c_str());
         } else {
@@ -743,7 +824,7 @@ void BodyRes(bool primary)
 double ScalePeak()
 {
     const Wiz& w = g_wiz;
-    if (w.fwr.ok && w.fw_phase == 3 && !w.fw_timeout_hit) return w.fwr.peak;
+    if (ResAccepted()) return w.fwr.peak;
     if (g_dev.setup_known == ds::SetupKnown::Yes && g_dev.setup.res_unix && g_dev.setup.res_peak_ch > 0) return g_dev.setup.res_peak_ch;
     return 0;
 }
@@ -926,6 +1007,18 @@ void Body(ds::Step s, bool embedded)
             if (ImGui::InputFloat(T("wiz.hv.timeout"), &tm, 0, 0, "%.0f")) h.timeout = tm < 10 ? 10 : tm;
             ImGui::EndDisabled();
         }
+        if (s == ds::Step::Tpl) {
+            ImGui::BeginDisabled(w.tpl_phase == 1);
+            ImGui::SetNextItemWidth(90);
+            if (ImGui::InputInt(T("wiz.tpl.target_lbl"), &w.tpl_target, 0, 0)) {
+                if (w.tpl_target < tpl::NPH * 10) w.tpl_target = tpl::NPH * 10;
+                if (w.tpl_target > 100000) w.tpl_target = 100000;
+            }
+            ImGui::SetNextItemWidth(90);
+            if (ImGui::InputFloat((std::string(T("wiz.res.timeout_lbl")) + "##tpltm").c_str(), &w.tpl_timeout, 0, 0, "%.0f") && w.tpl_timeout < 30)
+                w.tpl_timeout = 30;
+            ImGui::EndDisabled();
+        }
         if (s == ds::Step::Res) {
             ImGui::BeginDisabled(w.fw_phase == 1);
             ImGui::SetNextItemWidth(90);
@@ -1105,15 +1198,36 @@ void WizTick()
 
     // форма импульса
     Device::RawRun& R = g_dev.raw;
-    if (w.tpl_phase == 1 && !R.running) {
-        if ((int)R.blocks.size() >= R.target) {
-            w.tpl_phase = 2; w.tpl_state = 1;
-            std::thread([blocks = R.blocks]() {
-                tpl::Singles s = tpl::find_singles(blocks);
-                g_wiz.tpl_res = tpl::build(s);
-                g_wiz.tpl_state = 2;
-            }).detach();
-        } else w.tpl_phase = 5;
+    if (w.tpl_phase == 1) {
+        w.tpl_el = now - w.tpl_t0;
+        // живой счёт одиночных по новым порциям (во время сбора не больше 16 порций за кадр)
+        size_t have = R.blocks.size();
+        if (w.tpl_counted < have) {
+            size_t to = R.running ? (std::min)(have, w.tpl_counted + 16) : have;
+            w.tpl_n += tpl::count_singles(R.blocks, w.tpl_counted, to);
+            w.tpl_counted = to;
+        }
+        if (R.running) {
+            if (!w.tpl_fin_req &&
+                peakfit::count_stop((uint64_t)w.tpl_n, (uint64_t)w.tpl_target, w.tpl_el, w.tpl_timeout) != peakfit::Stop::Run) {
+                g_dev.raw_finish();                // закончить на собранных порциях
+                w.tpl_fin_req = true;
+            }
+        } else if (!w.tpl_fin_req && (int)R.blocks.size() < R.target) {
+            w.tpl_phase = 5;                       // сбор оборвался (сбои чтения порций)
+        } else {
+            peakfit::Accept a = peakfit::accept((uint64_t)w.tpl_n, (uint64_t)w.tpl_target, tpl::NPH * 10);
+            if (a == peakfit::Accept::Reject) { w.tpl_few = true; w.tpl_phase = 5; }
+            else {
+                w.tpl_partial = a == peakfit::Accept::Partial;
+                w.tpl_phase = 2; w.tpl_state = 1;
+                std::thread([blocks = R.blocks]() {
+                    tpl::Singles s = tpl::find_singles(blocks);
+                    g_wiz.tpl_res = tpl::build(s);
+                    g_wiz.tpl_state = 2;
+                }).detach();
+            }
+        }
     }
     if (w.tpl_phase == 2 && w.tpl_state == 2) {
         if (w.tpl_res.ok) { w.tpl_err0 = g_dev.queue_errors; g_dev.queue(tpl::commands(w.tpl_res)); g_dev.queue({ "-tplok" }); w.tpl_phase = 3; }
@@ -1136,7 +1250,7 @@ void WizTick()
             if (w.fw_win.ok && !had) { w.fw_view_full = false; w.fw_view_req++; }   // пик нашёлся: приблизить
         }
         peakfit::Stop st = peakfit::count_stop(w.fw_n, (uint64_t)w.fw_count, w.fw_el, w.fw_timeout);
-        if (st != peakfit::Stop::Run) {
+        if (st != peakfit::Stop::Run || w.fw_user_stop) {
             g_dev.stop();
             // итог — только уверенный пик (та же проверка, что для счёта); иначе «Пик не найден»
             peakfit::PeakWin fin = peakfit::peak_window(g_dev.spectrum, Device::CHANNELS, lo, hi);
@@ -1144,9 +1258,11 @@ void WizTick()
             w.fw_win = fin;
             w.fw_n = fin.ok ? peakfit::window_sum(g_dev.spectrum, Device::CHANNELS, fin.lo, fin.hi) : 0;
             w.fw_timeout_hit = st == peakfit::Stop::Timeout;
+            // N набрано: принят; меньше N, но не меньше 10 000 (предел или «Хватит»): с пометкой; иначе не пишем
+            w.fw_acc = peakfit::accept(w.fw_n, (uint64_t)w.fw_count, peakfit::RES_MIN);
             w.fw_phase = 3;
             w.fw_view_full = false; w.fw_view_req++;
-            if (w.fwr.ok && !w.fw_timeout_hit) Record(ds::Step::Res, w.fwr.fwhm_pct, w.fwr.peak);
+            if (ResAccepted()) Record(ds::Step::Res, w.fwr.fwhm_pct, w.fwr.peak);
         }
     }
 

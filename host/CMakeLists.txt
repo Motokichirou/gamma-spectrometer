@@ -117,6 +117,7 @@ add_executable(gammapult_tests
   tests/test_host.cpp
   src/devstate.cpp
   src/peakfit.cpp
+  src/tpl_learn.cpp
   src/theme_tokens.cpp
   src/i18n.cpp
   src/appcfg.cpp)

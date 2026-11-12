@@ -6,6 +6,7 @@
 #include "i18n.h"
 #include "appcfg.h"
 #include "peakfit.h"
+#include "tpl_learn.h"
 #include <vector>
 #include <cmath>
 #include <cstdio>
@@ -490,6 +491,65 @@ static void test_peak_count()
     CHECK(stop_t == 120);
 }
 
+// слабый источник: оценка оставшегося времени и правило «принять / не принять» итог набора
+static void test_weak_source()
+{
+    using namespace peakfit;
+    // оставшееся время: (N − n) / скорость
+    CHECK_NEAR(eta_s(100.0, 1000, 11000), 100.0, 1e-9);
+    CHECK_NEAR(eta_s(250.0, 10000, 100000), 360.0, 1e-9);
+    CHECK(eta_s(100.0, 11000, 11000) == 0.0);          // набрано
+    CHECK(eta_s(100.0, 12000, 11000) == 0.0);
+    CHECK(eta_s(0.0, 10, 11000) < 0);                   // скорость неизвестна
+    CHECK(eta_s(-1.0, 10, 11000) < 0);
+    // 5 кБк, NaI 25×25: ≈200 имп/с в пике → 100 000 за ≈8 мин, в предел 30 мин укладывается
+    CHECK_NEAR(eta_s(200.0, 2000, 100000), 490.0, 1e-9);
+
+    // итог: N набрано — Full; меньше N, но ≥ минимума — Partial (предел времени или «Хватит»); иначе Reject
+    CHECK(accept(100000, 100000, RES_MIN) == Accept::Full);
+    CHECK(accept(100500, 100000, RES_MIN) == Accept::Full);
+    CHECK(accept(99999, 100000, RES_MIN) == Accept::Partial);
+    CHECK(accept(10000, 100000, RES_MIN) == Accept::Partial);
+    CHECK(accept(9999, 100000, RES_MIN) == Accept::Reject);
+    CHECK(accept(0, 100000, RES_MIN) == Accept::Reject);
+    CHECK(accept(5000, 5000, RES_MIN) == Accept::Full);  // задано меньше минимума и набрано — принять
+    CHECK(accept(4000, 5000, RES_MIN) == Accept::Reject);
+    CHECK(RES_MIN == 10000);
+    // эталон формы: минимум tpl::build — 640 одиночных
+    CHECK(accept(10000, 10000, tpl::NPH * 10) == Accept::Full);
+    CHECK(accept(640, 10000, tpl::NPH * 10) == Accept::Partial);
+    CHECK(accept(639, 10000, tpl::NPH * 10) == Accept::Reject);
+
+    // подсчёт одиночных по кускам порций = подсчёт по всем сразу (для живого счёта при сборе эталона)
+    std::vector<std::vector<uint16_t>> blocks;
+    uint32_t rs = 777;
+    auto rnd = [&]() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) * (1.0 / 16777216.0); };
+    for (int b = 0; b < 7; b++) {
+        std::vector<double> x(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) x[i] = 400.0 + 2.0 * (rnd() + rnd() + rnd() - 1.5);
+        // импульсы: каждые ~400 отсчётов, амплитуда 150…1100; часть парами (не одиночные)
+        for (int c = 100 + b * 7; c + 60 < tpl::BLK; c += 400) {
+            double A = 150 + 950 * rnd();
+            auto put = [&](int c0, double a) {
+                for (int k = 0; k < 30 && c0 + k < tpl::BLK; k++) x[c0 + k] += a * (k / 4.0) * exp(1.0 - k / 4.0);
+            };
+            put(c, A);
+            if (((c / 400) % 5) == 0) put(c + 15, 300);     // наложение
+        }
+        std::vector<uint16_t> blk(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) blk[i] = (uint16_t)(x[i] + 0.5);
+        blocks.push_back(blk);
+    }
+    tpl::Singles all = tpl::find_singles(blocks);
+    CHECK(all.amp > 50);
+    CHECK(all.amp < all.cross);                          // наложения отброшены
+    int sum = tpl::count_singles(blocks, 0, 3) + tpl::count_singles(blocks, 3, 4) + tpl::count_singles(blocks, 4, 7);
+    CHECK(sum == all.amp);
+    CHECK(tpl::count_singles(blocks, 0, 7) == all.amp);
+    CHECK(tpl::count_singles(blocks, 5, 5) == 0);
+    CHECK(tpl::count_singles(blocks, 6, 99) == tpl::count_singles(blocks, 6, 7));   // конец обрезается
+}
+
 // отчёт: шаг не проводился в этот раз — дата из прибора или «нет данных»
 static void test_report_not_run()
 {
@@ -503,6 +563,7 @@ static void test_report_not_run()
 int main()
 {
     test_peak_count();
+    test_weak_source();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();
