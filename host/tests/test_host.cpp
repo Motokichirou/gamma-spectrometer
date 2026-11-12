@@ -1,0 +1,192 @@
+// test_host.cpp — консольные тесты чистой логики пульта (devstate и др.), без COM-порта и UI.
+// Макросы — общие с тестами прошивки: firmware/gamma_fw/tests/t.h.
+#include "t.h"
+#include "devstate.h"
+#include <cstring>
+
+using namespace ds;
+
+static Snapshot connected_snap()
+{
+    Snapshot s;
+    s.connected = true;
+    s.fw_ok = true;
+    return s;
+}
+
+static void test_parse_setup()
+{
+    SetupRec r;
+    const char* line = "-ok setup tpl=1 cal=0 chk=1762700000/1 zero=1762700100 hv=1762700200/565.0/1180.5 "
+                       "tplu=1762700300 res=1762800000/6.99/1190.0 done=1";
+    CHECK(parse_setup(line, r));
+    CHECK(r.tpl);
+    CHECK(!r.cal);
+    CHECK(r.chk_unix == 1762700000u);
+    CHECK(r.chk_ok);
+    CHECK(r.zero_unix == 1762700100u);
+    CHECK(r.hv_unix == 1762700200u);
+    CHECK_NEAR(r.hv_v, 565.0, 1e-9);
+    CHECK_NEAR(r.hv_peak_ch, 1180.5, 1e-9);
+    CHECK(r.tpl_unix == 1762700300u);           // tplu= не путается с tpl=
+    CHECK(r.res_unix == 1762800000u);
+    CHECK_NEAR(r.res_fwhm, 6.99, 1e-9);
+    CHECK_NEAR(r.res_peak_ch, 1190.0, 1e-9);
+    CHECK(r.done_unix == 1u);
+
+    // формат прибора 3a6a41b, проверенный 2026-11-12
+    SetupRec z;
+    CHECK(parse_setup("-ok setup tpl=1 cal=1 chk=0/0 zero=0 hv=0/0.0/0.0 tplu=0 res=0/0.00/0.0 done=1\r\n", z));
+    CHECK(z.tpl && z.cal && z.done_unix == 1u && z.tpl_unix == 0u && z.res_unix == 0u && !z.chk_ok);
+
+    // tplu раньше tpl — разбор по целому ключу
+    SetupRec o;
+    CHECK(parse_setup("-ok setup tplu=7 tpl=0 cal=1 chk=0/0 zero=0 hv=0/0.0/0.0 res=0/0.00/0.0 done=0", o));
+    CHECK(!o.tpl && o.tpl_unix == 7u && o.cal);
+
+    SetupRec g;
+    CHECK(!parse_setup("мусор", g));
+    CHECK(!parse_setup("-err unknown", g));
+    CHECK(!parse_setup("-ok setup", g));               // голый ответ на запись — не запись
+    CHECK(!parse_setup("-ok setup tpl=1 cal=x", g));   // неполный/испорченный
+    CHECK(!parse_setup("", g));
+}
+
+static void test_old_firmware()
+{
+    Snapshot s = connected_snap();
+    s.known = SetupKnown::OldFirmware;
+    CHECK(home_view(s) == Home::NotConfigured);
+    CHECK(first_open_step(s) == Step::Flash);
+    CHECK(!step_done(s, Step::Flash));
+}
+
+static void test_migrated_ready()
+{
+    Snapshot s = connected_snap();
+    s.known = SetupKnown::Yes;
+    s.s.tpl = true; s.s.cal = true; s.s.done_unix = 1;
+    CHECK(home_view(s) == Home::Ready);
+
+    Snapshot n;                                    // без связи
+    CHECK(home_view(n) == Home::NotConnected);
+    Snapshot u = connected_snap();                 // связь есть, ответа -setup ещё нет
+    CHECK(home_view(u) == Home::NotConfigured);
+    Snapshot d = s; d.s.done_unix = 0;
+    CHECK(home_view(d) == Home::NotConfigured);
+}
+
+static void test_steps()
+{
+    Snapshot s = connected_snap();
+    s.known = SetupKnown::Yes;                     // пустая запись
+    CHECK(step_done(s, Step::Flash));
+    CHECK(first_open_step(s) == Step::Check);
+
+    s.s.chk_unix = 3; s.s.chk_ok = false;
+    CHECK(!step_done(s, Step::Check));             // неудачная проверка — не сделано
+    s.s.chk_ok = true;
+    CHECK(step_done(s, Step::Check));
+    CHECK(first_open_step(s) == Step::Zero);
+
+    s.s.hv_unix = 5; s.s.tpl_unix = 9; s.s.tpl = true;
+    CHECK(step_done(s, Step::Hv));
+    CHECK(step_done(s, Step::Tpl));
+    CHECK(!step_done(s, Step::Hv2));
+    s.s.hv_unix = 10;
+    CHECK(step_done(s, Step::Hv2));
+
+    s.s.done_unix = 11; s.saved = 0;
+    CHECK(!step_done(s, Step::Save));
+    s.saved = 1;
+    CHECK(step_done(s, Step::Save));
+
+    Snapshot all = s;
+    all.s.zero_unix = 4; all.s.res_unix = 12; all.s.cal = true;
+    CHECK(first_open_step(all) == Step::Save);     // всё сделано → последний шаг
+}
+
+static void test_prereq()
+{
+    Snapshot s = connected_snap();
+    s.known = SetupKnown::Yes;
+    CHECK(step_prereq(s, Step::Scale) == (int)Step::Res);
+    s.s.res_unix = 100;
+    CHECK(step_prereq(s, Step::Scale) == -1);
+    CHECK(step_prereq(s, Step::Hv2) == (int)Step::Tpl);
+    CHECK(step_prereq(s, Step::Tpl) == (int)Step::Hv);
+    CHECK(step_prereq(s, Step::Res) == (int)Step::Hv);
+    s.s.hv_unix = 50;
+    CHECK(step_prereq(s, Step::Tpl) == -1);
+    CHECK(step_prereq(s, Step::Res) == -1);
+    s.s.tpl = true;
+    CHECK(step_prereq(s, Step::Hv2) == -1);
+    CHECK(step_prereq(s, Step::Check) == -1);
+
+    // перенесённый с v1 прибор: done=1, дат подбора ВВ нет — «Разрешение» и «Форма импульса» доступны сразу
+    Snapshot m = connected_snap();
+    m.known = SetupKnown::Yes;
+    m.s.tpl = m.s.cal = true;
+    m.s.done_unix = 1;
+    CHECK(step_prereq(m, Step::Res) == -1);
+    CHECK(step_prereq(m, Step::Tpl) == -1);
+}
+
+static void test_top_bar()
+{
+    Snapshot n;
+    TopBar b = top_bar(n, Mode::Home);
+    CHECK(!b.modes_enabled);
+    CHECK(!b.kill_visible && !b.hv_chip_on);
+
+    Snapshot s = connected_snap();
+    s.hv_on = true; s.hv_v = 565;
+    const Mode modes[] = { Mode::Home, Mode::Wizard, Mode::Advanced };
+    for (Mode m : modes) {
+        TopBar t = top_bar(s, m);
+        CHECK(t.kill_visible);
+        CHECK(t.hv_chip_on);
+        CHECK(t.modes_enabled);
+    }
+    TopBar w = top_bar(s, Mode::Wizard);
+    CHECK(w.wiz_on && !w.adv_on);
+    TopBar a = top_bar(s, Mode::Advanced);
+    CHECK(!a.wiz_on && a.adv_on);
+    TopBar h = top_bar(s, Mode::Home);
+    CHECK(!h.wiz_on && !h.adv_on);
+
+    s.hv_on = false;
+    CHECK(!top_bar(s, Mode::Wizard).kill_visible);
+}
+
+static void test_connect_hint()
+{
+    CHECK(std::strcmp(connect_hint_key(5), "conn.port_busy") == 0);   // ERROR_ACCESS_DENIED
+    CHECK(std::strcmp(connect_hint_key(2), "conn.port_gone") == 0);   // ERROR_FILE_NOT_FOUND
+    CHECK(std::strcmp(connect_hint_key(31), "conn.failed") == 0);
+    CHECK(std::strcmp(connect_hint_key(0), "conn.failed") == 0);
+}
+
+static void test_display_serial()
+{
+    CHECK(display_serial("04740001") == "GS474-0001");
+    CHECK(display_serial("0474abCD") == "GS474-abCD");
+    CHECK(display_serial("ABC") == "ABC");
+    CHECK(display_serial("04750001") == "04750001");
+    CHECK(display_serial("0474000G") == "0474000G");
+    CHECK(display_serial("047400011") == "047400011");
+    CHECK(display_serial("") == "");
+}
+
+int main()
+{
+    test_parse_setup();
+    test_old_firmware();
+    test_migrated_ready();
+    test_steps();
+    test_prereq();
+    test_top_bar();
+    test_connect_hint();
+    test_display_serial();
+    return T_DONE();
+}

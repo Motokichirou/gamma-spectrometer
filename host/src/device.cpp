@@ -37,12 +37,14 @@ bool Device::connect(const std::string& port)
     state = State::Connecting;
     status_text = "Подключение…";
     if (!serial_.open(port, 600000)) {
+        last_open_error = serial_.last_error();
         state = State::Error;
         status_text = "Не удалось открыть " + port + " (занят BecqMoni?)";
         log_add(3, status_text);
         return false;
     }
     port_name = port;
+    last_open_error = 0;
     state = State::Connected;
     status_text = "Связь установлена · простой";
     last_ka_ = last_gst_tx_ = now_sec();
@@ -52,7 +54,30 @@ bool Device::connect(const std::string& port)
     send_cmd("-cal");   // 40 регистров BecqMoni + серийник последней строкой
     send_cmd("-thr");   // порог, коды АЦП
     send_cmd("-gst", true);
+    setup_refresh();    // последним: "-err unknown" после него однозначно от -setup (старая прошивка)
     return true;
+}
+
+void Device::setup_refresh()
+{
+    if (!serial_.is_open()) return;
+    send_cmd("-setup", true);
+    setup_wait_ = true;
+    setup_t_ = now_sec();
+}
+
+ds::Snapshot Device::snapshot() const
+{
+    ds::Snapshot s;
+    s.connected = connected();
+    s.fw_ok = !fw_info.empty();
+    s.known = setup_known;
+    s.s = setup;
+    std::string sv = gstr("saved", "-");
+    s.saved = sv == "1" ? 1 : sv == "0" ? 0 : -1;
+    s.hv_on = hv_on();
+    s.hv_v = std::fabs(gnum("hv_out", 0.0));
+    return s;
 }
 
 void Device::disconnect()
@@ -67,6 +92,7 @@ void Device::disconnect()
     status_text = "Нет связи · порт закрыт";
     acquiring = false;
     fw_info.clear(); serial.clear();
+    setup = ds::SetupRec(); setup_known = ds::SetupKnown::Unknown; setup_wait_ = false;
     gst.clear(); gst_rx_ = -1.0; thr_codes = -1;
     port_name.clear();
 }
@@ -152,6 +178,7 @@ void Device::poll()
     if (raw.running) raw_tick(now);
     if (tc.running)  tc_tick(now);
     if (logd.running) logd_tick(now);
+    if (setup_wait_ && now - setup_t_ > 2.0) setup_wait_ = false;   // нет ответа — состояние остаётся прежним
     if (q_wait_ && now - q_t_ > 2.0) { q_wait_ = false; queue_errors++; queue_last_err = "нет ответа"; }
     if (!q_wait_ && !q_.empty()) {
         send_cmd(q_.front(), true);
@@ -184,6 +211,20 @@ void Device::on_text(const std::string& t0)
         gst_rx_ = now_sec();
         return;
     }
+    if (starts(t, "-ok setup ")) {                    // запись о настройке
+        ds::SetupRec r;
+        if (ds::parse_setup(t, r)) {
+            setup = r; setup_known = ds::SetupKnown::Yes;
+            if (setup_wait_) { setup_wait_ = false; return; }   // наш опрос — без лога
+            // иначе -setup послал пользователь (CLI cmd, консоль, очередь) — дальше обычным путём
+        }
+    }
+    if (setup_wait_ && !q_wait_ && starts(t, "-err unknown")) {   // старая прошивка не знает -setup — не ошибка, без лога
+        setup_wait_ = false;
+        setup_known = ds::SetupKnown::OldFirmware;
+        return;
+    }
+    if (t == "-ok saved") setup_refresh();            // после -save сверить запись в приборе
     if (starts(t, "-log rec ")) {                     // строка списка журнала — без лога
         if (logd.running && logd.phase == 0) {
             unsigned long s = 0, q = 0, ss = 0;

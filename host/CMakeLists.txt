@@ -59,6 +59,7 @@ set(GAMMA_CORE
   src/fwflash.cpp
   src/peakfit.cpp
   src/logdump.cpp
+  src/devstate.cpp
   ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c)
 # формат записи регистратора — общий с прошивкой: logrec.c собирается как C++
 set_source_files_properties(${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core/logrec.c PROPERTIES LANGUAGE CXX)
@@ -103,3 +104,9 @@ target_compile_definitions(gammapult_com PRIVATE GAMMAPULT_CONSOLE)
 target_include_directories(gammapult_com PRIVATE ${CMAKE_BINARY_DIR}/gen ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/src/core)
 add_dependencies(gammapult_com fw_embed)
 set_target_properties(gammapult_com PROPERTIES OUTPUT_NAME gammapult SUFFIX ".com")
+
+# gammapult_tests — консольные тесты чистой логики (без COM-порта и UI). Запуск: build\Release\gammapult_tests.exe
+add_executable(gammapult_tests
+  tests/test_host.cpp
+  src/devstate.cpp)
+target_include_directories(gammapult_tests PRIVATE src ${CMAKE_SOURCE_DIR}/../firmware/gamma_fw/tests)

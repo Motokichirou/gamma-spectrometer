@@ -33,14 +33,15 @@ std::vector<std::string> enumerate()
 bool Serial::open(const std::string& port, int baud, bool even_parity)
 {
     close();
+    last_error_ = 0;
     std::string path = "\\\\.\\" + port;   // \\.\COMxx — работает и для COM10+
     HANDLE h = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
                            0, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (h == INVALID_HANDLE_VALUE) return false;
+    if (h == INVALID_HANDLE_VALUE) { last_error_ = GetLastError(); return false; }   // 5 — занят, 2 — нет порта
 
     DCB dcb = {};
     dcb.DCBlength = sizeof(dcb);
-    if (!GetCommState(h, &dcb)) { CloseHandle(h); return false; }
+    if (!GetCommState(h, &dcb)) { last_error_ = GetLastError(); CloseHandle(h); return false; }
     dcb.BaudRate = (DWORD)baud;
     dcb.ByteSize = 8;
     dcb.Parity   = even_parity ? EVENPARITY : NOPARITY;
@@ -49,7 +50,7 @@ bool Serial::open(const std::string& port, int baud, bool even_parity)
     dcb.fParity  = even_parity ? TRUE : FALSE;
     dcb.fDtrControl = DTR_CONTROL_ENABLE;
     dcb.fRtsControl = RTS_CONTROL_ENABLE;
-    if (!SetCommState(h, &dcb)) { CloseHandle(h); return false; }
+    if (!SetCommState(h, &dcb)) { last_error_ = GetLastError(); CloseHandle(h); return false; }
 
     // Неблокирующее чтение: вернуть сразу, сколько есть в буфере.
     COMMTIMEOUTS to = {};

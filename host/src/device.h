@@ -5,6 +5,7 @@
 #include "serial_win.h"
 #include "shproto.h"
 #include "logdump.h"
+#include "devstate.h"
 #include <string>
 #include <vector>
 #include <deque>
@@ -36,9 +37,17 @@ public:
     std::string fw_info;                     // ответ -inf
     std::string serial;                      // серийник (последняя строка ответа -cal)
 
+    // ---- запись о настройке (-setup) ----
+    ds::SetupRec setup;
+    ds::SetupKnown setup_known = ds::SetupKnown::Unknown;
+    // запросить -setup: зовётся после подключения, после выхода из мастера, после "-ok saved"
+    void setup_refresh();
+    ds::Snapshot snapshot() const;           // срез для ds::home_view / step_done / top_bar
+
     State state = State::Disconnected;
     std::string status_text = "Нет связи · порт закрыт";
     std::string port_name;
+    unsigned long last_open_error = 0;       // GetLastError() неудачного connect (→ ds::connect_hint_key)
     std::string last_reply;                  // последний текстовый ответ (не -gst)
 
     // лог кадров для консоли (опрос -gst в лог не пишется)
@@ -160,6 +169,7 @@ private:
     void logd_tick(double now);
     bool logd_wait_ = false, logd_list_done_ = false, logd_rec_done_ = false, logd_rec_err_ = false;
     double logd_t_ = 0;
+    bool setup_wait_ = false; double setup_t_ = 0;
     std::vector<uint8_t> logd_buf_;
     uint32_t logd_total_ = 0, logd_got_ = 0;
 };
