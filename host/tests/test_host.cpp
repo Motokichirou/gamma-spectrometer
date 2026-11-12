@@ -550,6 +550,88 @@ static void test_weak_source()
     CHECK(tpl::count_singles(blocks, 6, 99) == tpl::count_singles(blocks, 6, 7));   // конец обрезается
 }
 
+// вид одиночных импульсов для шага «Форма импульса»: выделение из порции, нормировка, метки, кольцо
+static void test_pulse_view()
+{
+    // одна порция: база 400 ± шум, импульсы известной формы a·(k/4)·e^(1−k/4), максимум на k = 4
+    uint32_t rs = 4242;
+    auto rnd = [&]() { rs = rs * 1664525u + 1013904223u; return (rs >> 8) * (1.0 / 16777216.0); };
+    std::vector<double> x(tpl::BLK);
+    for (int i = 0; i < tpl::BLK; i++) x[i] = 400.0 + 2.0 * (rnd() + rnd() + rnd() - 1.5);
+    auto put = [&](int c0, double a) {
+        for (int k = 0; k < 40 && c0 + k < tpl::BLK; k++) x[c0 + k] += a * (k / 4.0) * exp(1.0 - k / 4.0);
+    };
+    std::vector<int> good_at;                              // отсчёт максимума одиночных
+    size_t bad_want = 0;
+    for (int c = 200; c + 100 < tpl::BLK; c += 400) {
+        int n = c / 400;
+        if (n % 7 == 3)      { put(c, 600); put(c + 30, 300); bad_want += 2; }   // наложение — оба в брак
+        else if (n % 7 == 5) { put(c, 4000); bad_want += 1; }                     // упор в clip — в брак
+        else                 { put(c, 200 + 40 * (n % 20)); good_at.push_back(c + 4); }
+    }
+    std::vector<uint16_t> blk(tpl::BLK);
+    for (int i = 0; i < tpl::BLK; i++) blk[i] = (uint16_t)(x[i] > 4095.0 ? 4095.0 : x[i] + 0.5);
+
+    tpl::BlockView v = tpl::view_block(blk);
+    std::vector<std::vector<uint16_t>> one{ blk };
+    CHECK((int)v.ok.size() == tpl::count_singles(one, 0, 1));   // критерии те же, что у счёта
+    CHECK(v.ok.size() == good_at.size());
+    for (size_t i = 0; i < v.ok.size() && i < good_at.size(); i++) CHECK(v.ok[i] == good_at[i]);
+    CHECK(v.bad.size() == bad_want);                       // наложения и упоры отмечены
+    CHECK_NEAR(v.base, 400.0, 1.0);
+    CHECK(v.pulses.size() == v.ok.size());
+    for (const auto& p : v.pulses) {
+        // максимум 1 ровно в отсчёте VPRE
+        CHECK_NEAR(p[tpl::VPRE], 1.0, 1e-6);
+        int am = 0;
+        for (int i = 0; i < tpl::VW; i++) if (p[i] > p[am]) am = i;
+        CHECK(am == tpl::VPRE);
+        // база вычтена: до фронта ≈ 0
+        double pre = 0;
+        for (int i = 0; i < tpl::VPRE - 4; i++) pre += p[i];
+        CHECK(fabs(pre / (tpl::VPRE - 4)) < 0.02);
+        // форма: через 8 отсчётов после максимума (12/4)·e^−2 ≈ 0.406
+        CHECK_NEAR(p[tpl::VPRE + 8], 3.0 * exp(-2.0), 0.03);
+    }
+
+    // кольцо последних импульсов: хранит cap новейших, at(0) — самый старый
+    tpl::PulseRing ring(3);
+    CHECK(ring.size() == 0);
+    for (int k = 0; k < 5; k++) { tpl::VWin w{}; w[0] = (float)k; ring.push(w); }
+    CHECK(ring.size() == 3);
+    CHECK(ring.at(0)[0] == 2.0f && ring.at(1)[0] == 3.0f && ring.at(2)[0] == 4.0f);
+    ring.clear();
+    CHECK(ring.size() == 0);
+    tpl::VWin w1{}; w1[0] = 9.0f; ring.push(w1);
+    CHECK(ring.size() == 1 && ring.at(0)[0] == 9.0f);
+
+    // эталон отдаёт непрерывную форму для наложения: максимум ≈ 1 около нуля
+    std::vector<std::vector<uint16_t>> blocks;
+    for (int b = 0; b < 60; b++) {
+        std::vector<double> y(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) y[i] = 400.0 + 2.0 * (rnd() + rnd() + rnd() - 1.5);
+        for (int c = 150; c + 100 < tpl::BLK; c += 300) {
+            double fr = rnd(), A = 300 + 700 * rnd();
+            for (int k = 0; k < 40 && c + k < tpl::BLK; k++) {
+                double u = k - fr;
+                if (u > 0) y[c + k] += A * (u / 4.0) * exp(1.0 - u / 4.0);
+            }
+        }
+        std::vector<uint16_t> bb(tpl::BLK);
+        for (int i = 0; i < tpl::BLK; i++) bb[i] = (uint16_t)(y[i] + 0.5);
+        blocks.push_back(bb);
+    }
+    tpl::Result r = tpl::build(tpl::find_singles(blocks));
+    CHECK(r.ok);
+    CHECK(!r.shape_x.empty() && r.shape_x.size() == r.shape_y.size());
+    size_t im = 0;
+    for (size_t i = 0; i < r.shape_y.size(); i++) if (r.shape_y[i] > r.shape_y[im]) im = i;
+    if (!r.shape_y.empty()) {
+        CHECK_NEAR(r.shape_y[im], 1.0, 0.03);
+        CHECK(fabs(r.shape_x[im]) < 0.6);
+    }
+}
+
 // отчёт: шаг не проводился в этот раз — дата из прибора или «нет данных»
 static void test_report_not_run()
 {
@@ -564,6 +646,7 @@ int main()
 {
     test_peak_count();
     test_weak_source();
+    test_pulse_view();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();

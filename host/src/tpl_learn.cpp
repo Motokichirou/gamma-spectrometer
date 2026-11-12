@@ -23,9 +23,11 @@ static double median(std::vector<double> v)
     return 0.5 * (a + b);
 }
 
-// одна порция: счётчики в s и (keep) окна одиночных импульсов; возвращает σ шума порции
+// одна порция: счётчики в s и (keep) окна одиночных импульсов; возвращает σ шума порции.
+// view (для экрана): метки принятых/отбракованных и нормированные окна вида — на отбор не влияет
 static double singles_block(const std::vector<uint16_t>& blk, double thr, double amin, double amax, int clip,
-                            Singles& s, std::vector<double>& x, std::vector<double>& d, bool keep)
+                            Singles& s, std::vector<double>& x, std::vector<double>& d, bool keep,
+                            BlockView* view = nullptr)
 {
     s.blocks++;
     x.assign(blk.begin(), blk.end());
@@ -34,16 +36,20 @@ static double singles_block(const std::vector<uint16_t>& blk, double thr, double
     for (size_t i = 0; i < x.size(); i++) d[i] = fabs(x[i] - b);
     double sd = 1.4826 * median(d);
     double th = thr * sd;
+    if (view) { view->base = b; view->sigma = sd; }
     std::vector<int> up;
     for (int i = 1; i < BLK; i++) if (x[i] - b > th && x[i - 1] - b <= th) up.push_back(i);
     s.cross += (int)up.size();
     for (size_t k = 0; k < up.size(); k++) {
         int c = up[k];
         if (c - ISO < 0 || c + ISO >= BLK) continue;
-        if ((k > 0 && up[k - 1] >= c - ISO) || (k + 1 < up.size() && up[k + 1] <= c + ISO)) continue;
+        if ((k > 0 && up[k - 1] >= c - ISO) || (k + 1 < up.size() && up[k + 1] <= c + ISO)) {
+            if (view) view->bad.push_back(c);
+            continue;
+        }
         bool quiet = true;
         for (int i = c - ISO; i < c - 2; i++) if (fabs(x[i] - b) > th) { quiet = false; break; }
-        if (!quiet) continue;
+        if (!quiet) { if (view) view->bad.push_back(c); continue; }
         s.single++;
         int im = c;
         for (int i = c; i < c + 10; i++) if (x[i] > x[im]) im = i;   // argmax(y[c:c+10]) — первый максимум
@@ -51,8 +57,16 @@ static double singles_block(const std::vector<uint16_t>& blk, double thr, double
         if (im - PRE < 0 || im + POST >= BLK) continue;
         double mx = 0;
         for (int i = im - PRE; i <= im + POST; i++) mx = std::max(mx, x[i]);
-        if (!(A >= amin && A <= amax) || mx >= clip) continue;
+        if (!(A >= amin && A <= amax) || mx >= clip) { if (view) view->bad.push_back(im); continue; }
         s.amp++;
+        if (view) {
+            view->ok.push_back(im);
+            if (im - VPRE >= 0 && im + VPOST < BLK && A > 0) {
+                VWin v;
+                for (int i = 0; i < VW; i++) v[i] = (float)((x[im - VPRE + i] - b) / A);
+                view->pulses.push_back(v);
+            }
+        }
         if (!keep) continue;
         Win w;
         for (int i = 0; i < W; i++) w[i] = x[im - PRE + i] - b;
@@ -83,6 +97,16 @@ int count_singles(const std::vector<std::vector<uint16_t>>& blocks, size_t from,
     for (size_t k = from; k < to; k++)
         if (blocks[k].size() == (size_t)BLK) singles_block(blocks[k], thr, amin, amax, clip, s, x, d, false);
     return s.amp;
+}
+
+BlockView view_block(const std::vector<uint16_t>& blk, double thr, double amin, double amax, int clip)
+{
+    BlockView v;
+    if (blk.size() != (size_t)BLK) return v;
+    Singles s;
+    std::vector<double> x, d;
+    singles_block(blk, thr, amin, amax, clip, s, x, d, false, &v);
+    return v;
 }
 
 // ---- непрерывная форма из строк (interleave) ----
@@ -348,6 +372,8 @@ Result build(const Singles& s, int refine, bool pp, int pp_iters)
     if (!rows_from_shape(f, r7)) { R.msg = "форма не годится: максимум строки не на позиции 1"; return R; }
     // ширина на половине высоты
     { double a = 1e300, b = -1e300; for (size_t g = 0; g < f.S.size(); g++) if (f.S[g] >= 0.5) { a = std::min(a, f.x[g]); b = std::max(b, f.x[g]); } R.fwhm50 = b - a; }
+    // общая форма для экрана (каждый 4-й узел: шаг 1/16 отсчёта)
+    for (size_t g = 0; g < f.S.size(); g += 4) { R.shape_x.push_back((float)f.x[g]); R.shape_y.push_back((float)f.S[g]); }
 
     int q[NPH][NS]; std::vector<double> A; std::vector<int> ph;
     quant(r7, q); fit(wins, q, A, ph, nullptr);

@@ -88,6 +88,39 @@ struct Wiz {
 Wiz g_wiz;
 const int TPL_MAX_BLOCKS = 6000;              // страховка по памяти: 6000 порций × 16 КБ ≈ 98 МБ (~30 мин сбора)
 
+// вид импульсов при сборе сырых порций (мастер и вкладка «Эталон»): разбирается только новейшая
+// порция, не чаще VIEW_DT; кольцо последних 30 нормированных одиночных
+const double TPL_VIEW_DT = 0.3;
+struct TplView {
+    tpl::PulseRing ring{ 30 };
+    std::vector<uint16_t> blk;                 // последняя разобранная порция
+    std::vector<float> ok_x, ok_y, bad_x, bad_y;   // метки на осциллограмме
+    size_t seen = 0;                           // порций в g_dev.raw при последнем разборе
+    double t = -1e9;
+};
+TplView g_tv;
+
+void TplViewTick(double now)
+{
+    TplView& v = g_tv;
+    const auto& B = g_dev.raw.blocks;
+    if (B.size() < v.seen) {                   // начат новый сбор (raw_start обнулил порции)
+        v.ring.clear(); v.blk.clear();
+        v.ok_x.clear(); v.ok_y.clear(); v.bad_x.clear(); v.bad_y.clear();
+        v.seen = 0;
+    }
+    if (B.size() <= v.seen || now - v.t < TPL_VIEW_DT) return;
+    v.seen = B.size(); v.t = now;
+    const std::vector<uint16_t>& b = B.back();
+    if (b.size() != (size_t)tpl::BLK) return;
+    tpl::BlockView bv = tpl::view_block(b);
+    v.blk = b;
+    for (const auto& p : bv.pulses) v.ring.push(p);
+    v.ok_x.clear(); v.ok_y.clear(); v.bad_x.clear(); v.bad_y.clear();
+    for (int i : bv.ok)  { v.ok_x.push_back((float)i);  v.ok_y.push_back((float)b[i]); }
+    for (int i : bv.bad) { v.bad_x.push_back((float)i); v.bad_y.push_back((float)b[i]); }
+}
+
 // результат «Разрешения» принят (полностью или с пометкой) и пик найден
 bool ResAccepted()
 {
@@ -661,6 +694,8 @@ void BodyTpl(bool primary)
         if (w.tpl_few) Para(c_danger, Fmt(T("wiz.tpl.few"), w.tpl_n, MinSec(w.tpl_el).c_str()).c_str());
         else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg).c_str()).c_str());
     }
+    ImGui::Spacing();
+    TplPulsePlots(w.tpl_phase >= 3 && w.tpl_res.ok ? &w.tpl_res : nullptr);
 }
 
 // экземпляр тела шага: false — мастер, true — расширенный режим (у графика свой запрос вида)
@@ -1071,6 +1106,60 @@ void Rail(const ds::Snapshot& snap)
 
 // ================= снаружи =================
 
+void TplPulsePlots(const tpl::Result* res)
+{
+    const TplView& v = g_tv;
+    bool have_tpl = res && res->ok && !res->shape_x.empty();
+    if (v.ring.size() == 0 && v.blk.empty() && !have_tpl) { Small(c_text_dim, T("wiz.tpl.v_empty")); return; }
+
+    // наложение одиночных импульсов
+    Small(c_text_dim, Fmt(T("wiz.tpl.v_over"), (int)v.ring.size()).c_str());
+    static float xs[tpl::VW];
+    for (int i = 0; i < tpl::VW; i++) xs[i] = (float)(i - tpl::VPRE);
+    if (ImPlot::BeginPlot("##tplover", ImVec2(-1, 220), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+        ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_x"));
+        ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_y"));
+        ImPlot::SetupAxisLimits(ImAxis_X1, -tpl::VPRE, tpl::VPOST, ImPlotCond_Once);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -0.15, 1.15, ImPlotCond_Once);
+        ImPlot::SetupLegend(ImPlotLocation_NorthEast);
+        ImVec4 tc = c_trace; tc.w = 0.25f;
+        for (size_t i = 0; i < v.ring.size(); i++) {
+            ImPlot::SetNextLineStyle(tc, 1.0f);
+            ImPlot::PlotLine(T("wiz.tpl.v_pulses"), xs, v.ring.at(i).data(), tpl::VW);   // одна строка легенды на все
+        }
+        if (have_tpl) {
+            ImPlot::SetNextLineStyle(c_ok, 2.5f);
+            ImPlot::PlotLine(T("wiz.tpl.v_tpl"), res->shape_x.data(), res->shape_y.data(), (int)res->shape_x.size());
+        }
+        ImPlot::EndPlot();
+    }
+    if (have_tpl)
+        Small(c_text_dim, Fmt(T("wiz.tpl.v_tpl_note"), res->resid_med, res->spread_before, res->spread_after).c_str());
+
+    // осциллограмма последней порции
+    if (v.blk.empty()) return;
+    ImGui::Spacing();
+    Small(c_text_dim, Fmt(T("wiz.tpl.v_raw"), (int)v.ok_x.size(), (int)v.bad_x.size()).c_str());
+    if (ImPlot::BeginPlot("##tplraw", ImVec2(-1, 170), ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
+        ImPlot::SetupAxis(ImAxis_X1, T("wiz.tpl.v_ax_n"));
+        ImPlot::SetupAxis(ImAxis_Y1, T("wiz.tpl.v_ax_code"), ImPlotAxisFlags_AutoFit);
+        ImPlot::SetupAxisLimits(ImAxis_X1, 0, tpl::BLK, ImPlotCond_Once);
+        ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0, tpl::BLK);
+        ImPlot::SetupLegend(ImPlotLocation_NorthEast);
+        ImPlot::SetNextLineStyle(c_trace, 1.0f);
+        ImPlot::PlotLine("##raw", v.blk.data(), (int)v.blk.size());
+        if (!v.ok_x.empty()) {
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.5f, c_ok, 1.0f, c_ok);
+            ImPlot::PlotScatter(T("wiz.tpl.v_ok"), v.ok_x.data(), v.ok_y.data(), (int)v.ok_x.size());
+        }
+        if (!v.bad_x.empty()) {
+            ImPlot::SetNextMarkerStyle(ImPlotMarker_Square, 3.5f, c_danger, 1.0f, c_danger);
+            ImPlot::PlotScatter(T("wiz.tpl.v_bad"), v.bad_x.data(), v.bad_y.data(), (int)v.bad_x.size());
+        }
+        ImPlot::EndPlot();
+    }
+}
+
 void WizStepBodyEmbedded(ds::Step s)
 {
     if (s < ds::Step::Flash || s >= ds::Step::N) return;
@@ -1144,6 +1233,7 @@ void WizTick()
 {
     Wiz& w = g_wiz;
     double now = ImGui::GetTime();
+    TplViewTick(now);                          // вид импульсов: только читает g_dev.raw, работает и без связи
 
     // после прошивки — снова на связь
     if (w.fl_reconnect && w.fl_state != 1) {

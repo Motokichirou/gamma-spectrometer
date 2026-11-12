@@ -35,6 +35,36 @@ struct Result {
     double peak = 0, peak_sd = 0;             // фотопик по новому эталону, коды
     double spread_before = 0, spread_after = 0;   // размах фотопика по 8 фазовым группам, %
     double fwhm50 = 0;                        // ширина формы на половине высоты, отсчётов
+    // общая непрерывная форма (до поправки строк по фазам): x — отсчёты от максимума, y — доля максимума
+    std::vector<float> shape_x, shape_y;
+};
+
+// ---- вид одиночных импульсов для экрана (шаг «Форма импульса») ----
+constexpr int VPRE = 8, VPOST = 32, VW = VPRE + VPOST + 1;   // окно вида: −VPRE…+VPOST от максимума
+using VWin = std::array<float, VW>;
+
+struct BlockView {
+    std::vector<VWin> pulses;                 // одиночные: база вычтена, максимум = 1 на отсчёте VPRE
+    std::vector<int> ok;                      // отсчёт максимума каждого одиночного (критерии find_singles)
+    std::vector<int> bad;                     // отбракованные: наложение, шум рядом, вне окна амплитуд, упор
+    double base = 0, sigma = 0;               // медиана порции и σ шума, коды
+};
+
+// одна порция "-osc raw" (BLK кодов) → одиночные для наложения и метки для осциллограммы
+BlockView view_block(const std::vector<uint16_t>& blk,
+                     double thr = 10.0, double amin = 100.0, double amax = 1200.0, int clip = 4090);
+
+// кольцо последних cap нормированных импульсов; at(0) — самый старый
+class PulseRing {
+public:
+    explicit PulseRing(size_t cap = 30) : cap_(cap ? cap : 1) {}
+    void push(const VWin& w) { if (v_.size() < cap_) v_.push_back(w); else { v_[head_] = w; head_ = (head_ + 1) % cap_; } }
+    void clear() { v_.clear(); head_ = 0; }
+    size_t size() const { return v_.size(); }
+    const VWin& at(size_t i) const { return v_[(head_ + i) % v_.size()]; }
+private:
+    std::vector<VWin> v_;
+    size_t head_ = 0, cap_;
 };
 
 // число одиночных импульсов (как Singles::amp) в порциях [from, to) — для живого счёта при сборе;

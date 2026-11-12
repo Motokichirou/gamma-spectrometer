@@ -760,6 +760,9 @@ void TabTemplate()
         ImGui::ProgressBar(fr, ImVec2(-1, 0), b);
     }
     if (!R.msg.empty()) ImGui::TextDisabled("%s", R.msg.c_str());
+    ImGui::Spacing();
+    TplPulsePlots(g_tpl_state == 2 && g_tpl_res.ok ? &g_tpl_res : nullptr);   // общий с мастером вид импульсов
+    ImGui::Spacing();
 
     ImGui::BeginDisabled(R.running || R.blocks.empty() || g_tpl_state == 1);
     if (PrimaryButton(Lbl("adv.tpl.calc", "tplcalc").c_str(), ImVec2(-1, 0))) {
