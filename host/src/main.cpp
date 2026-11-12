@@ -31,6 +31,8 @@
 #include "theme.h"
 #include "host_app.h"
 #include "appcfg.h"
+#include "ui_shell.h"
+#include "i18n.h"
 
 // --- DirectX 11 ---
 static ID3D11Device*           g_pd3dDevice = nullptr;
@@ -46,12 +48,10 @@ static LRESULT WINAPI WndProc(HWND, UINT, WPARAM, LPARAM);
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 // --- состояние приложения ---
-static Device g_dev;
-static bool   g_quit = false;
+Device g_dev;                                  // общий с оболочкой (ui_shell.cpp)
 static int    g_port_sel = 0;
 static bool   g_log_scale = true;
 static char   g_cmd_buf[128] = "";
-static bool   g_open_help = false;
 static float  gLeftW = 330.0f, gRightW = 380.0f, gConnH = 245.0f, gConsoleH = 200.0f;
 static float  gTeleH = 285.0f;
 static float  g_spec_x[Device::CHANNELS];
@@ -1012,8 +1012,7 @@ static void PanelService(ImVec2 pos, ImVec2 size)
 // сохранение и отчёт. Каждое действие — кнопкой; «Далее» открывается, когда шаг выполнен.
 
 struct Wiz {
-    bool open = false;
-    int  step = 0;
+    int  step = 0;                             // 0 — «Подготовка», 1… — ds::Step + 1
     bool chk[7] = {};
     // прошивка
     std::atomic<int> fl_state{ 0 };            // 0 — нет, 1 — идёт, 2 — готово, 3 — ошибка
@@ -1386,19 +1385,27 @@ static void WizStepBody(int s)
     }
 }
 
-static void DrawWizard()
+// каждый кадр, в любом режиме: после прошивки — снова на связь
+static void WizTick()
 {
-    using namespace theme;
     Wiz& w = g_wiz;
-    if (w.fl_reconnect && w.fl_state != 1) {             // после прошивки — снова на связь
+    if (w.fl_reconnect && w.fl_state != 1) {
         w.fl_reconnect = false;
         if (w.fl_state == 2) g_dev.connect(w.fl_port);
     }
-    if (!w.open) return;
-    ImVec2 c = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(900, 620), ImGuiCond_Appearing);
-    if (!ImGui::Begin("Мастер ввода в строй", &w.open, ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
+}
+
+// Мастер в области под верхней полосой (режим ds::Mode::Wizard). Шаг согласуется с g_ui.wiz_step:
+// вход в мастер и ui_go(Wizard, шаг) задают шаг снаружи, выбор шага внутри пишется обратно.
+// Прежний шаг 0 «Подготовка» в ds::Step не входит (по спеке убран; пока остаётся в списке).
+static void DrawWizard(ImVec2 pos, ImVec2 size, bool entered)
+{
+    using namespace theme;
+    Wiz& w = g_wiz;
+    static int s_applied = -1;                           // шаг из g_ui.wiz_step, уже применённый к w.step
+    int want = (int)g_ui.wiz_step + 1;
+    if (entered || want != s_applied) { w.step = want; s_applied = want; }
+    if (!BeginPanel("##wizard", pos, size)) { ImGui::End(); return; }
     ImGui::BeginChild("##wsteps", ImVec2(210, 0), true);
     for (int i = 0; i < WIZ_N; i++) {
         bool d = WizDone(i);
@@ -1429,77 +1436,16 @@ static void DrawWizard()
     if (PrimaryButton("Далее →", ImVec2(110, 0))) w.step++;
     ImGui::EndDisabled();
     if (g_dev.hv_on()) { ImGui::SameLine(); ImGui::TextColored(c_danger, "  ВВ %.0f В", fabs(g_dev.gnum("hv_out"))); }
+    const char* ex = T("wiz.exit");
+    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(ex).x - 2 * ImGui::GetStyle().FramePadding.x - 4);
+    bool leave = ImGui::Button(ex);
     ImGui::EndChild();
     ImGui::End();
-}
-
-static void MenuBar()
-{
-    if (!ImGui::BeginMainMenuBar()) return;
-    if (ImGui::BeginMenu("Файл")) {
-        if (ImGui::MenuItem("Выход")) g_quit = true;
-        ImGui::EndMenu();
+    if (w.step >= 1 && w.step != s_applied) {           // шаг выбран внутри мастера
+        g_ui.wiz_step = (ds::Step)(w.step - 1);
+        s_applied = w.step;
     }
-    if (ImGui::BeginMenu("Прибор")) {
-        if (ImGui::MenuItem("Обновить порты")) g_dev.refresh_ports();
-        bool dis = (g_dev.state != Device::State::Disconnected && g_dev.state != Device::State::Error);
-        if (ImGui::MenuItem("Подключить", nullptr, false, !dis && !g_dev.ports.empty()))
-            g_dev.connect(g_dev.ports[g_port_sel]);
-        if (ImGui::MenuItem("Отключить", nullptr, false, dis))
-            g_dev.disconnect();
-        ImGui::Separator();
-        if (ImGui::MenuItem("Мастер ввода в строй…")) g_wiz.open = true;
-        ImGui::Separator();
-        if (ImGui::MenuItem("Выключить ВВ", nullptr, false, g_dev.connected())) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
-        ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("Вид")) {
-        ImGui::MenuItem("Лог-шкала спектра", nullptr, &g_log_scale);
-        ImGui::EndMenu();
-    }
-    if (ImGui::MenuItem("Справка")) g_open_help = true;
-
-    const char* hint = "gamma_fw · shproto 600000 8N1 · gammapult v0.6.0";
-    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(hint).x - 14);
-    ImGui::TextDisabled("%s", hint);
-    ImGui::EndMainMenuBar();
-}
-
-static void StatusBar(ImVec2 pos, ImVec2 size)
-{
-    using namespace theme;
-    ImGui::SetNextWindowPos(pos);
-    ImGui::SetNextWindowSize(size);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 3));
-    ImGuiWindowFlags f = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::Begin("##status", nullptr, f);
-    StatusDot(StateColor());
-    ImGui::PushFont(font_mono);
-    char buf[256];
-    if (g_dev.acquiring)
-        snprintf(buf, sizeof(buf), "ИДЁТ НАБОР   t=%us   cps=%u   Σ=%llu   брак=%u",
-                 g_dev.elapsed_s, g_dev.cps, (unsigned long long)g_dev.total(), g_dev.invalid);
-    else
-        snprintf(buf, sizeof(buf), "%s", g_dev.state_str());
-    ImGui::TextUnformatted(buf);
-    if (g_dev.hv_on()) {
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, c_danger);
-        ImGui::Text("   ВВ %.0f В", fabs(g_dev.gnum("hv_out")));
-        ImGui::PopStyleColor();
-    }
-    char right[64];
-    snprintf(right, sizeof(right), "%s   600000 8N1",
-             g_dev.port_name.empty() ? "—" : g_dev.port_name.c_str());
-    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 12);
-    ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-    ImGui::TextUnformatted(right);
-    ImGui::PopStyleColor();
-    ImGui::PopFont();
-    ImGui::End();
-    ImGui::PopStyleVar();
+    if (leave) ui_go(ds::Mode::Home);
 }
 
 static void HelpSection(const char* h)
@@ -1514,12 +1460,13 @@ static void HelpSection(const char* h)
 
 static void DrawHelp()
 {
-    if (g_open_help) { ImGui::OpenPopup("Справка"); g_open_help = false; }
+    if (g_ui.help_req) { ImGui::OpenPopup("###help"); g_ui.help_req = false; }
 
     ImVec2 c = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(720, 600), ImGuiCond_Appearing);
-    if (!ImGui::BeginPopupModal("Справка", nullptr)) return;
+    char title[64]; snprintf(title, sizeof title, "%s###help", T("status.help"));
+    if (!ImGui::BeginPopupModal(title, nullptr)) return;
     ImGui::BeginChild("helpbody", ImVec2(0, -36), false);
 
     HelpSection("Назначение");
@@ -1572,18 +1519,10 @@ static void DrawHelp()
     ImGui::EndPopup();
 }
 
-static void DrawApp()
+// прежняя раскладка панелей: пока и главный экран, и расширенный режим (заменят Task 8 и 10)
+static void DrawPanels(ImVec2 area, ImVec2 asz)
 {
-    MenuBar();
-
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    float menuH = ImGui::GetFrameHeight();
-    float statusH = 24.0f;
     float p = 5.0f, g = 5.0f;
-
-    ImVec2 area(vp->Pos.x, vp->Pos.y + menuH);
-    ImVec2 asz(vp->Size.x, vp->Size.y - menuH - statusH);
-
     float innerX = area.x + p, innerY = area.y + p;
     float innerW = asz.x - 2 * p, innerH = asz.y - 2 * p;
 
@@ -1612,12 +1551,25 @@ static void DrawApp()
     gConsoleH -= Splitter("##sp_sc", ImVec2(cx, innerY + spectrumH + g * 0.5f - 3),         ImVec2(centerW, 6), false);
     gConnH    += Splitter("##sp_ct", ImVec2(lx, innerY + connH + g * 0.5f - 3),             ImVec2(leftW, 6), false);
     gTeleH    += Splitter("##sp_tc", ImVec2(lx, innerY + connH + g + teleH + g * 0.5f - 3), ImVec2(leftW, 6), false);
+}
 
-    StatusBar(ImVec2(vp->Pos.x, vp->Pos.y + vp->Size.y - statusH),
-              ImVec2(vp->Size.x, statusH));
+static void DrawApp()
+{
+    static ds::Mode s_prev = ds::Mode::Home;
+    DrawShell();
 
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    float topH = TopBarHeight(), statusH = StatusBarHeight();
+    ImVec2 area(vp->Pos.x, vp->Pos.y + topH);
+    ImVec2 asz(vp->Size.x, vp->Size.y - topH - statusH);
+
+    ds::Mode m = g_ui.mode;                  // режим на этот кадр (ui_go внутри кадра сработает со следующего)
+    if (m == ds::Mode::Wizard) DrawWizard(area, asz, s_prev != ds::Mode::Wizard);
+    else                       DrawPanels(area, asz);
+    s_prev = m;
+
+    WizTick();
     DrawHelp();
-    DrawWizard();
 }
 
 // ================= main =================
@@ -1661,7 +1613,7 @@ int run_gui()
     if (!g_dev.ports.empty()) g_port_sel = (int)g_dev.ports.size() - 1;   // мост FT231X обычно последний
 
     bool done = false;
-    while (!done && !g_quit) {
+    while (!done) {
         MSG msg;
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
             ::TranslateMessage(&msg);

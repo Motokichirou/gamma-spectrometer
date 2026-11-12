@@ -30,6 +30,7 @@ static const I18nEntry k_table[] = {
     { "status.ports",       "Найдено портов: %d",             "Ports found: %d" },
     { "status.saved",       "Всё сохранено",                  "All saved" },
     { "status.unsaved",     "! Настройки не сохранены в прибор", "! Settings not saved to the device" },
+    { "status.help",        "Справка",                        "Help" },
 
     // ---- экран подключения ----
     { "conn.title",         "Подключите прибор",              "Connect the device" },
