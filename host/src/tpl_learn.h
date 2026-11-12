@@ -11,6 +11,7 @@ namespace tpl {
 
 constexpr int NPH = 64, NS = 7, IPK = 1;      // как в прошивке
 constexpr int PRE = 4, POST = 24, W = PRE + POST + 1, ISO = 40, BLK = 8192;
+constexpr int RISE_MAX = 8;   // от пересечения порога до максимума, отсчётов: больше — наложение на фронте
 constexpr int QMAX = 16384;
 
 using Win = std::array<double, W>;

@@ -104,7 +104,7 @@ TplView g_tv;
 // самая свежая разбирается (g_tv). Порции идут подряд, стык помечен чертой. Порция — 2.4 мс сигнала,
 // между порциями прибор сигнал не пишет; лента замедлена ≈1000× и показывает часть порций.
 constexpr double TAPE_WIN = 1500.0;           // ширина окна, отсчётов
-constexpr double TAPE_SPEED = 3000.0;         // отсчётов в секунду экрана
+constexpr double TAPE_SPEED = 300.0;          // отсчётов в секунду экрана: окно проходит за 5 с
 struct TapeSeg {
     std::vector<float> y, ok_x, ok_y, bad_x, bad_y;
     size_t seen = 0;
