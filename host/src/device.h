@@ -94,7 +94,7 @@ public:
     // подгонке, peakfit::peak_window), не дольше timeout с → пик по peak_stats → новая уставка
     struct HvPeak {
         bool running = false, done = false;
-        double target = 1180, lo = 300, hi = 6000, gain_exp = 5.3, tol_pct = 1.0;
+        double target = 1190, lo = 300, hi = 6000, gain_exp = 5.3, tol_pct = 1.0;
         double count = 3000, timeout = 120;  // импульсов в фотопике за проход; страховка, с
         int iter = 0, max_iter = 6, phase = 0; double t0 = 0;
         double v = 0, peak = 0;

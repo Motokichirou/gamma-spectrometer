@@ -59,7 +59,7 @@ struct Wiz {
     // разрешение: 0 — нет, 1 — набор, 3 — оценено. Набор до fw_count импульсов в окне фотопика
     // (±1.5·FWHM по живой подгонке), не дольше fw_timeout с
     int fw_phase = 0; double fw_t0 = 0;
-    int fw_count = 20000; float fw_timeout = 600.0f;
+    int fw_count = 100000; float fw_timeout = 600.0f;
     uint64_t fw_n = 0; double fw_el = 0, fw_eval_t = 0; bool fw_timeout_hit = false;
     peakfit::PeakWin fw_win;                   // окно и подгонка: живые в ходе набора, итоговые после
     peakfit::Result fwr;

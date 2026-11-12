@@ -5,7 +5,7 @@
 //   gammapult acquire --port COMx --seconds N [--out file.csv]
 //   gammapult lin     --port COMx [--codes "50 100 … 1350"] [--n 10000] [--period 100]
 //   gammapult cmd     --port COMx --send "-diag" [--read S]
-//   gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]
+//   gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]
 //                     (проход: до --count импульсов в фотопике ±1.5·FWHM, не дольше --timeout с)
 //   gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]   (запись термокомпенсации)
 //   gammapult tpl collect --port COMx [--n 2000] --out raw.bin   (сырые порции uint16 × 8192 подряд)
@@ -65,7 +65,7 @@ static void usage()
            "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
            "  gammapult bootinfo --port COMx            (загрузчик: ID МК, опции; только чтение)\n"
            "  gammapult flash   --port COMx [--bin file.bin] [--no-dbank-fix]   (прошить; без --bin — встроенная)\n"
-           "  gammapult hvpeak  --port COMx --start V [--target 1180] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]\n"
+           "  gammapult hvpeak  --port COMx --start V [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]\n"
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin\n"
            "  gammapult tpl build raw.bin [--out tpl.h] [--load --port COMx [--save]]\n"
@@ -240,7 +240,7 @@ int run_cli(int argc, char** argv)
     } else if (sub == "hvpeak") {
         double v0 = atof(opt(argc, argv, "--start", "0").c_str());
         if (v0 < 300 || v0 > 1200) { printf("нужен --start 300…1200 В\n"); dev.disconnect(); return 1; }
-        dev.hvp.target = atof(opt(argc, argv, "--target", "1180").c_str());
+        dev.hvp.target = atof(opt(argc, argv, "--target", "1190").c_str());
         dev.hvp.lo = atof(opt(argc, argv, "--lo", "300").c_str());
         dev.hvp.hi = atof(opt(argc, argv, "--hi", "6000").c_str());
         dev.hvp.count = atof(opt(argc, argv, "--count", "3000").c_str());

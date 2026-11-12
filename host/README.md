@@ -93,7 +93,7 @@ gammapult log status|on 600 120|off|start|stop|time --port COM4   # регист
 gammapult log dump --port COM4 --out папка [--session N] [--thermo] [--sum]   # выгрузка журнала
 gammapult calenc  c0 c1 c2 c3 c4                  # команды -cal для калибровки BecqMoni
 gammapult obtest  --port COM4                    # проверка записи опций: DBANK=0 поверх DBANK=0, сверка
-gammapult hvpeak  --port COM4 --start 700 [--target 1180] [--lo 300] [--hi 6000] [--secs 20] [--off]   # ВВ по пику
+gammapult hvpeak  --port COM4 --start 700 [--target 1190] [--lo 300] [--hi 6000] [--count 3000] [--timeout 120] [--off]   # ВВ по пику
 gammapult tc      --port COM4 [--secs 120] [--points N]   # запись термокомпенсации (оценка k1)
 gammapult tpl collect --port COM4 [--n 2000] --out raw.bin    # сырые порции (uint16 × 8192 подряд)
 gammapult tpl build raw.bin [--out tpl.h] [--load --port COM4 [--save]]   # эталон из порций
