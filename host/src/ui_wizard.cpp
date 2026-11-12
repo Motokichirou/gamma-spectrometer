@@ -830,6 +830,31 @@ void ResPlot()
         }
         ImPlot::SetNextLineStyle(c_ok, 2.0f);
         ImPlot::PlotLine(T("wiz.plot.fit"), gx, gy, 241);
+
+        // разметка FWHM: отрезок на половине высоты колокола (над линейным фоном) с засечками,
+        // пунктир от вершины вниз до фона, подпись над отрезком
+        double hw = fr.sigma * 2.3548200 / 2.0;
+        double xl = fr.peak - hw, xr = fr.peak + hw;
+        double bgp = fr.bg0 + fr.bg1 * (fr.peak - fr.x0);
+        double yl = fr.model(xl), yr = fr.model(xr), yt = fr.model(fr.peak);
+        if (!w.fw_log || (yl > 0.5 && yr > 0.5 && bgp > 0.5)) {
+            ImPlot::PushPlotClipRect();
+            ImDrawList* dl = ImPlot::GetPlotDrawList();
+            ImU32 col = U32(c_warn);
+            float th = px(2.0f), tick = px(6.0f);
+            ImVec2 pl = ImPlot::PlotToPixels(xl, yl), pr = ImPlot::PlotToPixels(xr, yr);
+            dl->AddLine(pl, pr, col, th);
+            dl->AddLine(ImVec2(pl.x, pl.y - tick), ImVec2(pl.x, pl.y + tick), col, th);
+            dl->AddLine(ImVec2(pr.x, pr.y - tick), ImVec2(pr.x, pr.y + tick), col, th);
+            ImVec2 pt = ImPlot::PlotToPixels(fr.peak, yt), pb = ImPlot::PlotToPixels(fr.peak, bgp);
+            for (float y = pt.y; y < pb.y; y += px(8.0f))       // пунктир по центру пика
+                dl->AddLine(ImVec2(pt.x, y), ImVec2(pt.x, (std::min)(y + px(4.0f), pb.y)), col, px(1.0f));
+            ImPlot::PopPlotClipRect();
+            ImPlot::PushStyleColor(ImPlotCol_InlayText, c_warn);
+            ImPlot::PlotText(Fmt(T("wiz.plot.fwhm"), fr.fwhm_pct).c_str(), fr.peak, 0.5 * (yl + yr),
+                             ImVec2(0, -px(14.0f)));
+            ImPlot::PopStyleColor();
+        }
     }
     ImPlot::EndPlot();
 }
