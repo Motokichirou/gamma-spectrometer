@@ -24,6 +24,18 @@ float GAP()     { return px(18.0f); }    // промежуток между ко
 float RIGHT_W() { return px(300.0f); }   // правая колонка показаний (макет: 300 px)
 float BIG_H()   { return px(44.0f); }    // высота главной кнопки (.btn.big)
 
+// ширины колонок: левая не уже left_min; правая сжимается до 240 px (при 100 %), прежде чем левая
+// упрётся в свой минимум — иначе на узком окне правая колонка уезжает за край
+void SplitCols(float avail_w, float left_min, float& left_w, float& right_w)
+{
+    right_w = RIGHT_W();
+    if (avail_w - right_w - GAP() < left_min) right_w = avail_w - left_min - GAP();
+    if (right_w < px(240.0f)) right_w = px(240.0f);
+    if (right_w > RIGHT_W())  right_w = RIGHT_W();
+    left_w = avail_w - right_w - GAP();
+    if (left_w < left_min) left_w = left_min;
+}
+
 // ---------- данные ----------
 
 // число из -gst; false — ключа нет, «-», nan
@@ -124,6 +136,65 @@ void Title(const char* s)
     ImGui::PopFont();
 }
 
+// ---------- перенос только по пробелам ----------
+// TextWrapped рвёт слово посередине, если оно шире строки; здесь так не бывает.
+
+// обрезать строку UTF-8 с многоточием под ширину (текущим шрифтом)
+std::string Ellipsize(const std::string& s, float width)
+{
+    static const char* ELL = "\xE2\x80\xA6";          // …
+    if (ImGui::CalcTextSize(s.c_str()).x <= width) return s;
+    std::string t = s;
+    while (!t.empty()) {
+        size_t n = t.size() - 1;
+        while (n > 0 && ((unsigned char)t[n] & 0xC0) == 0x80) n--;   // начало последнего символа
+        t.resize(n);
+        if (ImGui::CalcTextSize((t + ELL).c_str()).x <= width) break;
+    }
+    return t + ELL;
+}
+
+// разбить на строки по пробелам (и '\n'); слово шире строки — с многоточием. Строки склеены через '\n'
+std::string WrapWords(const char* s, float width)
+{
+    std::string out, cur;
+    const char* p = s;
+    for (;;) {
+        const char* e = p;
+        while (*e && *e != ' ' && *e != '\n') e++;
+        std::string w(p, e);
+        if (!w.empty()) {
+            w = Ellipsize(w, width);
+            std::string t = cur.empty() ? w : cur + " " + w;
+            if (!cur.empty() && ImGui::CalcTextSize(t.c_str()).x > width) {
+                out += cur; out += '\n';
+                cur = w;
+            } else {
+                cur = t;
+            }
+        }
+        if (*e == '\n') { out += cur; out += '\n'; cur.clear(); }
+        if (!*e) break;
+        p = e + 1;
+    }
+    out += cur;
+    return out;
+}
+
+// самое широкое слово (текущим шрифтом)
+float WidestWord(const char* s)
+{
+    float m = 0.0f;
+    const char* p = s;
+    while (*p) {
+        const char* e = p;
+        while (*e && *e != ' ' && *e != '\n') e++;
+        if (e > p) { float w = ImGui::CalcTextSize(p, e).x; if (w > m) m = w; }
+        p = *e ? e + 1 : e;
+    }
+    return m;
+}
+
 // галочка (как .ic в макете)
 void CheckIcon(ImDrawList* dl, ImVec2 p, float s, ImU32 col, float th = 2.0f)
 {
@@ -195,13 +266,32 @@ void BeginColumn(const char* id, float w, float h)
 
 struct KvVal { std::string text; ImVec4 col; bool mono; };
 
-bool BeginKv(const char* id)
+// строки показаний; which — что показывать (вид «не настроен» и «готово» показывают разное)
+enum { KV_HV = 1, KV_TEMP = 2, KV_RATE = 4, KV_VREF = 8, KV_LOG = 16, KV_RES = 32, KV_SCALE = 64 };
+
+// колонка подписей — по самой широкой из возможных подписей набора which (не скачет от кадра к кадру),
+// значения — в остатке, по правому краю. Если подписи не оставляют значению места — подпись переносится.
+bool BeginKv(const char* id, unsigned which)
 {
+    static const struct { unsigned bit; const char* key; } labels[] = {
+        { KV_HV, "home.kv.hv" }, { KV_TEMP, "home.kv.temp" }, { KV_RATE, "home.kv.rate" },
+        { KV_VREF, "home.kv.vref" }, { KV_LOG, "home.kv.logger" }, { KV_RES, "home.kv.res" },
+        { KV_SCALE, "home.kv.scale" },
+    };
+    float lw = 0.0f;
+    for (const auto& l : labels)
+        if (which & l.bit) { float w = ImGui::CalcTextSize(T(l.key)).x; if (w > lw) lw = w; }
+    float pad = ImGui::GetStyle().CellPadding.x * 4.0f;           // по паре отступов на ячейку
+    float maxw = ImGui::GetContentRegionAvail().x - pad - px(70.0f);   // значению — не меньше 70 px
+    if (lw > maxw) lw = maxw;
+    if (lw < px(40.0f)) lw = px(40.0f);
     ImGui::PushStyleColor(ImGuiCol_TableBorderLight, c_border);
-    bool r = ImGui::BeginTable(id, 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp);
+    bool r = ImGui::BeginTable(id, 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingFixedFit);
     if (r) {
-        ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch, 1.3f);
+        ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, std::ceil(lw));
+        ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+    } else {
+        ImGui::PopStyleColor();
     }
     return r;
 }
@@ -245,9 +335,6 @@ std::string Fmt(const char* key, double a)
     else                 snprintf(b, sizeof b, f, a);
     return b;
 }
-
-// строки показаний; which — что показывать (вид «не настроен» и «готово» показывают разное)
-enum { KV_HV = 1, KV_TEMP = 2, KV_RATE = 4, KV_VREF = 8, KV_LOG = 16, KV_RES = 32, KV_SCALE = 64 };
 
 void KvRows(unsigned which)
 {
@@ -384,45 +471,65 @@ std::string StepResult(const ds::Snapshot& s, ds::Step st)
     }
 }
 
+// тело карточки состояния: знак, текст (text()), главная кнопка. Кнопка справа, только если тексту
+// остаётся не меньше 460 px (при 100 %); иначе — под текстом, и текст идёт на всю ширину карточки.
+template <class F> bool StateBody(bool ok, const char* btn, F text)
+{
+    float bw = ImGui::CalcTextSize(btn).x + px(44.0f);
+    float y0 = ImGui::GetCursorPosY();
+    Mark(ok);
+    ImGui::SameLine(0, px(16));
+    float full = ImGui::GetContentRegionAvail().x;
+    bool side = full - bw - px(16) >= px(460.0f);
+    float tw = side ? full - bw - px(16) : full;
+    bool clicked = false;
+    ImGui::BeginGroup();
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tw);
+    text();
+    ImGui::PopTextWrapPos();
+    if (!side) {
+        ImGui::Dummy(px(0, 4));
+        clicked = PrimaryBig(btn, bw < full ? bw : full);
+    }
+    ImGui::EndGroup();
+    if (side) {
+        float gh = ImGui::GetItemRectSize().y;
+        ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
+        if (gh > BIG_H()) ImGui::SetCursorPosY(y0 + (gh - BIG_H()) * 0.5f);
+        clicked = PrimaryBig(btn, bw);
+    }
+    return clicked;
+}
+
 void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
 {
     bool old = snap.known == ds::SetupKnown::OldFirmware;
     int done = ds::steps_done_count(snap);
     ds::Step next = ds::first_open_step(snap);
-    float leftW = avail.x - RIGHT_W() - GAP();
-    if (leftW < px(360.0f)) leftW = px(360.0f);
+    float leftW, rightW;
+    SplitCols(avail.x, px(360.0f), leftW, rightW);
 
     BeginColumn("##left", leftW, avail.y);
     // ---- карточка состояния ----
     BeginCard("##state", -1.0f, 0.0f, ImVec2(22, 20));
     {
         const char* btn = T(done == 0 ? "home.notset.start" : "home.notset.continue");
-        float bw = ImGui::CalcTextSize(btn).x + px(44.0f);
-        float y0 = ImGui::GetCursorPosY();
-        Mark(false);
-        ImGui::SameLine(0, px(16));
-        float tw = ImGui::GetContentRegionAvail().x - bw - px(16);
-        ImGui::BeginGroup();
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tw);
-        Title(T(old ? "home.oldfw.title" : "home.notset.title"));
-        char b[256];
-        if (old) {
-            ImGui::TextWrapped("%s", T("home.oldfw.text"));
-        } else {
-            snprintf(b, sizeof b, T("home.notset.progress"), done, (int)ds::Step::N);
+        bool go = StateBody(false, btn, [&] {
+            Title(T(old ? "home.oldfw.title" : "home.notset.title"));
+            char b[256];
+            if (old) {
+                ImGui::TextWrapped("%s", T("home.oldfw.text"));
+            } else {
+                snprintf(b, sizeof b, T("home.notset.progress"), done, (int)ds::Step::N);
+                ImGui::TextWrapped("%s", b);
+            }
+            snprintf(b, sizeof b, T("home.notset.next"), StepKey(next, "title"));
             ImGui::TextWrapped("%s", b);
-        }
-        snprintf(b, sizeof b, T("home.notset.next"), StepKey(next, "title"));
-        ImGui::TextWrapped("%s", b);
-        ImGui::PushFont(font_small);
-        Dim(T(ds::step_needs_cs(next) ? "home.notset.need_cs" : "home.notset.need_none"));
-        ImGui::PopFont();
-        ImGui::PopTextWrapPos();
-        ImGui::EndGroup();
-        float gh = ImGui::GetItemRectSize().y;
-        ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
-        if (gh > BIG_H()) ImGui::SetCursorPosY(y0 + (gh - BIG_H()) * 0.5f);
-        if (PrimaryBig(btn, bw)) ui_go(ds::Mode::Wizard, next);
+            ImGui::PushFont(font_small);
+            Dim(T(ds::step_needs_cs(next) ? "home.notset.need_cs" : "home.notset.need_none"));
+            ImGui::PopFont();
+        });
+        if (go) ui_go(ds::Mode::Wizard, next);
     }
     EndCard(&c_warn);
     CardGap();
@@ -483,10 +590,10 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
 
     // ---- справа: показания ----
     ImGui::SameLine(0, GAP());
-    BeginColumn("##right", RIGHT_W(), avail.y);
+    BeginColumn("##right", rightW, avail.y);
     BeginCard("##now", -1.0f);
     SmallHeader(T("home.now"));
-    if (BeginKv("##kv")) { KvRows(KV_HV | KV_TEMP | KV_RATE | KV_VREF | KV_LOG); EndKv(); }
+    { const unsigned kv = KV_HV | KV_TEMP | KV_RATE | KV_VREF | KV_LOG; if (BeginKv("##kv", kv)) { KvRows(kv); EndKv(); } }
     EndCard();
     CardGap();
     ImGui::PushFont(font_small);
@@ -497,11 +604,43 @@ void ViewNotConfigured(ImVec2 avail, const ds::Snapshot& snap)
 
 // ================= вид 3: всё готово =================
 
-// карточка задачи (.task): вся карточка — кнопка; status — метка снизу (nullptr — нет)
-bool TaskCard(const char* id, float w, float h, const char* title, const std::string& desc,
-              const char* status, const ImVec4& status_col)
+// карточка задачи (.task): вся карточка — кнопка; status — метка снизу (пусто — нет).
+// Текст раскладывается заранее (TaskLayout), чтобы высоту ряда взять по самой высокой карточке.
+const ImVec2 TASK_PAD(16, 14);                   // внутренний отступ карточки задачи при 100 %
+float TaskGap() { return px(5.0f); }             // между заголовком, описанием и меткой
+
+struct TaskText {
+    ImFont* tf = nullptr;                        // шрифт заголовка: обычный или мелкий, если слово не влезло
+    std::string title, desc, status;             // уже разбиты на строки (только по пробелам)
+    float h = 0.0f;                              // полная высота карточки, px
+};
+
+TaskText TaskLayout(float w, const char* title, const std::string& desc, const char* status)
 {
-    BeginCard(id, w, h, ImVec2(16, 14));
+    TaskText t;
+    float iw = w - 2.0f * px(TASK_PAD.x);
+    // заголовок: слово шире карточки — мелким шрифтом; не влезло и так — многоточие (WrapWords)
+    t.tf = ImGui::GetFont();
+    if (WidestWord(title) > iw) t.tf = font_small;
+    ImGui::PushFont(t.tf);
+    t.title = WrapWords(title, iw);
+    float h = ImGui::CalcTextSize(t.title.c_str()).y;
+    ImGui::PopFont();
+    ImGui::PushFont(font_small);
+    t.desc = WrapWords(desc.c_str(), iw);
+    h += TaskGap() + ImGui::CalcTextSize(t.desc.c_str()).y;
+    if (status && *status) {
+        t.status = WrapWords(status, iw);
+        h += TaskGap() + ImGui::CalcTextSize(t.status.c_str()).y;
+    }
+    ImGui::PopFont();
+    t.h = std::ceil(h + 2.0f * px(TASK_PAD.y) + px(2.0f));   // + рамка
+    return t;
+}
+
+bool TaskCard(const char* id, float w, float h, const TaskText& t, const ImVec4& status_col)
+{
+    BeginCard(id, w, h, TASK_PAD);
     ImVec2 p0 = ImGui::GetWindowPos(), sz = ImGui::GetWindowSize();
     ImVec2 cp = ImGui::GetCursorPos();               // начало содержимого = внутренний отступ карточки
     ImGui::SetCursorPos(ImVec2(0, 0));
@@ -518,21 +657,23 @@ bool TaskCard(const char* id, float w, float h, const char* title, const std::st
         dl->PopClipRect();
     }
     ImGui::SetCursorPos(cp);
-    ImGui::PushTextWrapPos(sz.x - cp.x);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, TaskGap()));
+    ImGui::PushFont(t.tf);
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_strong);
-    ImGui::TextWrapped("%s", title);
+    ImGui::TextUnformatted(t.title.c_str());
     ImGui::PopStyleColor();
+    ImGui::PopFont();
     ImGui::PushFont(font_small);
     ImGui::PushStyleColor(ImGuiCol_Text, c_text_dim);
-    ImGui::TextWrapped("%s", desc.c_str());
+    ImGui::TextUnformatted(t.desc.c_str());
     ImGui::PopStyleColor();
-    if (status) {
+    if (!t.status.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, status_col);
-        ImGui::TextWrapped("%s", status);
+        ImGui::TextUnformatted(t.status.c_str());
         ImGui::PopStyleColor();
     }
     ImGui::PopFont();
-    ImGui::PopTextWrapPos();
+    ImGui::PopStyleVar();
     EndCard();
     return clicked;
 }
@@ -545,34 +686,23 @@ void GoAdv(AdvPage p)
 
 void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
 {
-    float leftW = avail.x - RIGHT_W() - GAP();
-    if (leftW < px(420.0f)) leftW = px(420.0f);
+    float leftW, rightW;
+    SplitCols(avail.x, px(380.0f), leftW, rightW);
 
     BeginColumn("##left", leftW, avail.y);
     BeginCard("##state", -1.0f, 0.0f, ImVec2(22, 20));
     {
-        const char* btn = T("home.ready.give_port");
-        float bw = ImGui::CalcTextSize(btn).x + px(44.0f);
-        float y0 = ImGui::GetCursorPosY();
-        Mark(true);
-        ImGui::SameLine(0, px(16));
-        float tw = ImGui::GetContentRegionAvail().x - bw - px(16);
-        ImGui::BeginGroup();
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tw);
-        Title(T("home.ready.title"));
-        char b[256];
-        ImGui::PushFont(font_small);
-        if (snap.s.done_unix < 1000000000u) Dim(T("home.ready.date_unknown"));
-        else { snprintf(b, sizeof b, T("home.ready.date"), FmtDate(snap.s.done_unix).c_str()); Dim(b); }
-        ImGui::PopFont();
-        snprintf(b, sizeof b, T("home.ready.becq"), g_dev.port_name.c_str());
-        ImGui::TextWrapped("%s", b);
-        ImGui::PopTextWrapPos();
-        ImGui::EndGroup();
-        float gh = ImGui::GetItemRectSize().y;
-        ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
-        if (gh > BIG_H()) ImGui::SetCursorPosY(y0 + (gh - BIG_H()) * 0.5f);
-        if (PrimaryBig(btn, bw)) g_dev.disconnect();          // порт свободен для BecqMoni
+        bool give = StateBody(true, T("home.ready.give_port"), [&] {
+            Title(T("home.ready.title"));
+            char b[256];
+            ImGui::PushFont(font_small);
+            if (snap.s.done_unix < 1000000000u) Dim(T("home.ready.date_unknown"));
+            else { snprintf(b, sizeof b, T("home.ready.date"), FmtDate(snap.s.done_unix).c_str()); Dim(b); }
+            ImGui::PopFont();
+            snprintf(b, sizeof b, T("home.ready.becq"), g_dev.port_name.c_str());
+            ImGui::TextWrapped("%s", b);
+        });
+        if (give) g_dev.disconnect();          // порт свободен для BecqMoni
     }
     EndCard(&c_ok);
     CardGap();
@@ -580,9 +710,12 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
     // ---- задачи ----
     SmallHeader(T("home.more"));
     {
-        const float g = px(10.0f), h = px(118.0f);
-        float w = (ImGui::GetContentRegionAvail().x - 2 * g) / 3.0f;
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(g, g));
+        // три в ряд; если карточка выходит уже 180 px (при 100 %) — две в ряд
+        const float g = px(10.0f);
+        float aw = ImGui::GetContentRegionAvail().x;
+        int ncol = 3;
+        if ((aw - 2 * g) / 3.0f < px(180.0f)) ncol = 2;
+        float w = std::floor((aw - (ncol - 1) * g) / ncol);
 
         std::vector<uint8_t> img; std::string tag;
         bool emb = fwflash::embedded(img, tag);
@@ -591,33 +724,48 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
         else     snprintf(fwd, sizeof fwd, T("home.task.fw.desc"), FwName().c_str());
 
         // термокомпенсация: метка только если -tc ответил
-        const char* tc_tag = nullptr; ImVec4 tc_col = c_warn;
+        const char* tc_tag = nullptr;
         double t0, k1, k2;
         if (ds::parse_tc(g_dev.tc_reply, t0, k1, k2) && k1 == 0 && k2 == 0) tc_tag = T("home.task.thermo.not_set");
 
-        if (TaskCard("##t_self", w, h, T("home.task.selftest.title"), T("home.task.selftest.desc"), nullptr, c_text))
-            GoAdv(Selftest);
-        ImGui::SameLine();
-        if (TaskCard("##t_log", w, h, T("home.task.logger.title"), T("home.task.logger.desc"), nullptr, c_text))
-            GoAdv(Logger);
-        ImGui::SameLine();
-        if (TaskCard("##t_fw", w, h, T("home.task.fw.title"), fwd, nullptr, c_text))
-            ui_go(ds::Mode::Wizard, ds::Step::Flash);
-        if (TaskCard("##t_scale", w, h, T("home.task.scale.title"), T("home.task.scale.desc"), nullptr, c_text))
-            ui_go(ds::Mode::Wizard, ds::Step::Res);
-        ImGui::SameLine();
-        if (TaskCard("##t_wiz", w, h, T("home.task.wizard.title"), T("home.task.wizard.desc"), nullptr, c_text))
-            ui_go(ds::Mode::Wizard, ds::Step::Flash);
-        ImGui::SameLine();
-        if (TaskCard("##t_tc", w, h, T("home.task.thermo.title"), T("home.task.thermo.desc"), tc_tag, tc_col))
-            GoAdv(Thermo);
+        enum { T_SELF, T_LOG, T_FW, T_SCALE, T_WIZ, T_TC, T_N };
+        static const char* ids[T_N] = { "##t_self", "##t_log", "##t_fw", "##t_scale", "##t_wiz", "##t_tc" };
+        TaskText tt[T_N] = {
+            TaskLayout(w, T("home.task.selftest.title"), T("home.task.selftest.desc"), nullptr),
+            TaskLayout(w, T("home.task.logger.title"),   T("home.task.logger.desc"),   nullptr),
+            TaskLayout(w, T("home.task.fw.title"),       fwd,                          nullptr),
+            TaskLayout(w, T("home.task.scale.title"),    T("home.task.scale.desc"),    nullptr),
+            TaskLayout(w, T("home.task.wizard.title"),   T("home.task.wizard.desc"),   nullptr),
+            TaskLayout(w, T("home.task.thermo.title"),   T("home.task.thermo.desc"),   tc_tag),
+        };
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(g, g));
+        int hit = -1;
+        for (int r0 = 0; r0 < T_N; r0 += ncol) {
+            int r1 = r0 + ncol < T_N ? r0 + ncol : T_N;
+            float rh = 0.0f;                         // общая высота ряда — по самой высокой карточке
+            for (int i = r0; i < r1; i++) if (tt[i].h > rh) rh = tt[i].h;
+            for (int i = r0; i < r1; i++) {
+                if (i > r0) ImGui::SameLine();
+                if (TaskCard(ids[i], w, rh, tt[i], i == T_TC ? c_warn : c_text)) hit = i;
+            }
+        }
         ImGui::PopStyleVar();
+        switch (hit) {
+        case T_SELF:  GoAdv(Selftest); break;
+        case T_LOG:   GoAdv(Logger); break;
+        case T_FW:    ui_go(ds::Mode::Wizard, ds::Step::Flash); break;
+        case T_SCALE: ui_go(ds::Mode::Wizard, ds::Step::Res); break;
+        case T_WIZ:   ui_go(ds::Mode::Wizard, ds::Step::Flash); break;
+        case T_TC:    GoAdv(Thermo); break;
+        default: break;
+        }
     }
     ImGui::EndChild();
 
     // ---- справа: ВВ крупно и показания ----
     ImGui::SameLine(0, GAP());
-    BeginColumn("##right", RIGHT_W(), avail.y);
+    BeginColumn("##right", rightW, avail.y);
     BeginCard("##hvbox", -1.0f, 0.0f, ImVec2(18, 14));
     {
         ImGui::PushFont(font_small);
@@ -650,7 +798,7 @@ void ViewReady(ImVec2 avail, const ds::Snapshot& snap)
     EndCard(hv_on_now ? &c_hv : nullptr);
     CardGap();
     BeginCard("##now", -1.0f);
-    if (BeginKv("##kv")) { KvRows(KV_TEMP | KV_RATE | KV_RES | KV_SCALE | KV_LOG); EndKv(); }
+    { const unsigned kv = KV_TEMP | KV_RATE | KV_RES | KV_SCALE | KV_LOG; if (BeginKv("##kv", kv)) { KvRows(kv); EndKv(); } }
     EndCard();
     ImGui::EndChild();
 }

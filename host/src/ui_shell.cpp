@@ -49,6 +49,13 @@ static ImVec4 BgApp()
 enum class Dot { None, On, Off };
 
 // чип состояния: рамка, подложка, точка (заполненная — есть связь, пустая — нет) и текст
+static float ChipW(const char* text, Dot dot)
+{
+    using namespace theme;
+    float dotw = dot == Dot::None ? 0.0f : 2 * px(4.5f) + px(7.0f);
+    return 2 * px(10.0f) + dotw + ImGui::CalcTextSize(text).x;
+}
+
 static void Chip(const char* text, const ImVec4& fg, const ImVec4& bg, const ImVec4& border, Dot dot)
 {
     using namespace theme;
@@ -142,42 +149,94 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
         ImVec2 wp = ImGui::GetWindowPos();
         dl->AddLine(ImVec2(wp.x, wp.y + TOP_H - 1), ImVec2(wp.x + vp->Size.x, wp.y + TOP_H - 1), U32(c_border));
 
-        // имя и версия
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c_text_strong, "%s", APP_NAME);
-        ImGui::SameLine(0, px(6));
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c_text_dim, "%s", APP_VERSION);
-        ImGui::SameLine(0, px(18));
+        // Раскладка: левая группа (имя, прибор, ВВ, «Выключить ВВ», «Сохранить») и правая (режимы)
+        // не должны налезать друг на друга. Пока не помещаются — по шагам убираем второстепенное:
+        // 1 версия; 2 короткие подписи режимов; 3 в чипе прибора только порт; 4 «Сохранить» коротко;
+        // 5 чип ВВ, когда ВВ выключено или неизвестно; 6 имя программы; 7 чип ВВ и при включённом ВВ
+        // (о нём кричит «Выключить ВВ»). «Выключить ВВ» и «Отключить» не убираются никогда.
+        const float pad = px(14.0f), gap = px(8.0f), sep = px(10.0f), min_mid = px(16.0f);
+        const float win_w = ImGui::GetWindowWidth();
+        bool home_btn = g_ui.mode != ds::Mode::Home;     // явный путь назад из мастера и расширенного режима
+        bool dirty = s.saved != 1;
 
-        // прибор и порт
+        std::string dev_full, dev_short;
         if (s.connected) {
             std::string sn = ds::display_serial(g_dev.serial);
-            std::string t = sn.empty() ? g_dev.port_name : sn + " · " + g_dev.port_name;
-            Chip(t.c_str(), c_text, BgApp(), c_border, Dot::On);
-        } else {
-            Chip(T("top.no_link"), c_text_dim, BgApp(), c_border, Dot::Off);
+            dev_full  = sn.empty() ? g_dev.port_name : sn + " · " + g_dev.port_name;
+            dev_short = g_dev.port_name.empty() ? sn : g_dev.port_name;
+        }
+        char hv_on_txt[96];
+        snprintf(hv_on_txt, sizeof hv_on_txt, T("top.hv_on"), (int)std::lround(s.hv_v));
+        const char* hv_txt = !HvKnown(s) ? T("top.hv_unknown") : tb.hv_chip_on ? hv_on_txt : T("top.hv_off");
+
+        struct Lay { bool ver, name, hv, dev_short, save_short, modes_short; };
+        auto left_w = [&](const Lay& L) {
+            float w = 0.0f;
+            if (L.name) {
+                w += ImGui::CalcTextSize(APP_NAME).x;
+                if (L.ver) w += px(6) + ImGui::CalcTextSize(APP_VERSION).x;
+                w += px(18);
+            }
+            w += s.connected ? ChipW((L.dev_short ? dev_short : dev_full).c_str(), Dot::On)
+                             : ChipW(T("top.no_link"), Dot::Off);
+            if (s.connected && L.hv) w += sep + ChipW(hv_txt, Dot::None);
+            if (tb.kill_visible) w += sep + ButtonW(T("top.kill_hv"));
+            if (s.connected) w += sep + ButtonW(T(!dirty ? "top.saved" : L.save_short ? "top.save_short" : "top.save"));
+            return w;
+        };
+        auto right_w = [&](const Lay& L) {
+            float w = ButtonW(T(L.modes_short ? "top.wizard_short" : "top.wizard")) +
+                      ButtonW(T(L.modes_short ? "top.advanced_short" : "top.advanced")) +
+                      ButtonW(T("top.disconnect")) + 2 * gap;
+            if (home_btn) w += ButtonW(T("top.home")) + gap;
+            return w;
+        };
+        Lay L = { true, true, true, false, false, false };
+        auto fits = [&] { return pad + left_w(L) + min_mid + right_w(L) + pad <= win_w; };
+        for (int step = 1; step <= 7 && !fits(); step++) {
+            switch (step) {
+            case 1: L.ver = false; break;
+            case 2: L.modes_short = true; break;
+            case 3: L.dev_short = true; break;
+            case 4: L.save_short = true; break;
+            case 5: if (!(HvKnown(s) && tb.hv_chip_on)) L.hv = false; break;
+            case 6: L.name = false; break;
+            case 7: L.hv = false; break;
+            }
         }
 
+        // имя и версия
+        if (L.name) {
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(c_text_strong, "%s", APP_NAME);
+            if (L.ver) {
+                ImGui::SameLine(0, px(6));
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextColored(c_text_dim, "%s", APP_VERSION);
+            }
+            ImGui::SameLine(0, px(18));
+        }
+
+        // прибор и порт
+        if (s.connected) Chip((L.dev_short ? dev_short : dev_full).c_str(), c_text, BgApp(), c_border, Dot::On);
+        else             Chip(T("top.no_link"), c_text_dim, BgApp(), c_border, Dot::Off);
+        if (ImGui::IsItemHovered() && s.connected && L.dev_short) ImGui::SetTooltip("%s", dev_full.c_str());
+
         // высокое напряжение
-        if (s.connected) {
-            ImGui::SameLine(0, px(10));
-            char b[96];
-            if (!HvKnown(s))   Chip(T("top.hv_unknown"), c_text_dim, BgApp(), c_border, Dot::None);
-            else if (tb.hv_chip_on) {
-                snprintf(b, sizeof b, T("top.hv_on"), (int)std::lround(s.hv_v));
-                Chip(b, c_hv, c_hv_bg, c_hv, Dot::None);
-            } else             Chip(T("top.hv_off"), c_text_dim, BgApp(), c_border, Dot::None);
+        if (s.connected && L.hv) {
+            ImGui::SameLine(0, sep);
+            if (!HvKnown(s))         Chip(hv_txt, c_text_dim, BgApp(), c_border, Dot::None);
+            else if (tb.hv_chip_on)  Chip(hv_txt, c_hv, c_hv_bg, c_hv, Dot::None);
+            else                     Chip(hv_txt, c_text_dim, BgApp(), c_border, Dot::None);
         }
         if (tb.kill_visible) {
-            ImGui::SameLine(0, px(10));
+            ImGui::SameLine(0, sep);
             if (KillButton(T("top.kill_hv"))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
         }
 
         // сохранить настройки во флеш прибора: всегда под рукой, жёлтая, пока есть несохранённое
         if (s.connected) {
-            ImGui::SameLine(0, px(10));
-            bool dirty = s.saved != 1;
+            ImGui::SameLine(0, sep);
             if (dirty) {
                 ImGui::PushStyleColor(ImGuiCol_Button,        c_warn_bg);
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, c_warn);
@@ -185,29 +244,31 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
                 ImGui::PushStyleColor(ImGuiCol_Text,          c_text_strong);
                 ImGui::PushStyleColor(ImGuiCol_Border,        c_warn);
             }
-            if (ImGui::Button(T(dirty ? "top.save" : "top.saved"))) g_dev.send_cmd("-save");
+            if (ImGui::Button(T(!dirty ? "top.saved" : L.save_short ? "top.save_short" : "top.save"))) g_dev.send_cmd("-save");
             if (dirty) ImGui::PopStyleColor(5);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", T("top.save_tip"));
         }
+        float left_end = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x;
 
-        // режимы справа
-        const char* lw = T("top.wizard");
-        const char* la = T("top.advanced");
+        // режимы справа; если места нет и после всех шагов — встают сразу за левой группой
+        // (без наложения, хвост уходит за край окна)
+        const char* lw = T(L.modes_short ? "top.wizard_short" : "top.wizard");
+        const char* la = T(L.modes_short ? "top.advanced_short" : "top.advanced");
         const char* ld = T("top.disconnect");
         const char* lh = T("top.home");
-        bool home_btn = g_ui.mode != ds::Mode::Home;     // явный путь назад из мастера и расширенного режима
-        float gap = px(8.0f);
-        float w = ButtonW(lw) + ButtonW(la) + ButtonW(ld) + 2 * gap;
-        if (home_btn) w += ButtonW(lh) + gap;
-        ImGui::SameLine(ImGui::GetWindowWidth() - px(14.0f) - w);
+        float rx = win_w - pad - right_w(L);
+        if (rx < left_end + min_mid) rx = left_end + min_mid;
+        ImGui::SameLine(rx);
         if (home_btn) {
             if (ImGui::Button(lh)) ui_go(ds::Mode::Home);
             ImGui::SameLine(0, gap);
         }
         ImGui::BeginDisabled(!tb.modes_enabled);
         if (SegButton(lw, tb.wiz_on)) ui_go(tb.wiz_on ? ds::Mode::Home : ds::Mode::Wizard);
+        if (L.modes_short && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", T("top.wizard"));
         ImGui::SameLine(0, gap);
         if (SegButton(la, tb.adv_on)) ui_go(tb.adv_on ? ds::Mode::Home : ds::Mode::Advanced);
+        if (L.modes_short && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", T("top.advanced"));
         ImGui::SameLine(0, gap);
         if (ImGui::Button(ld)) { g_dev.disconnect(); ui_go(ds::Mode::Home); }
         ImGui::EndDisabled();
