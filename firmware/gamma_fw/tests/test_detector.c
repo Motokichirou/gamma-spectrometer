@@ -893,7 +893,7 @@ static float  lp_a[2 * LP_NPMAX];
 typedef struct {
     int    both, one, zero, more;                    /* пар с 2 / 1 / 0 / >2 каналами */
     double e1, e2;                                   /* средняя ошибка A (коды) у пар, где оба */
-    uint32_t rec, acc, pile, front;                  /* приращения счётчиков */
+    uint32_t rec, acc, pile, front, wid;             /* приращения счётчиков */
     uint64_t dead;
 } lp_res_t;
 
@@ -935,6 +935,7 @@ static lp_res_t lp_pairs(int pile, int npair, float a1, float a2, double dlt, ui
     r.acc = s1.accepted - s0.accepted;
     r.pile = s1.rej_pileup - s0.rej_pileup;
     r.front = s1.rej_front - s0.rej_front;
+    r.wid = s1.rej_width - s0.rej_width;
     r.dead = s1.dead_samples - s0.dead_samples;
     return r;
 }
@@ -1070,6 +1071,39 @@ static void test_tail_after_threshold(void)
         CHECK(on.both >= 198);
         CHECK(fabs(on.e2) <= 1.0);
     }
+}
+
+/* GUARD после TAIL (хвосты уже ≤ thr/2, но ещё не ушли за +64): взвод и триггер — по остатку s − база − хвост,
+   с допуском |pred|/32, как в TAIL. По сырым отсчётам шум срабатывал на thr − pred ≈ thr/2: ложные «импульсы»
+   уходили в брак по ширине, а настоящий второй импульс за ними (Δ 30…49) терялся в GUARD без взвода */
+static void test_guard_after_tail(void)
+{
+    /* одиночные 1500: ни лишних каналов, ни брака по ширине на хвосте (шум σ 3, порог 15) */
+    lp_res_t s = lp_pairs(1, 400, 1500.0f, 0.0f, 0.0, 9090u, 1);
+    printf("  одиночные 1500 (400): принято %u, лишних каналов %d, брак по ширине %u, наложения %u\n",
+           s.acc, s.more, s.wid, s.pile);
+    CHECK(s.acc >= 398u);
+    CHECK(s.more == 0);
+    CHECK(s.wid == 0u);
+    /* пары 1500 + 100 на Δ 30…49: второй ловится. Без вести (без брака) — ни одного; в брак по форме
+       уходит, как одиночный A 100 (шум выбирает максимумом соседний отсчёт вершины, ≈ 1 %) */
+    int silent = 0, extra = 0;
+    uint32_t wid = 0, shp = 0;
+    for (int dlt = 30; dlt <= 49; dlt++) {
+        lp_res_t r = lp_pairs(1, 100, 1500.0f, 100.0f, dlt, 9100u + dlt, 1);
+        const uint32_t rej = det.st.rej_shape + r.pile + r.wid;   /* det после lp_pairs — этот прогон */
+        silent += 100 - r.both - r.more - (int)rej;
+        extra += r.more;
+        wid += r.wid;
+        shp += det.st.rej_shape;
+        if (fabs(r.e2) > 0.005 * 100.0 + 2.0) { printf("  [Δ %d: ошибка A2 %+.2f]", dlt, r.e2); CHECK(0); }
+    }
+    printf("  пары 1500 + 100, Δ 30…49 (по 100): потеряно без брака %d, лишних %d, брак по ширине %u, "
+           "по форме %u\n", silent, extra, wid, shp);
+    CHECK(silent == 0);
+    CHECK(extra == 0);
+    CHECK(wid == 0u);
+    CHECK(shp <= 40u);
 }
 
 static void test_tail_across_blocks(void)
@@ -1237,6 +1271,7 @@ int main(void)
     test_tail_pairs();
     test_front_k2();
     test_tail_after_threshold();
+    test_guard_after_tail();
     test_tail_across_blocks();
     test_tail_reset_on_lost();
     test_no_tail_after_reject();

@@ -1079,7 +1079,8 @@ guard:
         const uint32_t ll = lqu | (lqu << 16);
         const int qok = lq >= 0;
         while (p < pe) {
-            if (armed && guard_left && stk_n == 0u && qok) {
+            /* разбор: пока список хвостов не пуст, взвод и триггер — по остатку (ниже), без пропуска по сырым */
+            if (armed && guard_left && stk_n == 0u && qok && !(pa && d->tl_n)) {
                 const uint16_t *const q = ((size_t)(pe - p) > guard_left) ? p + guard_left : pe;
                 const uint16_t *const p1 = p;
                 while (q - p >= 4) {
@@ -1102,6 +1103,23 @@ guard:
             }
             v = *p;
             dev = v - bint;
+            if (pa && d->tl_n) {                 /* GUARD после TAIL и т. п.: остаток хвоста ещё не вычтен */
+                const uint32_t q = d->pos0 + (uint32_t)(p - s);
+                if (q - d->tl_t[d->tl_n - 1u] > DET_TL_LEN) {
+                    d->tl_n = 0;                 /* новейший хвост (последний) кончился — кончились все */
+                } else {
+                    const int32_t pr = tl_pred(d, q);
+                    const int32_t tol = (pr < 0 ? -pr : pr) >> 5;   /* допуск — как в TAIL и FRONT */
+                    dev -= pr;
+                    if (armed && dev > thr + tol) goto trigger;
+                    STUCK(v, p + 1);
+                    p++;
+                    if (dev < half + tol) armed = 1;
+                    if (!armed) dead++;
+                    if (guard_left) guard_left--;
+                    continue;                    /* в IDLE — только когда список пуст */
+                }
+            }
             if (armed && dev > thr) goto trigger;
             STUCK(v, p + 1);
             p++;
