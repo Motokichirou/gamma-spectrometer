@@ -69,6 +69,7 @@ static void usage()
            "  gammapult info    --port COMx\n"
            "  gammapult gst     --port COMx\n"
            "  gammapult acquire --port COMx --seconds N [--out file.csv]\n"
+           "  gammapult spectrum --port COMx --out file.csv   (забрать накопленный спектр без сброса)\n"
            "  gammapult lin     --port COMx [--codes \"50 100 200 400 600 800 1000 1200 1350\"] [--n 10000] [--period 100]\n"
            "  gammapult cmd     --port COMx --send \"-diag\" [--read S]\n"
            "  gammapult bootinfo --port COMx            (загрузчик: ID МК, опции; только чтение)\n"
@@ -363,6 +364,30 @@ int run_cli(int argc, char** argv)
         if (dev.gst.empty()) pump(dev, 1.5);
         for (auto& kv : dev.gst) printf("%-10s %s\n", kv.first.c_str(), kv.second.c_str());
         if (dev.gst.empty()) { printf("нет ответа -gst\n"); rc = 3; }
+    } else if (sub == "spectrum") {
+        // без -rst: прибор шлёт спектр только в наборе, поэтому -sta (продолжает, не обнуляет) на ~3 с и обратно
+        pump(dev, 1.5);
+        bool was_run = dev.gst.count("real_s") != 0;          // признак набора — растущее real_s
+        std::string r0 = was_run ? dev.gst["real_s"] : "";
+        pump(dev, 1.2);
+        was_run = was_run && dev.gst["real_s"] != r0;
+        if (!was_run) dev.start();
+        pump(dev, 3.0);
+        if (!was_run) { dev.stop(); pump(dev, 0.4); }
+        printf("набор %s; всего %llu имп., real_s %s, live_s %s\n", was_run ? "шёл" : "был остановлен (возобновлён на 3 с)",
+               (unsigned long long)dev.total(), dev.gst["real_s"].c_str(), dev.gst["live_s"].c_str());
+        std::string out = opt(argc, argv, "--out");
+        if (out.empty()) { printf("нужен --out file.csv\n"); rc = 1; }
+        else {
+            FILE* f = fopen(out.c_str(), "w");
+            if (!f) { printf("не открыть %s\n", out.c_str()); rc = 3; }
+            else {
+                fprintf(f, "channel,count\n");
+                for (int i = 0; i < Device::CHANNELS; i++) fprintf(f, "%d,%u\n", i, dev.spectrum[i]);
+                fclose(f);
+                printf("спектр -> %s\n", out.c_str());
+            }
+        }
     } else if (sub == "acquire") {
         double secs = atof(opt(argc, argv, "--seconds", "5").c_str());
         dev.stop(); dev.reset_spectrum(); pump(dev, 0.3);
