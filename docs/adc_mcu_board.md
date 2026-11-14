@@ -343,13 +343,13 @@ H(s) = (s·τ_diff) / [(1+s·τ_diff)·(1+s·τ_int)]
 | Пин | Функция | Назначение |
 |---|---|---|
 | PA0 | ADC2_IN1 | HV monitor |
-| PA1 | OPAMP1_VINP0 | DC 0.5 В |
+| PA1 | OPAMP1_VINP0 | DC 1.605 В (V_A) |
 | PA2 | OPAMP1_VOUT | CR out |
 | PA3 | OPAMP1_VINM0 | CR in |
 | PA4 | DAC1_OUT1 | Test pulse |
 | PA5 | OPAMP2_VINM0 | RC in |
 | PA6 | OPAMP2_VOUT | RC out |
-| PA7 | OPAMP2_VINP0 | DC 0.5 В |
+| PA7 | OPAMP2_VINP0 | DC 1.605 В (V_A, общий с PA1) |
 | PA8 | TIM1_CH1 PWM | HV control |
 | PA9 | USART1_TX | UART к FTDI |
 | PA10 | USART1_RX | UART от FTDI |
@@ -358,11 +358,12 @@ H(s) = (s·τ_diff) / [(1+s·τ_diff)·(1+s·τ_int)]
 | PA14 | SWCLK | SWD |
 | PA15 | SPI1_NSS | Flash CS |
 | PB0 | OPAMP3_VINP0 | Buf in, DC 0.099 В |
-| PB1 | OPAMP3_VOUT / ADC1_IN12 | Buf out, DC 2.1 В |
+| PB1 | OPAMP3_VOUT / ADC3_IN1 | Buf out, база 0.394 В (ADC1_IN12 не годится: нет выборки 2.5 такта) |
 | PB2 | OPAMP3_VINM0 | PGA internal |
 | PB3-5 | SPI1 SCK/MISO/MOSI | Flash |
 | PB6 | GPIO | LED |
-| PB7-9 | GPIO | свободно |
+| PB7, PB9 | GPIO | свободно |
+| PB8 | BOOT0 (вывод 45) | ⛔ не GPIO/LED: вход выбора загрузки; на v1 — провод + 10 кОм, в ревизию — пад (`docs/revision_todo.md`) |
 | PB10 | GPIO | HV_ENABLE |
 | PB12 | ADC4_IN3 | Pt1000 термодатчик |
 | PF0-1 | OSC_IN/OUT | HSE 16 МГц |
@@ -563,7 +564,7 @@ BW_n ≈ π/(8τ_int) × (1 + 1/(1+τ_int/τ_diff)) ≈ **350 кГц**.
 | 9 | GND | — | |
 | 10 | LED_STATUS | выход | PB6 |
 | 11 | LED_ACTIVITY | выход | PB7 |
-| 12 | LED_HV | выход | PB8 |
+| 12 | ~~LED_HV~~ | — | ⛔ PB8 = BOOT0 (вывод 45), светодиод сюда вешать нельзя |
 | 13 | LED_ERROR | выход | PB9 |
 | 14 | HV_ENABLE | выход | PB10 |
 | 15 | HV_CONTROL | выход | PA8 через RC |
