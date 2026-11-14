@@ -174,13 +174,36 @@ static void DrawTopBar(const ds::Snapshot& s, const ds::TopBar& tb)
             if (KillButton(T("top.kill_hv"))) { g_dev.hvp_abort(); g_dev.send_cmd("-hv off"); }
         }
 
+        // сохранить настройки во флеш прибора: всегда под рукой, жёлтая, пока есть несохранённое
+        if (s.connected) {
+            ImGui::SameLine(0, px(10));
+            bool dirty = s.saved != 1;
+            if (dirty) {
+                ImGui::PushStyleColor(ImGuiCol_Button,        c_warn_bg);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, c_warn);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive,  c_warn);
+                ImGui::PushStyleColor(ImGuiCol_Text,          c_text_strong);
+                ImGui::PushStyleColor(ImGuiCol_Border,        c_warn);
+            }
+            if (ImGui::Button(T(dirty ? "top.save" : "top.saved"))) g_dev.send_cmd("-save");
+            if (dirty) ImGui::PopStyleColor(5);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", T("top.save_tip"));
+        }
+
         // режимы справа
         const char* lw = T("top.wizard");
         const char* la = T("top.advanced");
         const char* ld = T("top.disconnect");
+        const char* lh = T("top.home");
+        bool home_btn = g_ui.mode != ds::Mode::Home;     // явный путь назад из мастера и расширенного режима
         float gap = px(8.0f);
         float w = ButtonW(lw) + ButtonW(la) + ButtonW(ld) + 2 * gap;
+        if (home_btn) w += ButtonW(lh) + gap;
         ImGui::SameLine(ImGui::GetWindowWidth() - px(14.0f) - w);
+        if (home_btn) {
+            if (ImGui::Button(lh)) ui_go(ds::Mode::Home);
+            ImGui::SameLine(0, gap);
+        }
         ImGui::BeginDisabled(!tb.modes_enabled);
         if (SegButton(lw, tb.wiz_on)) ui_go(tb.wiz_on ? ds::Mode::Home : ds::Mode::Wizard);
         ImGui::SameLine(0, gap);
