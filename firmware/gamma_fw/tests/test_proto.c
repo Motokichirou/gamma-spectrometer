@@ -602,6 +602,7 @@ static void send_tail_rows(int skip_r, int skip_m)
 static void test_tl_commands(void)
 {
     reset();
+    live.tpl_valid = 1;                               /* таблица хвоста — к записанному эталону */
     CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
     send_tail_rows(-1, -1);
     CHECK(live.tail_valid == 0);                      /* пока -tlok не пришёл — разбор не включён */
@@ -637,6 +638,7 @@ static void test_tl_commands(void)
 static void test_tl_rewrite_invalidates(void)
 {
     reset();
+    live.tpl_valid = 1;                               /* таблица хвоста — к записанному эталону */
     send_tail_rows(-1, -1);
     CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
     applied = 0;
@@ -648,6 +650,7 @@ static void test_tl_rewrite_invalidates(void)
 static void test_tplok_invalidates_tail(void)
 {
     reset();
+    live.tpl_valid = 1;                               /* таблица хвоста — к записанному эталону */
     send_tail_rows(-1, -1);
     CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
     CHECK(live.tail_valid == 1);
@@ -659,9 +662,31 @@ static void test_tplok_invalidates_tail(void)
     CHECK(eq(cmd("-pile"), "-ok pile on\r\n"));
 }
 
+/* после -tplclr (встроенный эталон) таблица хвоста не принимается: она строится по записанному */
+static void test_tlok_needs_tpl(void)
+{
+    reset();
+    CHECK(live.tpl_valid == 0);
+    send_tail_rows(-1, -1);
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+    CHECK(live.tail_valid == 0);
+    reset();
+    send_tpl_full();
+    CHECK(eq(cmd("-tplclr"), "-ok tpl builtin\r\n"));
+    send_tail_rows(-1, -1);
+    applied = 0;
+    CHECK(eq(cmd("-tlok"), "-err tl\r\n"));
+    CHECK(live.tail_valid == 0 && !(applied & PROTO_APPLY_TAIL));
+    send_tpl_full();                                  /* эталон записан — те же куски заново, принимается */
+    send_tail_rows(-1, -1);
+    CHECK(eq(cmd("-tlok"), "-ok tl\r\n"));
+    CHECK(live.tail_valid == 1);
+}
+
 static void test_pile_cmd(void)
 {
     reset();
+    live.tpl_valid = 1;                               /* таблица хвоста — к записанному эталону */
     CHECK(live.pile_on == 1);
     CHECK(eq(cmd("-pile"), "-ok pile on\r\n"));
     applied = 0;
@@ -829,6 +854,7 @@ int main(void)
     test_tl_commands();
     test_tl_rewrite_invalidates();
     test_tplok_invalidates_tail();
+    test_tlok_needs_tpl();
     test_pile_cmd();
     test_defaults();
     test_defaults_hv_on();

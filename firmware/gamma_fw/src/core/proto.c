@@ -284,6 +284,7 @@ static void cmd_tlm(const char *args)
 static void cmd_tlok(void)
 {
     if (tl_mask != ~0ull || tlm_mask != 0x0Fu) { proto_send_text("-err tl\r\n"); return; }
+    if (!L->tpl_valid) { proto_send_text("-err tl\r\n"); return; }   /* таблица — к своему эталону, не к встроенному */
     tl_mask = 0; tlm_mask = 0;
     L->tail_valid = 1;
     changed(PROTO_APPLY_TAIL);
