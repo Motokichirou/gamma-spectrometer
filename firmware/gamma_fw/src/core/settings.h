@@ -9,10 +9,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "detector.h"   /* det_tail_t */
+#include "detector.h"   /* det_tail_t, det_dnl_t */
 
 #define SETTINGS_MAGIC   0x47534631u   /* "GSF1" */
-#define SETTINGS_VERSION 3u
+#define SETTINGS_VERSION 4u
 #define SETUP_DONE_UNKNOWN 1u   /* done_unix: настроен до появления записи, дата неизвестна */
 
 /* Запись о настройке прибора (мастер на PC): что и когда сделано; 0 в *_unix — не делалось. */
@@ -24,6 +24,9 @@ typedef struct {
     uint32_t res_unix;  float res_fwhm_pct; float res_peak_ch;
     uint32_t done_unix;                                    /* «Сохранение и отчёт»; 1 = настроен до учёта */
 } setup_rec_t;
+
+/* хвост структуры до кратности 8 (проверяется при сборке в settings.c) */
+#define RESERVED_V4 4u
 
 typedef struct {
     uint32_t magic, version, size;           /* size = sizeof(settings_t) */
@@ -42,7 +45,10 @@ typedef struct {
     det_tail_t tail;                         /* таблица хвоста для разбора наложений (-tlw/-tlm) */
     uint8_t tail_valid;                      /* таблица принята (-tlok) */
     uint8_t pile_on;                         /* разбор наложений включён (-pile); по умолчанию 1 */
-    uint8_t reserved[6];            /* до кратности 8: флеш пишется двойными словами */
+    uint8_t dnl_n;                           /* пар в списке поправки DNL АЦП (-dnl), 0…DET_DNL_MAX; 0 — без поправки */
+    uint8_t pad_dnl;                         /* выравнивание dnl[] (0) */
+    det_dnl_t dnl[DET_DNL_MAX];              /* код → сдвиг его центра, 1/16 LSB (свой у экземпляра АЦП, v4) */
+    uint8_t reserved[RESERVED_V4];  /* до кратности 8: флеш пишется двойными словами */
     uint32_t crc32;                          /* по всем байтам до crc32; последнее поле */
 } settings_t;
 /* sizeof(settings_t) кратен 8 и ≤ страницы 4 КБ — проверяется при сборке в settings.c */
@@ -54,7 +60,8 @@ bool settings_valid(const settings_t *s);
 /* Пересчитать crc32. */
 void settings_seal(settings_t *s);
 
-/* Образ страницы флеш → настройки: v3 как есть (settings_valid), v2 и v1 — перенос всех полей (таблицы хвоста нет, pile_on = 1),
+/* Образ страницы флеш → настройки: v4 как есть (settings_valid); v3 — перенос всех полей, список DNL пустой;
+   v2 и v1 — перенос всех полей (таблицы хвоста нет, pile_on = 1, список DNL пустой),
    setup пустой (done_unix = SETUP_DONE_UNKNOWN, если у v1 были эталон и калибровка BecqMoni).
    false — образ пустой/битый/чужой; *out не тронут. */
 bool settings_from_image(const uint8_t *img, settings_t *out);

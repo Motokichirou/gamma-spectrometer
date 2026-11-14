@@ -123,7 +123,7 @@ static void test_load_rejects(void)
     CHECK(!fstore_load(img, &out));
 
     settings_t v = s;                                            /* старая/новая версия структуры */
-    v.version = 4u;                                              /* ни v1, ни v2, ни v3 */
+    v.version = 5u;                                              /* ни v1, ни v2, ни v3, ни v4 */
     settings_seal(&v);
     memcpy(img, &v, sizeof v);
     CHECK(!fstore_load(img, &out));
@@ -226,8 +226,8 @@ static void test_migrate_v1(void)
     CHECK(out.thr_codes == 7);
     CHECK(out.becq_valid == 1 && out.becq_words[0] == 0x12345678u);
     CHECK(out.tpl_valid == 1 && out.tpl[3][2] == -1234);
-    CHECK(out.version == 3u && settings_valid(&out));
-    CHECK(out.tail_valid == 0 && out.pile_on == 1);
+    CHECK(out.version == SETTINGS_VERSION && settings_valid(&out));
+    CHECK(out.tail_valid == 0 && out.pile_on == 1 && out.dnl_n == 0);
     CHECK(out.setup.done_unix == SETUP_DONE_UNKNOWN);
     CHECK(out.setup.chk_unix == 0 && out.setup.hv_unix == 0 && out.setup.res_unix == 0);
 
@@ -284,7 +284,7 @@ static void test_settings_v2_to_v3(void)
     memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
     memset(&out, 0xAA, sizeof out);
     CHECK(fstore_load(img, &out));
-    CHECK(out.version == 3u && out.size == (uint32_t)sizeof(settings_t) && settings_valid(&out));
+    CHECK(out.version == SETTINGS_VERSION && out.size == (uint32_t)sizeof(settings_t) && settings_valid(&out));
     CHECK_NEAR(out.hv_mon_zero_mv, 2461.8, 1e-3);
     CHECK_NEAR(out.hv_mon_k_mv_per_v, 1.640, 1e-6);
     CHECK_NEAR(out.hv_setpoint_v, 755.0, 1e-6);
@@ -300,6 +300,7 @@ static void test_settings_v2_to_v3(void)
     CHECK_NEAR(out.setup.res_fwhm_pct, 7.1, 1e-4);
     CHECK(out.setup.done_unix == 666);
     CHECK(out.tail_valid == 0 && out.pile_on == 1);
+    CHECK(out.dnl_n == 0 && out.pad_dnl == 0);
     {   /* таблица хвоста пуста */
         const uint8_t *t = (const uint8_t *)&out.tail;
         int nz = 0;
@@ -311,6 +312,80 @@ static void test_settings_v2_to_v3(void)
     v.crc32 ^= 1u;
     memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
     CHECK(!fstore_load(img, &out));
+}
+
+/* замороженная копия раскладки settings_t версии 3 (как на приборе до v4) */
+typedef struct {
+    uint32_t magic, version, size;
+    float hv_mon_zero_mv, hv_mon_k_mv_per_v;
+    float hv_setpoint_v;
+    uint8_t reserved_boot;
+    float pt_rpu_ohm;
+    float tc_t0_c, tc_k1, tc_k2;
+    uint16_t thr_codes;
+    uint32_t becq_words[11];
+    uint8_t becq_valid;
+    int16_t tpl[64][7];
+    uint8_t tpl_valid;
+    setup_rec_t setup;
+    det_tail_t tail;
+    uint8_t tail_valid;
+    uint8_t pile_on;
+    uint8_t reserved[6];
+    uint32_t crc32;
+} v3_t;
+
+static void mk_v3(v3_t *v)
+{
+    v2_t v2;
+    mk_v2(&v2);
+    memset(v, 0, sizeof *v);
+    memcpy(v, &v2, offsetof(v2_t, setup) + sizeof v2.setup);   /* до конца setup раскладки совпадают */
+    v->version = 3; v->size = (uint32_t)sizeof *v;
+    v->tail.s[0][0] = 32767; v->tail.s[15][63] = -123; v->tail.row[63] = 15;
+    v->tail_valid = 1; v->pile_on = 0;
+    v->crc32 = crc32_zip((const uint8_t *)v, offsetof(v3_t, crc32));
+}
+
+static void test_settings_v3_to_v4(void)
+{
+    uint8_t img[PAGE];
+    v3_t v; settings_t out;
+    CHECK(sizeof(v3_t) == 3160u);                   /* как прошивки v3 в поле */
+
+    mk_v3(&v);
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    memset(&out, 0xAA, sizeof out);
+    CHECK(fstore_load(img, &out));
+    CHECK(out.version == 4u && out.size == (uint32_t)sizeof(settings_t) && settings_valid(&out));
+    CHECK_NEAR(out.hv_setpoint_v, 755.0, 1e-6);
+    CHECK_NEAR(out.tc_k2, 1e-5, 1e-10);
+    CHECK(out.thr_codes == 11 && out.becq_words[10] == 0xCAFEBABEu);
+    CHECK(out.tpl_valid == 1 && out.tpl[63][6] == -4321);
+    CHECK(out.setup.done_unix == 666 && out.setup.tpl_unix == 444);
+    CHECK(out.tail.s[0][0] == 32767 && out.tail.s[15][63] == -123 && out.tail.row[63] == 15);
+    CHECK(out.tail_valid == 1 && out.pile_on == 0);
+    CHECK(out.dnl_n == 0 && out.pad_dnl == 0);
+    {   /* список DNL и резерв — нули */
+        int nz = 0;
+        for (unsigned k = 0; k < DET_DNL_MAX; k++) nz |= out.dnl[k].code | (uint16_t)out.dnl[k].off;
+        for (unsigned k = 0; k < sizeof out.reserved; k++) nz |= out.reserved[k];
+        CHECK(nz == 0);
+    }
+
+    mk_v3(&v);                                      /* битый CRC v3 */
+    v.crc32 ^= 1u;
+    memset(img, 0xFF, sizeof img); memcpy(img, &v, sizeof v);
+    CHECK(!fstore_load(img, &out));
+
+    /* v4 со списком: туда и обратно */
+    settings_t s;
+    settings_defaults(&s);
+    s.dnl_n = 2; s.dnl[0].code = 2047; s.dnl[0].off = 112; s.dnl[1].code = 767; s.dnl[1].off = -9;
+    settings_seal(&s);
+    memset(img, 0xFF, sizeof img); memcpy(img, &s, sizeof s);
+    CHECK(fstore_load(img, &out));
+    CHECK(out.dnl_n == 2 && out.dnl[0].code == 2047 && out.dnl[0].off == 112 && out.dnl[1].off == -9);
 }
 
 static void test_same_as_image(void)
@@ -336,6 +411,7 @@ int main(void)
     test_save_failures();
     test_migrate_v1();
     test_settings_v2_to_v3();
+    test_settings_v3_to_v4();
     test_same_as_image();
     return T_DONE();
 }

@@ -405,6 +405,20 @@ static void test_gst_pile_keys(void)
     CHECK(strlen(svc("-gst")) < 500);
 }
 
+static void test_gst_dnl_key(void)
+{
+    reset();
+    run_aux(5, 2507.0f, 3296.0f, 1300.0f);
+    char b[64];
+    const char *g = svc("-gst");
+    CHECK(kv(g, "dnl", b, sizeof b) && strcmp(b, "0") == 0);
+    const char *c = strstr(g, " rec="), *e = strstr(g, " dnl="), *d = strstr(g, " rej_swpb=");
+    CHECK(c && e && d && c < e && e < d);               /* после rec, перед rej_swpb */
+    live.dnl_n = 16;
+    CHECK(kv(svc("-gst"), "dnl", b, sizeof b) && strcmp(b, "16") == 0);
+    CHECK(strlen(svc("-gst")) < 500);
+}
+
 static void test_cmd_diag(void)
 {
     reset();
@@ -506,6 +520,7 @@ int main(void)
     test_cmd_ptcal();
     test_cmd_gst();
     test_gst_pile_keys();
+    test_gst_dnl_key();
     test_cmd_diag();
     test_setup_roundtrip();
     test_setup_bad();

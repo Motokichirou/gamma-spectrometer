@@ -47,8 +47,10 @@ typedef char det_coarse_ok[(DET_COARSE >= 3u && DET_NPH % DET_COARSE == 0u) ? 1 
 /* Развернуть грубый поиск фазы (16 фаз): без развёртки — счётчик, адрес строки и переход на фазу. */
 #if defined(__GNUC__) && !defined(__clang__)
 #define DET_UNROLL16 _Pragma("GCC unroll 16")
+#define DET_UNROLL7  _Pragma("GCC unroll 7")
 #else
 #define DET_UNROLL16
+#define DET_UNROLL7
 #endif
 
 /* чтение порции словами: псевдоним uint16_t[] без нарушения strict aliasing */
@@ -302,6 +304,25 @@ void det_set_pile(det_t *d, int on)
 
 int det_pile_active(const det_t *d) { return d->pa; }
 
+void det_set_dnl(det_t *d, const det_dnl_t *tab, unsigned n, uint32_t *map)
+{
+    if (!tab || !map || n == 0u) {
+        d->dnl = NULL; d->dnl_map = NULL; d->dnl_n = 0;
+        return;
+    }
+    if (n > DET_DNL_MAX) n = DET_DNL_MAX;
+    memset(map, 0, DET_DNL_WORDS * sizeof map[0]);
+    unsigned m = 0;
+    for (unsigned k = 0; k < n; k++)
+        if (tab[k].code < DET_DNL_CODES) {
+            map[tab[k].code >> 5] |= 1u << (tab[k].code & 31u);
+            m++;
+        }
+    d->dnl = tab;
+    d->dnl_map = m ? map : NULL;
+    d->dnl_n = (uint8_t)(m ? n : 0u);
+}
+
 void det_add_lost(det_t *d, uint32_t n)
 {
     d->st.dead_samples += n;
@@ -501,6 +522,55 @@ static inline int32_t fbits(float x)
         if (sb_ > bestb) { bestb = sb_; bp = (pp); }                         \
     } while (0)
 
+/* Поправка DNL окна подгонки (det_set_dnl): сырой код отсчёта y[k] — y[k] + pbint (при разборе ещё плюс
+   хвосты на этом отсчёте: tl_pred тот же, что вычитался в PULSE/POST, список до подгонки не меняется).
+   Код в списке ⇒ yc[k] = y[k] + round(off/16) (поиск фазы — целый, как без поправки), rem[k] = остаток
+   off − 16·round(off/16) ∈ −8…7 (1/16 LSB, учитывается в A и χ²). Возврат: 1 — хоть один отсчёт поправлен
+   (yc, rem заполнены целиком), 0 — нет (подгонка идёт по buf как раньше). Сначала только проверка по карте
+   (обычно попаданий нет; ≈ 95 тактов на окно с вызовом, tools/cyc --dnl), окно с поправкой — вторым проходом.
+   Отдельными функциями (без разбора и с ним): в fit_impl без таблицы остаются одна загрузка и переход (+9 тактов). */
+DET_INLINE int dnl_fix_impl(const det_t *d, const int16_t *y, int16_t *yc, int8_t *rem, const int pa)
+{
+    const uint32_t *const map = d->dnl_map;
+    const int32_t pb = d->pbint;
+    const uint32_t q0 = pa ? d->bpos + d->imax - DET_IPK : 0u;   /* номер отсчёта y[0] в потоке */
+    const int tl = pa && d->tl_n;
+    /* проверка по карте без ветвлений: код по модулю 4096 (вне 0…4095 — только при насыщении, отсев во втором
+       проходе), бит кода — младший в acc */
+    uint32_t acc = 0;
+    DET_UNROLL7
+    for (unsigned k = 0; k < DET_NS; k++) {
+        int32_t r = (int32_t)y[k] + pb;
+        if (tl) r += tl_pred(d, q0 + k);
+        acc |= map[((uint32_t)r >> 5) & (DET_DNL_WORDS - 1u)] >> ((uint32_t)r & 31u);
+    }
+    if (!(acc & 1u)) return 0;
+    int hit = 0;
+    for (unsigned k = 0; k < DET_NS; k++) {
+        int32_t r = (int32_t)y[k] + pb;
+        if (tl) r += tl_pred(d, q0 + k);
+        yc[k] = y[k];
+        rem[k] = 0;
+        if ((uint32_t)r < DET_DNL_CODES && ((map[(uint32_t)r >> 5] >> ((uint32_t)r & 31u)) & 1u)) {
+            const det_dnl_t *t = d->dnl;
+            while (t->code != (uint16_t)r) t++;              /* код в карте ⇒ есть в списке */
+            const int32_t oi = ((int32_t)t->off + 8) >> 4;   /* round(off/16), половина — вверх */
+            yc[k] = (int16_t)CLIP16((int32_t)y[k] + oi);
+            rem[k] = (int8_t)((int32_t)t->off - 16 * oi);
+            hit = 1;
+        }
+    }
+    return hit;
+}
+CCM_FUNC static int dnl_fix(const det_t *d, const int16_t *y, int16_t *yc, int8_t *rem)
+{
+    return dnl_fix_impl(d, y, yc, rem, 0);
+}
+CCM_FUNC static int dnl_fix_p(const det_t *d, const int16_t *y, int16_t *yc, int8_t *rem)
+{
+    return dnl_fix_impl(d, y, yc, rem, 1);
+}
+
 /* Подгонка эталона по окну buf[imax−IPK … +NS) и выдача: канал — в emit и в запись окна, иначе
    отбраковка по форме (st.rej_shape, окно записи — в отказ). Прежние fit() и finish() в одной
    функции: результаты не ходят через память. defer ≠ 0 (разбор) — принятый не выдаётся, а ждёт
@@ -520,6 +590,13 @@ DET_INLINE int fit_impl(det_t *d, const int defer)
     for (int k = (int)DET_IPK - 1; k >= 0 && run < DET_MIN_HALF && 2 * (int32_t)y[k] > thr; k--) run++;
     if (run < DET_MIN_HALF)
         goto reject;
+    int16_t yc[DET_NS];                                 /* окно с поправкой DNL (dnl_fix) */
+    int8_t rem[DET_NS];
+    int dhit = 0;
+    if (d->dnl_n) {
+        dhit = defer ? dnl_fix_p(d, y, yc, rem) : dnl_fix(d, y, yc, rem);
+        if (dhit) y = yc;
+    }
     const uint32_t Y0 = ld32(y), Y1 = ld32(y + 2), Y2 = ld32(y + 4), Y3 = (uint16_t)y[6];
     const int32_t sy  = (int32_t)SMLAD(Y0, 0x00010001u, SMLAD(Y1, 0x00010001u,
                                        SMLAD(Y2, 0x00010001u, SMLAD(Y3, 0x00010001u, 0u))));
@@ -545,10 +622,21 @@ DET_INLINE int fit_impl(det_t *d, const int defer)
 
     float best_yh;                                                  /* YH выбранной фазы — заново, */
     DET_YH(&tph[bp], best_yh);                                      /* те же операции, что в цикле */
-    const float A = best_yh * tph[bp].ihh * (float)(1u << DET_Q);  /* коды АЦП */
     float best;                                                     /* прежнее best = YH²/Σh² */
     memcpy(&best, &bestb, 4);
-    float resid = Syy - best;
+    float Syy_c = Syy;
+    if (dhit) {             /* дробная часть поправки DNL: y_ист = yc + rem/16 − frac */
+        int32_t rh = 0;
+        for (unsigned k = 0; k < DET_NS; k++) {
+            const float r = (float)rem[k] * (1.0f / 16.0f);
+            rh += (int32_t)rem[k] * d->tpl[bp][k];
+            Syy_c += r * (2.0f * ((float)yc[k] - frac) + r);
+        }
+        best_yh += (float)rh * (1.0f / 16.0f);
+        best = best_yh * best_yh * tph[bp].ihh;
+    }
+    const float A = best_yh * tph[bp].ihh * (float)(1u << DET_Q);  /* коды АЦП */
+    float resid = Syy_c - best;
     if (resid < 0.0f) resid = 0.0f;
     float var = (d->var > DET_VAR_MIN) ? d->var : DET_VAR_MIN;
     float ea = DET_SHAPE_EPS * A;

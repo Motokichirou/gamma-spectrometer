@@ -307,6 +307,63 @@ static void cmd_pile(const char *args)
     proto_send_text(L->pile_on ? "-ok pile on\r\n" : "-ok pile off\r\n");
 }
 
+/* ---- поправка DNL АЦП (-dnl) ---- */
+static void dnl_reply(void)
+{
+    char r[24 + DET_DNL_MAX * 12];
+    int w = snprintf(r, sizeof r, "-ok dnl %u", (unsigned)L->dnl_n);
+    for (unsigned k = 0; k < L->dnl_n && k < DET_DNL_MAX; k++)
+        w += snprintf(r + w, sizeof r - (size_t)w, " %u:%d", (unsigned)L->dnl[k].code, (int)L->dnl[k].off);
+    snprintf(r + w, sizeof r - (size_t)w, "\r\n");
+    proto_send_text(r);
+}
+
+static void cmd_dnl(const char *args)
+{
+    while (*args == ' ' || *args == '\t') args++;
+    if (strncmp(args, "clr", 3) == 0 && (args[3] == 0 || args[3] == ' ' || args[3] == '\t')) {
+        const char *rest = args + 3;
+        while (*rest == ' ' || *rest == '\t') rest++;
+        if (*rest) { proto_send_text("-err dnl\r\n"); return; }
+        L->dnl_n = 0;
+        memset(L->dnl, 0, sizeof L->dnl);
+        changed(PROTO_APPLY_DNL);
+        dnl_reply();
+        return;
+    }
+    long v[2 * DET_DNL_MAX];
+    int n = parse_longs(args, v, (int)(2 * DET_DNL_MAX), 10);
+    if (n < 0 || (n & 1)) { proto_send_text("-err dnl\r\n"); return; }
+    if (n == 0) { dnl_reply(); return; }
+    det_dnl_t t[DET_DNL_MAX];                      /* новый список — копией: при ошибке прежний цел */
+    unsigned m = L->dnl_n <= DET_DNL_MAX ? L->dnl_n : 0u;
+    memcpy(t, L->dnl, sizeof t);
+    for (int i = 0; i < n; i += 2) {
+        const long c = v[i], o = v[i + 1];
+        if (c < 0 || c >= (long)DET_DNL_CODES || o < -DET_DNL_OFF_MAX || o > DET_DNL_OFF_MAX) {
+            proto_send_text("-err dnl\r\n");
+            return;
+        }
+        unsigned k = 0;
+        while (k < m && t[k].code != (uint16_t)c) k++;
+        if (o == 0) {                              /* убрать код */
+            if (k < m) { memmove(&t[k], &t[k + 1], (m - k - 1u) * sizeof t[0]); m--; }
+            continue;
+        }
+        if (k == m) {
+            if (m == DET_DNL_MAX) { proto_send_text("-err dnl\r\n"); return; }
+            m++;
+        }
+        t[k].code = (uint16_t)c;
+        t[k].off = (int16_t)o;
+    }
+    for (unsigned k = m; k < DET_DNL_MAX; k++) { t[k].code = 0; t[k].off = 0; }
+    memcpy(L->dnl, t, sizeof t);
+    L->dnl_n = (uint8_t)m;
+    changed(PROTO_APPLY_DNL);
+    dnl_reply();
+}
+
 static void cmd_save(void)
 {
     int r = request_commit();
@@ -383,6 +440,8 @@ static void handle_text(const uint8_t *p, size_t n)
         cmd_tlok();
     } else if (tok_is(s, tl, "-pile")) {
         cmd_pile(args);
+    } else if (tok_is(s, tl, "-dnl")) {
+        cmd_dnl(args);
     } else if (tok_is(s, tl, "-tplclr")) {
         L->tpl_valid = 0;
         tpl_mask = 0;

@@ -43,6 +43,30 @@ typedef struct {
     uint32_t crc32;
 } settings_v2_t;
 
+/* Раскладка settings_t версии 3 (прежняя, на приборах в поле): v4 дописала список DNL после pile_on, поэтому всё
+   до pile_on включительно совпадает байт в байт — v3 переносится одним memcpy. */
+typedef struct {
+    uint32_t magic, version, size;
+    float hv_mon_zero_mv, hv_mon_k_mv_per_v;
+    float hv_setpoint_v;
+    uint8_t reserved_boot;
+    float pt_rpu_ohm;
+    float tc_t0_c, tc_k1, tc_k2;
+    uint16_t thr_codes;
+    uint32_t becq_words[11];
+    uint8_t becq_valid;
+    int16_t tpl[64][7];
+    uint8_t tpl_valid;
+    setup_rec_t setup;
+    det_tail_t tail;
+    uint8_t tail_valid;
+    uint8_t pile_on;
+    uint8_t reserved[6];
+    uint32_t crc32;
+} settings_v3_t;
+typedef char chk_v3_size[(sizeof(settings_v3_t) == 3160u) ? 1 : -1];     /* как прошивки v3 в поле */
+typedef char chk_v3_prefix[(offsetof(settings_v3_t, pile_on) == offsetof(settings_t, pile_on)) ? 1 : -1];
+
 uint32_t crc32_zip(const uint8_t *p, size_t n)
 {
     uint32_t crc = 0xFFFFFFFFu;
@@ -116,10 +140,20 @@ bool settings_from_image(const uint8_t *img, settings_t *out)
         memcpy(out, img, sizeof *out);
         return true;
     }
+    if (ver == 3u && size == (uint32_t)sizeof(settings_v3_t)) {
+        if (rd32(img + offsetof(settings_v3_t, crc32)) != crc32_zip(img, offsetof(settings_v3_t, crc32)))
+            return false;
+        settings_defaults(out);                   /* dnl_n 0, список нули */
+        memcpy(out, img, offsetof(settings_v3_t, pile_on) + 1u);
+        out->version = SETTINGS_VERSION;          /* magic/size из образа v3 — перекрыть */
+        out->size = (uint32_t)sizeof *out;
+        settings_seal(out);
+        return true;
+    }
     if (ver == 2u && size == (uint32_t)sizeof(settings_v2_t)) {
         if (rd32(img + offsetof(settings_v2_t, crc32)) != crc32_zip(img, offsetof(settings_v2_t, crc32)))
             return false;
-        settings_defaults(out);                   /* tail нули, tail_valid 0, pile_on 1 */
+        settings_defaults(out);                   /* tail нули, tail_valid 0, pile_on 1, dnl_n 0 */
         memcpy(out, img, offsetof(settings_v2_t, setup) + sizeof out->setup);
         out->version = SETTINGS_VERSION;          /* magic/size из образа v2 — перекрыть */
         out->size = (uint32_t)sizeof *out;

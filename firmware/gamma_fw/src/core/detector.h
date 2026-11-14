@@ -131,6 +131,17 @@ typedef struct {
     int16_t s[DET_TL_ROWS][DET_TL_LEN];
     uint8_t row[DET_NPH];    /* фаза эталона → строка s */
 } det_tail_t;
+/* Поправка нелинейности кодов АЦП (DNL) в подгонке (det_set_dnl; спек
+   docs/superpowers/specs/2026-11-14-adc-dnl-design.md): разреженный список «код → сдвиг его центра»,
+   своя у каждого экземпляра АЦП (хранится в settings_t, считается на PC: gammapult adc dnl). */
+#define DET_DNL_MAX   16u    /* пар в списке */
+#define DET_DNL_CODES 4096u  /* кодов АЦП (12 бит) */
+#define DET_DNL_WORDS (DET_DNL_CODES / 32u)   /* битовая карта «код в списке»: 128 слов = 512 Б */
+#define DET_DNL_OFF_MAX 1024 /* |сдвиг| ≤ 64 LSB */
+typedef struct {
+    uint16_t code;           /* код АЦП 0…4095 */
+    int16_t  off;            /* сдвиг центра кода, 1/16 LSB: истинное значение ≈ code + off/16 */
+} det_dnl_t;
 #define DET_FRONT_K   2u     /* разбор: отсчётов проверки фронта после окна принятого импульса */
 #define DET_TL_MAXACT 3u     /* разбор: активных хвостов одновременно (старейший вытесняется) */
 
@@ -278,6 +289,11 @@ typedef struct {
     uint32_t  tl_t[DET_TL_MAXACT];        /* номер отсчёта максимума в потоке */
     const int16_t *tl_r[DET_TL_MAXACT];   /* строка таблицы хвоста */
 
+    /* поправка DNL (det_set_dnl): список и карта не копируются */
+    const det_dnl_t *dnl;         /* список пар */
+    const uint32_t *dnl_map;      /* битовая карта DET_DNL_WORDS слов: бит кода = код в списке */
+    uint8_t   dnl_n;              /* пар в списке; 0 — поправки нет (детектор бит в бит прежний) */
+
     det_stats_t st;
 } det_t;
 
@@ -322,5 +338,12 @@ void  det_set_base_hold(det_t *d, int on);
 void  det_set_tail(det_t *d, const det_tail_t *t);
 void  det_set_pile(det_t *d, int on);
 int   det_pile_active(const det_t *d);        /* 1 — таблица есть и разбор разрешён */
+/* Поправка DNL: tab — n пар (n ≤ DET_DNL_MAX; коды вне 0…4095 и лишние пары пропускаются, при повторе кода
+ * действует первая пара), map — буфер DET_DNL_WORDS слов под битовую карту (на плате — в CCM), его заполняет
+ * сама функция. Список и карта не копируются и должны жить, пока стоят. n = 0 или tab/map = NULL — поправки нет.
+ * Поправка касается только отсчётов окна подгонки (DET_NS у максимума): сырой код отсчёта (при разборе —
+ * остаток плюс база и хвосты) есть в списке ⇒ в подгонке вместо него code + off/16. Целая часть сдвига
+ * (округление) входит в поиск фазы, дробная — в A и χ². Между порциями. */
+void  det_set_dnl(det_t *d, const det_dnl_t *tab, unsigned n, uint32_t *map);
 
 #endif

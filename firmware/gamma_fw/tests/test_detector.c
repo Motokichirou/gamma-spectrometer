@@ -866,11 +866,29 @@ static void lp_setup(void)
     for (int p = 0; p < (int)DET_NPH; p++) tailL.row[p] = (uint8_t)(p / 4);
 }
 
+/* поправка DNL в тестах: широкий код 2047 (как ADC3 прибора: 2048…2061 не выдаются) */
+#define GAP_LO 2047u                                 /* широкий код */
+#define GAP_HI 2061u                                 /* последний пропущенный */
+static int gap_on;                                   /* портить поток: коды GAP_LO+1…GAP_HI → GAP_LO */
+static const det_dnl_t *dnl_g;                       /* таблица для reset_long/reset_dnl; NULL — без */
+static unsigned dnl_ng;
+static uint32_t dnl_map_g[DET_DNL_WORDS];
+/* центр входного отрезка кода 2047 — [2046.5, 2061.5): 2054, сдвиг +7 LSB = 112/16 */
+static const det_dnl_t dnl_gap[1] = { { GAP_LO, 112 } };
+
+static void gap_apply(uint16_t *b, size_t n)
+{
+    if (!gap_on) return;
+    for (size_t i = 0; i < n; i++)
+        if (b[i] > GAP_LO && b[i] <= GAP_HI) b[i] = (uint16_t)GAP_LO;
+}
+
 static void reset_long(int pile)
 {
     det_cfg_t cfg = { LP_THR, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 0 };
     det_init(&det, &cfg, (const int16_t (*)[DET_NS])tplL, emit);
     if (pile) det_set_tail(&det, &tailL);
+    if (dnl_g) det_set_dnl(&det, dnl_g, dnl_ng, dnl_map_g);
     nch = 0;
 }
 
@@ -883,6 +901,7 @@ static void lp_stream(size_t n, const double *t, const float *a, int np, uint32_
         pg_add_pulse(&pg, fbuf, n, t[k], a[k]);
     pg_add_noise(&pg, fbuf, n, LP_SIG);
     pg_quantize(fbuf, sbuf, n, LP_BASE);
+    gap_apply(sbuf, n);
 }
 
 #define LP_STEP 400u                                 /* шаг пар: хвост и выброс в минус спадают */
@@ -1333,6 +1352,119 @@ static void test_dead_time_peel(void)
     CHECK(on.dead < off.dead);
 }
 
+
+/* ---- поправка DNL (det_set_dnl) ---- */
+
+/* Короткий импульс, вершина 2040…2070 (через весь широкий код): без поправки канал у задетых импульсов
+   съезжает вниз, с таблицей — возвращается. Поток один и тот же, импульсы сверяются попарно (все приняты во
+   всех прогонах). Пустая таблица и таблица мимо окна — каналы и det_t бит в бит, как без вызова. */
+#define DNL_NP 3000
+static uint16_t dnl_ch[3][DNL_NP];
+static void dnl_short_run(int corrupt, const det_dnl_t *tab, unsigned n_tab, uint16_t *out, int *acc)
+{
+    pg_init(&pg, tpl_3467k, 64, 777u);
+    size_t n = 2 * BLK + (size_t)DNL_NP * 48u + 64;
+    memset(fbuf, 0, n * sizeof fbuf[0]);
+    for (int k = 0; k < DNL_NP; k++)
+        pg_add_pulse(&pg, fbuf, n, 2.0 * BLK + 20.0 + (double)k * 48 + pg_uniform(&pg),
+                     (float)(1395.0 + 30.0 * pg_uniform(&pg)));
+    pg_add_noise(&pg, fbuf, n, 1.8f);
+    pg_quantize(fbuf, sbuf, n, BASE);
+    gap_on = corrupt;
+    gap_apply(sbuf, n);
+    gap_on = 0;
+    reset(DET_THR_DEF);
+    if (tab) det_set_dnl(&det, tab, n_tab, dnl_map_g);
+    feed(n, BLK);
+    *acc = nch;
+    if (out) memcpy(out, chans, (size_t)(nch < DNL_NP ? nch : DNL_NP) * 2);
+}
+
+static void test_dnl_short(void)
+{
+    int a[3];
+    dnl_short_run(0, NULL, 0, dnl_ch[0], &a[0]);
+    dnl_short_run(1, NULL, 0, dnl_ch[1], &a[1]);
+    dnl_short_run(1, dnl_gap, 1, dnl_ch[2], &a[2]);
+    CHECK(a[0] == DNL_NP && a[1] == DNL_NP && a[2] == DNL_NP);
+    /* задетые порчей импульсы: сдвиг канала без таблицы и с таблицей относительно чистого потока */
+    int nh = 0;
+    double s1 = 0, s2 = 0, q1 = 0, q2 = 0;
+    for (int k = 0; k < DNL_NP && a[0] == DNL_NP && a[1] == DNL_NP && a[2] == DNL_NP; k++) {
+        if (dnl_ch[1][k] == dnl_ch[0][k]) continue;
+        const double e1 = (double)dnl_ch[1][k] - dnl_ch[0][k], e2 = (double)dnl_ch[2][k] - dnl_ch[0][k];
+        nh++; s1 += e1; s2 += e2; q1 += e1 * e1; q2 += e2 * e2;
+    }
+    const double m1 = nh ? s1 / nh : 0, m2 = nh ? s2 / nh : 0;
+    const double r1 = nh ? sqrt(q1 / nh) : 0, r2 = nh ? sqrt(q2 / nh) : 0;
+    printf("  DNL (широкий код 2047, вершина 2040…2070): задето %d из %d; сдвиг канала без таблицы %+.2f (СКО %.2f), "
+           "с таблицей %+.2f (СКО %.2f)\n", nh, DNL_NP, m1, r1, m2, r2);
+    CHECK(nh > DNL_NP / 10);
+    CHECK(m1 < -2.0);                                /* порча: канал вниз */
+    CHECK(fabs(m2) < 0.15 * fabs(m1));               /* таблица убирает смещение */
+    CHECK(r2 < 0.6 * r1);
+
+    /* без порчи и с таблицей мимо окна — каналы бит в бит, как без таблицы */
+    static const det_dnl_t miss[2] = { { 100u, 40 }, { 4095u, -16 } };
+    int a0, a1;
+    dnl_short_run(0, NULL, 0, dnl_ch[1], &a0);
+    det_t d0 = det;
+    dnl_short_run(0, miss, 2, dnl_ch[2], &a1);
+    CHECK(a1 == a0 && memcmp(dnl_ch[1], dnl_ch[2], sizeof dnl_ch[1]) == 0);
+    CHECK(det.dnl_n == 2u);
+    /* пустая таблица: det_t тот же, что без вызова */
+    dnl_short_run(0, miss, 0, dnl_ch[2], &a1);
+    CHECK(a1 == a0 && memcmp(dnl_ch[1], dnl_ch[2], sizeof dnl_ch[1]) == 0);
+    CHECK(det.dnl_n == 0u && det.dnl == NULL && det.dnl_map == NULL);
+    CHECK(memcmp(&d0, &det, sizeof det) == 0);
+    /* карта: коды вне 0…4095 пропускаются, бит стоит ровно у кодов списка */
+    static const det_dnl_t bad[3] = { { 4096u, 16 }, { 31u, 8 }, { 32u, -8 } };
+    det_set_dnl(&det, bad, 3, dnl_map_g);
+    unsigned bits = 0;
+    for (unsigned w = 0; w < DET_DNL_WORDS; w++)
+        for (unsigned b = 0; b < 32; b++) bits += (dnl_map_g[w] >> b) & 1u;
+    CHECK(bits == 2u && (dnl_map_g[0] >> 31) == 1u && (dnl_map_g[1] & 1u) == 1u);
+    det_set_dnl(&det, bad, 1, dnl_map_g);            /* только негодный код — поправки нет */
+    CHECK(det.dnl_n == 0u);
+}
+
+/* Разбор наложений: второй импульс пары лежит на хвосте первого, его вершина (с хвостом) — в широком коде.
+   Сырой код отсчёта окна = остаток + база + хвост: без учёта хвоста (здесь ≈ 150 кодов) код в карте не нашёлся бы. */
+static void test_dnl_pile(void)
+{
+    const float a1 = 1000.0f;
+    const double dlt = 16.0;
+    double tm = 0.0, mx = 0.0;                       /* вершина формы относительно опорного момента */
+    for (double t = 0.0; t < 8.0; t += 1.0 / 1024) if (lp_shape(t) > mx) { mx = lp_shape(t); tm = t; }
+    const float tail = a1 * lp_shape(dlt + tm);
+    lp_res_t r[3][2];
+    for (int v = 0; v < 2; v++) {                    /* вершина второго у начала и у середины широкого кода */
+        const float a2 = (v ? 2054.0f : 2049.0f) - LP_BASE - tail;
+        for (int q = 0; q < 3; q++) {
+            gap_on = q > 0;
+            dnl_g = q == 2 ? dnl_gap : NULL;
+            dnl_ng = 1;
+            r[q][v] = lp_pairs(1, 300, a1, a2, dlt, 6100u + v, 1);
+        }
+    }
+    gap_on = 0; dnl_g = NULL; dnl_ng = 0;
+    double e1 = 0, e2 = 0;
+    for (int v = 0; v < 2; v++) {
+        printf("  DNL при разборе: хвост первого %.1f, вершина второго %d: ошибка A2 чистый %+.2f (%d пар), "
+               "испорчен %+.2f (%d), с таблицей %+.2f (%d), восстановлено %u/%u/%u\n", tail, v ? 2054 : 2049,
+               r[0][v].e2, r[0][v].both, r[1][v].e2, r[1][v].both, r[2][v].e2, r[2][v].both,
+               r[0][v].rec, r[1][v].rec, r[2][v].rec);
+        CHECK(r[0][v].both > 250 && r[1][v].both > 250 && r[2][v].both > 250);
+        CHECK(r[2][v].rec > 250u);
+        CHECK(fabs(r[2][v].e1 - r[0][v].e1) < 0.5);      /* первый ниже широкого кода — не тронут */
+        e1 += r[1][v].e2 - r[0][v].e2;
+        e2 += r[2][v].e2 - r[0][v].e2;
+    }
+    CHECK(tail > 100.0f);
+    CHECK(e1 / 2 < -1.0);                            /* порча: A2 вниз */
+    CHECK(fabs(e2) < 0.3 * fabs(e1));                /* таблица убирает смещение (в среднем по двум положениям) */
+}
+
 int main(void)
 {
     test_spectrum_saturates();
@@ -1368,5 +1500,7 @@ int main(void)
     test_pile_off_mid_pulse();
     test_no_tail_after_reject();
     test_dead_time_peel();
+    test_dnl_short();
+    test_dnl_pile();
     return T_DONE();
 }

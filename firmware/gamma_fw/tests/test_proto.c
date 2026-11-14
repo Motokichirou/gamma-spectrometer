@@ -832,6 +832,51 @@ static void test_rx_frames(void)
     CHECK(proto_rx_frames() == 0);
 }
 
+
+static void test_dnl_cmd(void)
+{
+    reset();
+    CHECK(live.dnl_n == 0);
+    CHECK(eq(cmd("-dnl"), "-ok dnl 0\r\n"));
+    applied = 0;
+    CHECK(eq(cmd("-dnl 2047 112"), "-ok dnl 1 2047:112\r\n"));
+    CHECK(live.dnl_n == 1 && live.dnl[0].code == 2047 && live.dnl[0].off == 112 && (applied & PROTO_APPLY_DNL));
+    CHECK(settings_valid(&live));
+    CHECK(eq(cmd("-dnl 767 -9 1023 12"), "-ok dnl 3 2047:112 767:-9 1023:12\r\n"));
+    CHECK(eq(cmd("-dnl 767 8"), "-ok dnl 3 2047:112 767:8 1023:12\r\n"));      /* замена */
+    CHECK(eq(cmd("-dnl 2047 0"), "-ok dnl 2 767:8 1023:12\r\n"));              /* off 0 — убрать */
+    CHECK(eq(cmd("-dnl"), "-ok dnl 2 767:8 1023:12\r\n"));
+    /* ошибки — список не меняется */
+    applied = 0;
+    CHECK(eq(cmd("-dnl 4096 5"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl -1 5"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100 1025"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100 -1025"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100 5 7"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100 x"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl clr 1"), "-err dnl\r\n"));
+    CHECK(eq(cmd("-dnl 100 5 4096 1"), "-err dnl\r\n"));                       /* первая пара тоже не принята */
+    CHECK(live.dnl_n == 2 && live.dnl[0].code == 767 && applied == 0);
+    /* 16 пар — предел; 17-я — ошибка, список прежний */
+    CHECK(eq(cmd("-dnl clr"), "-ok dnl 0\r\n"));
+    CHECK(live.dnl_n == 0 && live.dnl[0].code == 0 && live.dnl[0].off == 0);
+    char c[256];
+    int w = snprintf(c, sizeof c, "-dnl");
+    for (int k = 0; k < 16; k++) w += snprintf(c + w, sizeof c - (size_t)w, " %d %d", 1000 + k, (k & 1) ? -1024 : 1024);
+    const char *r = cmd(c);
+    CHECK(strncmp(r, "-ok dnl 16 1000:1024 1001:-1024", 31) == 0);
+    CHECK(live.dnl_n == 16);
+    CHECK(eq(cmd("-dnl 3000 5"), "-err dnl\r\n"));
+    CHECK(live.dnl_n == 16 && live.dnl[15].code == 1015);
+    CHECK(eq(cmd("-dnl 1000 0 3000 5"), "-ok dnl 16 1001:-1024 1002:1024 1003:-1024 1004:1024 1005:-1024 "
+                 "1006:1024 1007:-1024 1008:1024 1009:-1024 1010:1024 1011:-1024 1012:1024 1013:-1024 1014:1024 "
+                 "1015:-1024 3000:5\r\n"));
+    CHECK(n_commit == 0);                             /* во флеш — только -save */
+    CHECK(eq(cmd("-defaults"), "-ok defaults\r\n"));
+    CHECK(live.dnl_n == 0);
+}
+
 int main(void)
 {
     test_rx_frames();
@@ -856,6 +901,7 @@ int main(void)
     test_tplok_invalidates_tail();
     test_tlok_needs_tpl();
     test_pile_cmd();
+    test_dnl_cmd();
     test_defaults();
     test_defaults_hv_on();
     test_flash_defaults_status();

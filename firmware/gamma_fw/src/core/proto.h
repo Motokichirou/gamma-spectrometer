@@ -33,6 +33,11 @@
  *      -tlok                   → пришли все 64 куска -tlw и 4 куска -tlm → tail_valid = 1, apply(TAIL);
  *                                 иначе "-err tl". -tplok / -tplclr таблицу хвоста снимают (tail_valid = 0)
  *      -pile [on|off]          → "-ok pile on|off"; разбор в ОЗУ и settings (во флеш — -save)
+ *      -dnl                    → "-ok dnl N c:off c:off …" — список поправки DNL АЦП (сдвиг центра кода c, 1/16 LSB)
+ *      -dnl clr                → список пуст, "-ok dnl 0"
+ *      -dnl c1 off1 [c2 off2 …] → добавить/заменить пары (off 0 — убрать код), ответ — как на запрос;
+ *                                 код вне 0…4095, |off| > DET_DNL_OFF_MAX, нечётное число чисел или итог больше
+ *                                 DET_DNL_MAX пар → "-err dnl", список не меняется. Сразу в ОЗУ (apply(DNL)), во флеш — -save
  *  - Прочие "-…" (-baud, -hv, -hvzero, -hvk, -ptcal, -gst, -diag, -osc, -dac, …) — в port->service;
  *    пустой ответ сервиса (или нет сервиса) → "-err unknown\r\n".
  *  - Текст не с '-' и нетекстовые кадры — тишина (как этап 1).
@@ -96,6 +101,7 @@
 #define PROTO_APPLY_TC      0x02u
 #define PROTO_APPLY_TPL     0x04u
 #define PROTO_APPLY_TAIL    0x08u          /* таблица хвоста / -pile (приложение зовёт det_set_tail, det_set_pile) */
+#define PROTO_APPLY_DNL     0x10u          /* список DNL (-dnl; приложение зовёт det_set_dnl) */
 #define PROTO_APPLY_ALL     0xFFFFFFFFu    /* -defaults */
 
 typedef struct { uint32_t elapsed_s; uint16_t cpu_x10; uint32_t cps; uint32_t invalid; } proto_status_t;

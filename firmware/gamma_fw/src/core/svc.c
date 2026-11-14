@@ -213,6 +213,7 @@ static void cmd_gst(char *reply, size_t cap)
     putu(&o, "thr", g.thr);
     put(&o, "pile", g.pile < 0 ? "-" : g.pile ? "on" : "off");
     putu(&o, "rec", g.rec);
+    putu(&o, "dnl", C->live->dnl_n);   /* пар в списке поправки DNL АЦП (-dnl) */
     if (o.w + 48u < cap) {          /* причины отбраковки с пуска: форма/ширина/наложение/бюджет */
         int k = snprintf(reply + o.w, cap - o.w, " rej_swpb=%lu/%lu/%lu/%lu", (unsigned long)g.rej_shape,
                          (unsigned long)g.rej_width, (unsigned long)g.rej_pile, (unsigned long)g.rej_budget);

@@ -43,7 +43,7 @@ static void test_changed_then_sealed(void)
 static void test_version_mismatch(void)
 {
     settings_t s; settings_defaults(&s);
-    s.version = 4; settings_seal(&s);   /* CRC верен, версия чужая */
+    s.version = 5; settings_seal(&s);   /* CRC верен, версия чужая */
     CHECK(!settings_valid(&s));
 }
 
@@ -72,8 +72,11 @@ static void test_v2_layout(void)
     settings_t s; settings_defaults(&s);
     CHECK(sizeof(settings_t) % 8 == 0);
     CHECK(sizeof(settings_t) <= 4096);
-    CHECK(SETTINGS_VERSION == 3u);
+    CHECK(SETTINGS_VERSION == 4u);
+    CHECK(sizeof(settings_t) == 3224u);
     CHECK(s.tail_valid == 0 && s.pile_on == 1);
+    CHECK(s.dnl_n == 0 && s.pad_dnl == 0 && s.dnl[0].code == 0 && s.dnl[DET_DNL_MAX - 1].off == 0);
+    CHECK(offsetof(settings_t, dnl) % 2u == 0);
     CHECK(DET_TL_ROWS == 16u && DET_TL_LEN == 64u);
     CHECK(s.setup.done_unix == 0);
     CHECK(settings_valid(&s));

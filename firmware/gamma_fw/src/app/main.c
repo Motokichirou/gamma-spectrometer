@@ -123,6 +123,8 @@ static hv_ctl_t   hv;
    из CCM, и обращение к данным там же идёт в тот же банк, что и выборка команд (I- и D-шина, AN4296) —
    по модели tools/cyc это +1 такт на обращение, ≈ 170 тактов на импульс. */
 static det_t det;
+/* битовая карта поправки DNL АЦП (det_set_dnl): 512 Б — в CCM (ОЗУ занято на 94.7 %); список — в live */
+static CCM_BSS uint32_t  dnl_map[DET_DNL_WORDS];
 static CCM_BSS uint16_t  osc_buf[OSC_MAX * OSC_W];
 static CCM_BSS det_cap_t osc_info[OSC_MAX];
 static bool       osc_on;
@@ -246,6 +248,12 @@ static void pile_apply(void)
     det_set_pile(&det, dac_mode ? 0 : live.pile_on);
 }
 
+/* поправка DNL АЦП: список из live (-dnl), карта собирается заново; действует и в режиме ЦАП (свойство АЦП) */
+static void dnl_apply(void)
+{
+    det_set_dnl(&det, live.dnl, live.dnl_n <= DET_DNL_MAX ? live.dnl_n : 0u, dnl_map);
+}
+
 static void p_apply(uint32_t what)
 {
     /* -defaults (proto пускает только при выключенном ВВ): калибровка монитора — и в hv_ctl */
@@ -256,6 +264,7 @@ static void p_apply(uint32_t what)
         if (!dac_mode) det_set_template(&det, tpl_now);   /* в режиме ЦАП — по его окончании */
     }
     if (what & PROTO_APPLY_TAIL) pile_apply();
+    if (what & PROTO_APPLY_DNL) dnl_apply();
 }
 
 /* ---- сервис (core/svc.c) ---- */
@@ -621,6 +630,7 @@ int main(void)
                       DET_MAX_FITS_BOARD_PILE };
     det_init(&det, &cfg, tpl_now, emit);
     pile_apply();
+    dnl_apply();
     spectrum_clear();
     {
         det_stats_t ds = stats();
