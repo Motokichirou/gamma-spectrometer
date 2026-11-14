@@ -55,6 +55,7 @@ Notes:
 | `-mode <n>` | Device mode (AtomSpectra sends `-mode 0` on connection) · response `-ok\r\n` |
 | `-inf` | Device report (contains `VERSION <n>` for AtomSpectra) |
 | `-cal` | Energy calibration, 40 registers in BecqMoni/AtomSpectra format (see below); bare `-cal` is also a link check |
+| `-cal <i>` | Read a single calibration word `i` (0..10): response is a text frame `XXXXXXXX` (8 uppercase hex digits, no `\r\n`); `00000000` if no calibration is stored; invalid index or trailing garbage — `-err cal\r\n` |
 | `-cal <i> <hex>` | Write calibration word `i` (0..10), response `-ok\r\n` |
 | `-sho` | AtomSpectra compatibility · response `-ok collecting\r\n` |
 | `-thr [codes]` | Detector threshold in **ADC codes** (0 — auto 5σ; no argument — query); response `-ok thr <N>\r\n` |
