@@ -623,6 +623,58 @@ CCM_FUNC static int fit_p(det_t *d) { return fit_impl(d, 1); }
 
 CCM_FUNC static size_t fast_scan(det_t *d, const uint16_t *s, size_t i, size_t n);
 
+/* TAIL разбора (см. slow_impl, метка tail) — отдельной функцией: в теле slow_impl регистров не хватает,
+   и цикл по остатку шёл с выгрузкой на стек (≈ 74 такта на отсчёт). Поведение то же, отсчёт в отсчёт:
+   pr — tl_pred (при одном хвосте — та же формула A·s[j] + 2^31 >> 32 с j, растущим на отсчёт), взвод и
+   триггер с допуском pr/32, счёт ступеньки как STUCK. Возврат — p, причина в c->why: TS_TRIG — p на
+   триггере, TS_DONE — хвосты ≤ thr/2 на p, TS_REBASE — p на DET_BASE_N-м залипшем (STUCK до p++),
+   TS_END — порция кончилась. (Адрес p в slow_impl не берётся — иначе p жил бы на стеке.) */
+enum { TS_END = 0, TS_TRIG, TS_DONE, TS_REBASE };
+typedef struct {
+    uint32_t armed, stk_n;
+    const uint16_t *rs;
+    int carried, why;
+} det_tsc_t;
+
+#define TS_BODY(PR) do {                                                     \
+        const int32_t pr_ = (PR);                                            \
+        if (pr_ <= half) { why = TS_DONE; goto ts_out; }                     \
+        const int32_t tol_ = pr_ >> 5;                                       \
+        const int32_t v_ = *p;                                               \
+        const int32_t dev_ = v_ - bint - pr_;                                \
+        if (armed && dev_ > thr + tol_) { why = TS_TRIG; goto ts_out; }      \
+        if (v_ - bint < hl) {                                                \
+            stk_n = 0; rs = p + 1; carried = 0;                              \
+        } else if (++stk_n >= DET_BASE_N) {                                  \
+            why = TS_REBASE; goto ts_out;                                    \
+        }                                                                    \
+        if (dev_ < half + tol_) armed = 1;                                   \
+    } while (0)
+
+CCM_FUNC static const uint16_t *tail_scan(const det_t *d, const uint16_t *s, const uint16_t *p,
+                                          const uint16_t *pe, const int32_t bint, const int32_t thr,
+                                          const int32_t half, const int32_t hl, det_tsc_t *c)
+{
+    uint32_t armed = c->armed, stk_n = c->stk_n;
+    const uint16_t *rs = c->rs;
+    int carried = c->carried;
+    int why = TS_END;
+    if (d->tl_n == 1u) {                     /* обычный случай — один хвост */
+        const int32_t a = d->tl_a[0];
+        const int16_t *const r = d->tl_r[0];
+        uint32_t j = d->pos0 + (uint32_t)(p - s) - d->tl_t[0] - 1u;
+        for (; p < pe; p++, j++)
+            TS_BODY(j < DET_TL_LEN ? (int32_t)((0x80000000LL + (int64_t)a * r[j]) >> 32) : 0);
+    } else {
+        for (; p < pe; p++)
+            TS_BODY(tl_pred(d, d->pos0 + (uint32_t)(p - s)));
+    }
+ts_out:
+    c->armed = armed; c->stk_n = stk_n; c->rs = rs; c->carried = carried; c->why = why;
+    return p;
+}
+#undef TS_BODY
+
 /* суммы счёта ступеньки в det_t: перенесённые (carried) + Σ(s − bint), Σ(s − bint)² по [a, b) */
 static inline void stk_flush(det_t *d, uint32_t n_, int carried, const uint16_t *a, const uint16_t *b,
                              int32_t bint)
@@ -996,16 +1048,14 @@ front_ok:
     front_accept(d);
     state = DET_S_TAIL;
 tail:                                        /* пока хвосты > thr/2: взвод и триггер по остатку, время живое */
-    while (p < pe) {
-        const int32_t pr = tl_pred(d, d->pos0 + (uint32_t)(p - s));
-        if (pr <= half) goto tail_end;
-        const int32_t tol = pr >> 5;
-        v = *p;
-        dev = v - bint - pr;
-        if (armed && dev > thr + tol) goto trigger;
-        STUCK(v, p + 1);
-        p++;
-        if (dev < half + tol) armed = 1;
+    if (pa) {                                /* цикл — tail_scan (взвод r < thr/2 + pr/32, триггер r > thr + pr/32);
+                                                без разбора TAIL не бывает — вызов из slow выброшен */
+        det_tsc_t tc = { armed, stk_n, rs, carried, TS_END };
+        p = tail_scan(d, s, p, pe, bint, thr, half, hl, &tc);
+        armed = tc.armed; stk_n = tc.stk_n; rs = tc.rs; carried = tc.carried;
+        if (tc.why == TS_TRIG) goto trigger;
+        if (tc.why == TS_DONE) goto tail_end;
+        if (tc.why == TS_REBASE) goto rebase;
     }
     goto out;
 tail_end:                                    /* дальше — обычный GUARD (хвост не идёт в базу) */
