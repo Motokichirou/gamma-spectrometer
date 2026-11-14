@@ -617,7 +617,8 @@ int main(void)
     baud_init(&baud_port);
     spi1_init();                               /* флешка: из сна spiflash_sleep() — в работу регистратора */
     logger_init(&lport);
-    det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
+    det_cfg_t cfg = { live.thr_codes, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD,
+                      DET_MAX_FITS_BOARD_PILE };
     det_init(&det, &cfg, tpl_now, emit);
     pile_apply();
     spectrum_clear();

@@ -76,7 +76,8 @@ int main(int argc, char **argv)
     }
     FILE *f = fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "не открыть %s\n", argv[1]); return 2; }
-    det_cfg_t cfg = { (uint16_t)thr, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
+    det_cfg_t cfg = { (uint16_t)thr, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD,
+                      DET_MAX_FITS_BOARD_PILE };   /* как main.c */
     det_init(&d, &cfg, tpl_pmt, emit);
     det_set_gain(&d, gain);
     if (tail_path) det_set_tail(&d, &tl);

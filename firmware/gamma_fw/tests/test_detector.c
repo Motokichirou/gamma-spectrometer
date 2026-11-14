@@ -1106,6 +1106,36 @@ static void test_guard_after_tail(void)
     CHECK(shp <= 40u);
 }
 
+/* бюджет при разборе (cfg.max_fits_pile): действует, пока разбор включён; перебор — в rej_budget */
+static void test_pile_budget(void)
+{
+    pg_init_fn(&pg, lp_shape, 4, 330, 9300u);
+    const size_t n = 4 * BLK;
+    int np = 0;
+    for (int b = 2; b < 4; b++)
+        for (int k = 0; k < 30; k++) { lp_t[np] = (double)b * BLK + 100.0 + k * 250.0; lp_a[np++] = 600.0f; }
+    lp_stream(n, lp_t, lp_a, np, 9301u);
+    det_stats_t st[2];
+    for (int pile = 0; pile < 2; pile++) {
+        det_cfg_t cfg = { LP_THR, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, 25, 12 };
+        det_init(&det, &cfg, (const int16_t (*)[DET_NS])tplL, emit);
+        CHECK(det.max_fits == 25u);
+        if (pile) { det_set_tail(&det, &tailL); CHECK(det.max_fits == 12u); }
+        feed(n, BLK);
+        det_get_stats(&det, &st[pile]);
+    }
+    printf("  бюджет 25 / при разборе 12 (по 30 импульсов в порции): принято %u / %u, бюджет %u / %u\n",
+           st[0].accepted, st[1].accepted, st[0].rej_budget, st[1].rej_budget);
+    CHECK(st[0].accepted == 50u && st[0].rej_budget == 10u);
+    CHECK(st[1].accepted == 24u && st[1].rej_budget == 36u);
+    det_set_pile(&det, 0);
+    CHECK(det.max_fits == 25u);
+    det_set_pile(&det, 1);
+    CHECK(det.max_fits == 12u);
+    det_set_tail(&det, NULL);
+    CHECK(det.max_fits == 25u);
+}
+
 static void test_tail_across_blocks(void)
 {
     /* 10 пар Δ = 20 в одной порции (меньше DET_BASE_N отсчётов — база между частями не обновится);
@@ -1272,6 +1302,7 @@ int main(void)
     test_front_k2();
     test_tail_after_threshold();
     test_guard_after_tail();
+    test_pile_budget();
     test_tail_across_blocks();
     test_tail_reset_on_lost();
     test_no_tail_after_reject();

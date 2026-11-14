@@ -156,6 +156,15 @@ typedef struct {
 #define DET_MAX_FITS_DEF ((uint16_t)((uint64_t)DET_BLK_DEF * DET_CPU_HZ / DET_FS_HZ                                      * DET_BUDGET_PCT / 100u / DET_FIT_CYC))   /* = 198 */
 #define DET_MAX_FITS_BOARD ((uint16_t)((uint64_t)DET_BLK_DEF * DET_CPU_HZ / DET_FS_HZ \
                                     * DET_BUDGET_PCT / 100u / DET_FIT_CYC_BOARD))   /* = 95 */
+/* С разбором хвостов (det_pile_active) триггер дороже: TAIL и GUARD по остатку, PULSE общим путём.
+   Замер tools/cyc --raw (эмулятор, записанные порции, 2026-11-14, после исправления GUARD): отношение
+   тактов на триггер «с разбором / без» 1.82…2.08 на записях (cs_only, am_only, mix_1..3 при порогах
+   11…42), 2.13 на синтетических парах. Плату с разбором не мерили, поэтому то же отношение прикладываем
+   к замеру платы без разбора: 2700 × 2.1 ≈ 5700 тактов; доля порции — те же 70 %, что у 95. Итог — 45
+   триггеров на порцию (≈ 19 тыс. триггеров/с); сверх — rej_budget. Переснять DWT на плате и уточнить. */
+#define DET_FIT_CYC_BOARD_PILE 5700u
+#define DET_MAX_FITS_BOARD_PILE ((uint16_t)((uint64_t)DET_BLK_DEF * DET_CPU_HZ / DET_FS_HZ \
+                                    * DET_BUDGET_PCT / 100u / DET_FIT_CYC_BOARD_PILE))   /* = 45 */
 
 /* запись окон */
 #define DET_CAP_PRE_MAX 16u         /* потолок pre (хвост прошлых порций) */
@@ -169,6 +178,7 @@ typedef struct {
     uint8_t  min_w, max_w;   /* ширина — число отсчётов выше порога */
     float    chi2_max;       /* <= 0 — по умолчанию 4·DET_NS */
     uint16_t max_fits;       /* бюджет: триггеров медленного пути на порцию; 0 — DET_MAX_FITS_DEF */
+    uint16_t max_fits_pile;  /* то же при действующем разборе хвостов (det_pile_active); 0 — как max_fits */
 } det_cfg_t;
 
 typedef struct {
@@ -226,7 +236,8 @@ typedef struct {
     uint8_t   base_hold;          /* 1 — база и σ заморожены (det_set_base_hold) */
     uint8_t   auto_left;          /* > 0 — идёт замер σ для авто-порога */
     uint8_t   thr_auto;           /* порог задан как «авто» */
-    uint16_t  max_fits, fits_left;
+    uint16_t  max_fits, fits_left;   /* max_fits — действующий: max_fits_np или (разбор) max_fits_p */
+    uint16_t  max_fits_np, max_fits_p;
 
     /* запись окон */
     uint16_t *cap_buf;

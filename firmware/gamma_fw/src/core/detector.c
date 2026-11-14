@@ -99,6 +99,8 @@ void det_init(det_t *d, const det_cfg_t *cfg, const int16_t (*tpl)[DET_NS], det_
     det_set_width(d, cfg->min_w, cfg->max_w);
     d->chi2_max = (cfg->chi2_max > 0.0f) ? cfg->chi2_max : 4.0f * (float)DET_NS;
     d->max_fits = cfg->max_fits ? cfg->max_fits : DET_MAX_FITS_DEF;
+    d->max_fits_np = d->max_fits;
+    d->max_fits_p = cfg->max_fits_pile ? cfg->max_fits_pile : d->max_fits;
     d->gain = 1.0f;
     d->emit = emit;
     d->armed = 1;
@@ -264,6 +266,7 @@ static void pa_update(det_t *d)
 {
     const uint8_t was = d->pa;
     d->pa = (d->tl != NULL && d->pile_on) ? 1u : 0u;
+    d->max_fits = d->pa ? d->max_fits_p : d->max_fits_np;   /* бюджет — с ближайшей порции */
     if (d->pa && !was && (d->state == DET_S_PULSE || d->state == DET_S_POST)) {
         d->state = DET_S_GUARD;
         d->guard_left = DET_GUARD;

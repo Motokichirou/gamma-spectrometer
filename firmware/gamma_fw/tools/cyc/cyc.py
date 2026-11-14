@@ -431,7 +431,7 @@ def measure_raw(args):
     Emu.want_prof = bool(args.prof)
     for on in (0, 1):
         emu = Emu(elf, syms, funcs, count=True, memmodel=not args.no_mem)
-        emu.call('new_init_pmt', args.thr, 95, 4, 56)          # DET_MAX_FITS_BOARD, DET_MINW/MAXW_BOARD
+        emu.call('new_init_pmt', args.thr, 95, 4, 56)          # бюджет 95 и с разбором (мерим цену, а не срез), ширина 4…56
         emu.write('h_tail', tail)
         emu.call('new_settail', on)
         emu.write('h_buf', raw[:2 * BLK].tobytes())
