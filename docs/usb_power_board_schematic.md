@@ -61,7 +61,7 @@ USB-C J1 (JAE DX07S024WJ3R400)
 **Компоненты:**
 - **J1**: JAE DX07S024WJ3R400 — USB-C вертикальный SMD, монтаж в центре платы
 - **F1**: Bourns MF-MSMF050-2 — PTC 500мА самовосстанавливающийся предохранитель
-- **U_ESD**: PRTR5V0U2X (SOT143B, 4 вывода) — двойной rail-to-rail ESD-массив на D+/D− (даташит `docs/refs/PRTR5V0U2X-1320589.pdf`)
+- **U_ESD**: PRTR5V0U2X (SOT143B, 4 вывода) — двойной rail-to-rail ESD-массив на D+/D− (даташит PRTR5V0U2X)
 - **R_CC101, R_CC102**: 5.1 кОм 0402 × 2 — идентификация USB device (не Host/PD)
 
 **Подключение пинов J1 (DX07S024WJ3R400):**

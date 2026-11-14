@@ -31,7 +31,7 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 |---|---|
 | Detector | NaI(Tl) Ø63×63 mm |
 | PMT | Hamamatsu R1307 (8-stage, Ø76 mm) |
-| Energy range | 50 keV – 3.5 MeV |
+| Energy range | ≈20 keV (threshold 18 codes) – ≈3.8 MeV (ADC saturation) |
 | FWHM @ Cs-137 | **6.7–6.9 % measured** (standard NaI 63×63 + R1307, HV ~565 V) |
 | Spectrum channels | 8192 |
 | Count rate | up to ~30 000 cps |
@@ -102,7 +102,7 @@ The curvature is mostly NaI light-yield non-proportionality, not the electronics
 | Cs-137 | 662 keV | ≈1194 | — |
 | Bi-214 | 1120 keV | 1990 | 1118 keV |
 | Bi-214 | 1764 keV | 3107 | 1773 keV |
-| Ceiling | 3.5 MeV | ≈5930 | — |
+| Ceiling (ADC saturation) | ≈3.8 MeV | ≈6900 | — |
 
 Peak positions are set by the HV: Cs is placed at channel ~1160–1200 by tuning the HV (~565 V on the standard detector).
 
@@ -165,9 +165,10 @@ Rows up to and including "The same Sypher detector" were measured on the tempora
 | The same Sypher detector on its own electronics (in energy, keV) | 7.08 % |
 | **Standard NaI 63×63 + R1307**, ~565 V (since 2026-11-09) | **6.7–6.9 %** |
 
-An HV scan on the new chain decomposes as FWHM² = a² + (b/channel)²: a constant part a ≈ 7.0 %
-(crystal + PMT + processing) and electronics noise of ≈0.8 % at the Cs channel. Resolution is limited by
-the detector, not by the chain. Resolution is compared in energy only: on chains with a nonlinear scale
+On the standard detector the baseline noise is σ ≈ 2.2 ADC codes against a Cs amplitude of ≈595 codes:
+the electronics contribute at most ≈0.9 % FWHM (an upper bound; the template fit averages further), so of
+the 6.7–6.9 % about 6.7 % comes from the crystal and PMT. Resolution is limited by the detector, not by the
+chain (on the 40×40 crystal an HV scan showed the same: a ≈ 7.0 %, noise ≈0.8 %). Resolution is compared in energy only: on chains with a nonlinear scale
 the per-channel percentage looks better than it really is. Details — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) §10 (Russian).
 
 ---
