@@ -17,9 +17,11 @@
 - **Сервис:** `python -I firmware/gamma_fw/tools/gfw.py cmd -- "-gst"`. Команды: `-diag`, `-hv <В>` / `-hv off`,
   `-hvboot <В>|off` (автозапуск ВВ собранного блока), `-log …` (регистратор во флешку W25Q64, `board_g474cb/SPEC_logger.md`),
   `-hvzero`, `-hvk`, `-ptcal <°C>`, `-thr`, `-noise`, `-smp`, `-opa`, `-dac`, `-osc`, `-tplw/-tplok/-tplclr`,
-  `-tc`, `-save`, `-defaults`.
-- **Эталоны формы:** `tools/tpl_pmt.py collect|build` — эталон с реального тракта (ФЭУ под ВВ, источник);
-  `tools/tpl_dac.py --code 900` — эталон импульса ЦАП. Вшитые умолчания — `src/core/tpl_pmt.h`, `src/core/tpl_dac.h`.
+  `-tlw/-tlm/-tlok` (таблица хвоста), `-pile` (разбор хвостовых наложений), `-dnl` (поправка DNL АЦП),
+  `-baud <N>` (опыты: до 3 Мбод, только ОЗУ; сторож 5 с без кадров возвращает 600 000), `-setup`, `-tc`, `-save`, `-defaults`.
+  Настройки во флеш — версия 4.
+- **Эталоны формы:** `gamma_fw/tools/tpl_pmt.py collect|build` — эталон с реального тракта (ФЭУ под ВВ, источник);
+  `gamma_fw/tools/tpl_dac.py --code 900` — эталон импульса ЦАП. Вшитые умолчания — `src/core/tpl_pmt.h`, `src/core/tpl_dac.h`.
 - **BecqMoni:** устройство AtomSpectra VCP, 600 000 бод, 8192 канала.
 
 ## Окна детектора под шейпер

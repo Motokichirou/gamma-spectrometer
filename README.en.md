@@ -18,8 +18,10 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md)
 
-> ✅ **November 2026: the instrument is assembled and works with BecqMoni.** On a temporary NaI(Tl) 40×40
-> detector — **Cs-137 6.9 % FWHM**, PMT at ~750 V. Next stage — the target NaI(Tl) Ø63×63 + R1307.
+> ✅ **November 2026: the instrument is assembled and works with BecqMoni** on the standard NaI(Tl) Ø63×63 + R1307
+> detector (PMT at ~565 V): **Cs-137 6.7–6.9 % FWHM**. Tail pile-up peeling in the firmware: on a ~20 kcps mix about
+> 17 400 cps are accepted without loss of resolution; ADC code nonlinearity (DNL) correction. Details — findings log
+> [`SPEC.md`](firmware/board_g474cb/SPEC.md) §10 (Russian).
 
 ---
 
@@ -30,11 +32,11 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 | Detector | NaI(Tl) Ø63×63 mm |
 | PMT | Hamamatsu R1307 (8-stage, Ø76 mm) |
 | Energy range | 50 keV – 3.5 MeV |
-| FWHM @ Cs-137 | **6.9 % measured** (NaI 40×40, PMT from a Sypher build); target for 63×63 — 6.0–6.5 % |
+| FWHM @ Cs-137 | **6.7–6.9 % measured** (standard NaI 63×63 + R1307, HV ~565 V) |
 | Spectrum channels | 8192 |
 | Count rate | up to ~30 000 cps |
 | MCU | STM32G474CBT6 (LQFP-48) @ 156 MHz, 12-bit ADC (signal at 3.47 Msps), on-chip op-amps |
-| HV supply | 0 … −1200 V, ~750 V in operation (MAX1847 + 4-stage CW multiplier) |
+| HV supply | 0 … −1200 V, ~565 V in operation on the standard PMT (MAX1847 + 4-stage CW multiplier) |
 | Interface | USB-C → UART 600 kbps (FT231X), shproto protocol |
 | Power | USB 5 V, ~370 mA |
 | Form factor | Cylindrical stack, Ø45 mm boards |
@@ -77,7 +79,7 @@ NaI(Tl) + R1307             Divider board                 MCU board
 ─────────────    ─────────────────────────────   ──────────────────────────────────
  Scintillation →  Divider (7.72 MΩ chain)     →  OPAMP1: integrator, τ=1 µs
  τ_decay=230 ns   Active buffers (Dy6/7/8)        OPAMP2: integrator, τ=1.8 µs
- PMT at ~750 V    ADA4817 TIA, Zt=2.7 kΩ       →  PGA ×4 (OPAMP3)
+ PMT at ~565 V    ADA4817 TIA, Zt=2.7 kΩ       →  PGA ×4 (OPAMP3)
                                                    V_ADC = 0.394 V baseline
                                                    ADC3_IN1, 3.47 Msps
                                                    pulse: 5–6-sample rise, 3.6 µs FWHM
@@ -87,7 +89,7 @@ NaI(Tl) + R1307             Divider board                 MCU board
 
 **ADC polarity:** the anode sinks current ⇒ the TIA output swings up ⇒ pulses are **positive** w.r.t. the 0.394 V baseline → `amplitude = sample − baseline`
 
-### Energy Calibration (measured: NaI 40×40, ~755 V, Ra-226)
+### Energy Calibration (measured on the earlier temporary NaI 40×40 detector, ~755 V, Ra-226)
 
 5-point calibration in BecqMoni: `E[keV] = −6.01 + 0.5518·x + 6.63·10⁻⁶·x²` (x — channel).
 The curvature is mostly NaI light-yield non-proportionality, not the electronics.
@@ -102,7 +104,7 @@ The curvature is mostly NaI light-yield non-proportionality, not the electronics
 | Bi-214 | 1764 keV | 3107 | 1773 keV |
 | Ceiling | 3.5 MeV | ≈5930 | — |
 
-Peak positions are set by the HV: for another detector, Cs is placed at channel ~1160–1200 by tuning the HV.
+Peak positions are set by the HV: Cs is placed at channel ~1160–1200 by tuning the HV (~565 V on the standard detector).
 
 ---
 
@@ -117,10 +119,10 @@ Peak positions are set by the HV: for another detector, Cs is placed at channel 
 | PCB fabrication | ✅ Received (PS-Electro, 1.5 mm, no silkscreen) |
 | Components | ✅ All received and checked |
 | Assembly and first power-up | ✅ Stack assembled, flashed over UART via the system bootloader, HV under load, signal chain healthy |
-| STM32 firmware | ✅ Clean firmware [`firmware/gamma_fw/`](firmware/gamma_fw/) on the board: detector with a pulse-shape template (taken from the real chain), HV with trimming, Pt1000, settings and calibration in flash, updates over the COM port; accepted by BecqMoni. Spec and findings log — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) (Russian) |
-| Signal-chain tuning | ✅ Shaper reworked for long shaping, R417 2.7 kΩ: Cs 7.8 → 6.9 %, HV 1030 → ~750 V |
-| Target detector NaI 63×63 + R1307 | ⏭ Next stage: HV tuning, shape template, calibration |
-| Host software `gammapult` | ✅ Service console for the production firmware (GUI + CLI, single .exe): telemetry, HV and peak-based HV tuning, HV-monitor and Pt1000 calibration, threshold/PGA, DAC linearity self-test, shape-template and thermal-compensation wizards, **blank-device flashing and a commissioning wizard**, save to flash. Spectra and energy calibration — in BecqMoni |
+| STM32 firmware | ✅ Clean firmware [`firmware/gamma_fw/`](firmware/gamma_fw/) on the board: detector with a pulse-shape template (taken from the real chain), tail pile-up peeling, ADC DNL correction, HV with trimming, Pt1000, spectrum logger to the W25Q64 flash, settings (v4) and calibration in flash, updates over the COM port; accepted by BecqMoni. Spec and findings log — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) (Russian) |
+| Signal-chain tuning | ✅ Shaper reworked for long shaping, R417 2.7 kΩ: Cs 7.8 → 6.9 % (on 40×40), HV 1030 → ~750 V |
+| Standard detector NaI 63×63 + R1307 | ✅ Installed since 2026-11-09, HV ~565 V, Cs-137 6.7–6.9 % FWHM. Remaining: thermal compensation and the board revision — [`docs/revision_todo.md`](docs/revision_todo.md) (Russian) |
+| Host software `gammapult` | ✅ Release v0.7.0: service console for the production firmware (GUI + CLI, single .exe; new UI — home screen, setup wizard, advanced mode): telemetry, HV and peak-based HV tuning, HV-monitor and Pt1000 calibration, threshold/PGA, DAC linearity self-test, shape-template and thermal-compensation wizards, **blank-device flashing and a commissioning wizard**, save to flash. Spectra and energy calibration — in BecqMoni |
 
 ---
 
@@ -152,6 +154,8 @@ gamma-spectrometer/
 
 ## Resolution (measured, Cs-137)
 
+Rows up to and including "The same Sypher detector" were measured on the temporary NaI 40×40 crystal.
+
 | Configuration | FWHM |
 |---|---|
 | First chain (pulse shorter than an ADC sample), ~1040 V | 7.6–7.8 % |
@@ -159,6 +163,7 @@ gamma-spectrometer/
 | Shaper V2 + R417 2.7 kΩ, ~755 V | 7.1 % |
 | Same, 40×40 crystal with higher light yield, 735 V | **6.9 %** |
 | The same Sypher detector on its own electronics (in energy, keV) | 7.08 % |
+| **Standard NaI 63×63 + R1307**, ~565 V (since 2026-11-09) | **6.7–6.9 %** |
 
 An HV scan on the new chain decomposes as FWHM² = a² + (b/channel)²: a constant part a ≈ 7.0 %
 (crystal + PMT + processing) and electronics noise of ≈0.8 % at the Cs channel. Resolution is limited by
@@ -176,6 +181,7 @@ Compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) and [nanopro](http
 - Cmd `0x01`: spectrum (up to 8192 × 32-bit channels)
 - Cmd `0x04`: status (elapsed time, CPS, invalid pulses)
 - Keep-alive: `0xFF` from PC every ~1 s
+- Optional `-baud` command (up to 3 Mbaud) is RAM-only: after 5 s without host frames the device falls back to 600 000
 
 Full reference: [docs/en/protocol.md](docs/en/protocol.md).
 

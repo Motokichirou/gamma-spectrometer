@@ -8,8 +8,9 @@ The device is a cylindrical stack of four Ø45 mm PCBs mounted directly behind a
 NaI(Tl) Ø63×63 mm scintillator coupled to a Hamamatsu R1307 PMT. A single
 USB-C cable exits from the end cap, carrying both power and data.
 
-> The first prototype is assembled and operational. It was initially debugged on a temporary NaI(Tl) 40×40
-> detector with an R1306-class PMT (Cs-137 6.9 % FWHM at ~750 V). The standard 63×63 + R1307 configuration is the next step.
+> The first prototype is assembled and operational. Since 2026-11-09 it carries the standard NaI(Tl) 63×63 + R1307
+> detector (HV ~565 V, Cs-137 6.7–6.9 % FWHM). It was initially debugged on a temporary NaI(Tl) 40×40
+> detector with an R1306-class PMT (6.9 % at ~750 V).
 
 ## PCB Stack (bottom → top)
 
@@ -70,6 +71,7 @@ USB-C interface and all stack power buses.
 - **+5V_HV** — raw USB 5 V through an LC filter to the HV board.
 - ESD protection **PRTR5V0U2X** on USB data lines.
 - USB 2.0 budget ≈ 370 mA < 500 mA.
+- ⚠ On v1 boards pin 4 of U104 (TPS60400) sits on a GND island with no via: the pump had no ground, −5V_A = +2.3 V. Fixed with a jumper to the C113 GND pad; corrected in `.kicad_pcb`, the fabricated boards carry the jumper.
 
 Detailed schematic: [`docs/usb_power_board_schematic.md`](../usb_power_board_schematic.md) (Russian).
 
@@ -81,7 +83,7 @@ Generates a regulated negative high voltage for the PMT.
   drain spike of 43–45 V) + transformer **ATB322524** (1:10.2).
 - Primary snubber: BAS516 + 10 nF (100 V) + 2×BZT52C18.
 - **4-stage** Cockcroft–Walton multiplier (8 BAV23S diodes), calculated limit −1500 V;
-  firmware limits the setpoint to 1200 V (multiplier — 1300 V). Operating HV ~750 V.
+  firmware limits the setpoint to 1200 V (multiplier — 1300 V). Operating HV on the standard PMT ~565 V.
 - Powered from the raw +5V_HV bus (not from clean analog buses).
 - Output RC filter (3×100 kΩ + HV capacitors): output ripple — single-digit nV.
 - Feedback: CW output → 1 GΩ divider → MAX1847 error amplifier; `V_HV = −V_CTRL × 454.5`.
@@ -132,7 +134,7 @@ Active PMT divider and input amplifier, closest to the tube.
   Protective B–E diodes D401–D403 (1N4148W) — against reverse breakdown during HV ramp.
 - **ADA4817-1ARDZ** transimpedance amplifier (TIA): anode directly to −IN (virtual
   ground), `Rf = R417 = 2.7 kΩ`, `Cf = 4.7 pF` (NP0), feedback pole ≈12.5 MHz. Initially
-  Rf was 499 Ω at HV ~1040 V; with 2.7 kΩ the PMT operates at ~750 V with the same resolution, and anode
+  Rf was 499 Ω at HV ~1040 V; with 2.7 kΩ the PMT ran at ~750 V with the same resolution (on the 40×40), and anode
   current is five times lower. Output has 22 Ω (without it TIA oscillates on real
   input capacitance 3.4–4.6 pF, found via parasitic simulation).
 - Powered from ±5V_A, supplied via the stack.
@@ -142,4 +144,5 @@ Detailed doc: [`docs/divider_board.md`](../divider_board.md) (Russian).
 ---
 
 See [firmware.md](firmware.md) — digital pulse processing. Resolution measurements and calibration —
-in the root [README](../../README.en.md).
+in the root [README](../../README.en.md). What to change in the next board revision (NRST, BOOT0, SWD, Pt1000 ground, SYNC,
+direct MCU↔USB ground, a designed shield, Gerber re-export) — [`docs/revision_todo.md`](../revision_todo.md) (Russian).

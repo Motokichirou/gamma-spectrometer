@@ -32,7 +32,7 @@ It enumerates as a virtual COM port (FT231X) at **600 000 bit/s, 8N1**.
 | `0x01` | Spectrum chunk | `[offset u16 LE][channel u32 LE × N]` (each value masked with `0x7FFFFFF`) |
 | `0x02` | Pulse shape / raw samples | `[offset u16][total u16][sample u16 × N]` — response to `-osc` |
 | `0x03` | Text | UTF-8/ASCII text (command responses, reports) |
-| `0x04` | Status | `[elapsed u32][cpu_load u16][cps u32][invalid u32]` |
+| `0x04` | Status | `[elapsed u32][cpu_load u16 (×0.1 %)][cps u32][invalid u32]` |
 
 Notes:
 
@@ -58,11 +58,14 @@ Notes:
 | `-cal <i> <hex>` | Write calibration word `i` (0..10), response `-ok\r\n` |
 | `-sho` | AtomSpectra compatibility · response `-ok collecting\r\n` |
 | `-thr [codes]` | Detector threshold in **ADC codes** (0 — auto 5σ; no argument — query); response `-ok thr <N>\r\n` |
+| `-baud [N]` | Temporary UART speed (600000, 1000000, 1500000, 2000000, 3000000); the `-ok baud <N>` reply goes out at the old speed. RAM-only: after 5 s without valid host frames the device falls back to 600000; an unsupported speed gives `-err baud` |
+| `-pile [on\|off]`, `-dnl …`, `-tlw`/`-tlm`/`-tlok` | Tail pile-up peeling and ADC DNL correction: replies `-ok pile on\|off`, `-ok dnl N code:shift …`, `-ok tl` |
 | `-hv`, `-gst`, `-diag`, `-osc`, `-dac`, `-opa`, `-tplw` … | Device service commands — full list in [firmware.md](firmware.md#commands) |
 | `!boot` | Turn off HV and enter system bootloader (firmware update) |
 
-> **Command acks are strictly `-ok\r\n`** (or `-err\r\n`): the AtomSpectra app checks
-> the response EXACTLY, BecqMoni truncates at the first `\r` — the format is compatible with both.
+> **BecqMoni command acks are strictly `-ok\r\n`** (or `-err\r\n`): the AtomSpectra app checks
+> the response EXACTLY, BecqMoni truncates at the first `\r` — the format is compatible with both. Service commands
+> reply with a single `-ok …` / `-err …` line carrying values.
 
 > `-thr` and service commands are at the **application level** of our device. They do not
 > change the shproto frame format. `-cal` is compatible with BecqMoni (see below). Unknown command — `-err unknown\r\n`.
@@ -79,7 +82,15 @@ Two BecqMoni specifics that the firmware must satisfy:
 - Arbitrary commands (e.g., `-gst` or `-hv 750`) can be entered in the command line on the
   device tab in BecqMoni.
 
-Reference host implementation — `firmware/gamma_fw/tools/gfw.py`.
+Reference host implementation — `firmware/gamma_fw/tools/gfw.py`; the full-featured console is `gammapult` (`host/`).
+
+## `-gst` Reply
+
+A single line `-ok gst hv=<on|off> hv_set=… hv_ramp=… hv_out=… hv_ceil=… hv_trim=… hv_pwm=… hv_trip=… hv_boot=… hv_zero=… hv_k=…
+mon_mv=… vdd=… vref=… vref_ok=… t=… pt=… pt_raw=… pt_rpu=… base=… sigma=… cps_in=… cps_acc=… rej=… thr=… pile=<on|off|->
+rec=… dnl=… rej_swpb=<shape>/<width>/<pileup>/<budget> live_s=… real_s=… cpu=… lost=… overrun=… saved=<1|0|-> flash=…`,
+followed, when present, by `hv_off=<reason of the last switch-off>` (free text). `pile=-` — no tail table, `dnl` — number of pairs
+in the correction list, `saved` — RAM settings equal to flash. Key order follows `core/svc.c`; parse by key, not by position.
 
 ## BecqMoni Energy Calibration (`-cal`)
 
