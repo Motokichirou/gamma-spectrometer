@@ -802,7 +802,7 @@ void TabTemplate()
     if (g_tpl_state == 2) {
         ImGui::TextWrapped("%s", g_tpl_info.c_str());
         ImGui::PushStyleColor(ImGuiCol_Text, g_tpl_res.ok ? c_ok : c_danger);
-        ImGui::TextWrapped("%s", g_tpl_res.msg.c_str());
+        ImGui::TextWrapped("%s", tpl::result_text(g_tpl_res).c_str());
         ImGui::PopStyleColor();
         if (g_tpl_res.ok) {
             static float xs[tpl::NS * tpl::NPH], ys[tpl::NS * tpl::NPH];

@@ -67,6 +67,10 @@ bool baud_allowed(uint32_t baud);                // 600 000, 1 000 000, 1 500 00
 // ответ на "-baud [N]": N из "-ok baud N"; −1 — "-err baud" / "-err unknown" (старая прошивка); 0 — не ответ -baud
 long parse_baud_reply(const std::string& reply);
 
+// Ответ на команду очереди: 0 — не он (фоновая телеметрия "-ok gst …" и прочее), 1 — "-ok…", 2 — "-err…".
+// Телеметрию -gst прибор шлёт сам раз в секунду, она не может закрыть ожидание ответа очереди.
+int queue_reply_kind(const std::string& line);
+
 // ключ строки i18n по коду GetLastError() открытия порта
 const char* connect_hint_key(unsigned long win_error);
 

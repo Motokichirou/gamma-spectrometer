@@ -309,4 +309,13 @@ long parse_baud_reply(const std::string& r0)
     return (long)v;
 }
 
+int queue_reply_kind(const std::string& t)
+{
+    auto starts = [&](const char* p) { return t.compare(0, strlen(p), p) == 0; };
+    if (starts("-ok gst")) return 0;
+    if (starts("-err")) return 2;
+    if (starts("-ok")) return 1;
+    return 0;
+}
+
 } // namespace ds

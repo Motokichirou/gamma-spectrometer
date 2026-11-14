@@ -34,7 +34,9 @@ Singles find_singles(const std::vector<std::vector<uint16_t>>& blocks,
 
 struct Result {
     bool ok = false;
-    std::string msg;
+    // причина, если не построен (текст — result_text, через T() в потоке UI; рабочий поток T() не зовёт)
+    enum Err { None = 0, Few, Shape } err = None;
+    int n_found = 0;                          // Few: сколько одиночных нашлось
     int q[NPH][NS] = {};                      // строки эталона Q14
     int n = 0;                                // импульсов в эталоне
     double sigma = 0;
@@ -81,6 +83,7 @@ int count_singles(const std::vector<std::vector<uint16_t>>& blocks, size_t from,
 
 Result build(const Singles& s, int refine = 3, bool pp = true, int pp_iters = 4);
 
+std::string result_text(const Result& r);   // итог или причина отказа на языке интерфейса (ключи tpl.* в i18n.cpp)
 std::string header(const Result& r, const char* name = "tpl_pmt", const char* note = "эталон с реального тракта (gammapult)");
 std::vector<std::string> commands(const Result& r);   // 64 × "-tplw p v0..v6" (без -tplok)
 
@@ -94,7 +97,6 @@ struct Tail {
     int16_t s[TL_ROWS][TL_LEN] = {};
     uint8_t row[NPH] = {};
     double rms_pct = 0;                       // систематика: МНК-средний остаток одиночных по (строке, j), rms, % A
-    std::string msg;                          // итог текстом на языке интерфейса (tail_text), для CLI и журнала
     // причина, если не построена (текст — tail_text, через T()): 0 — построена
     enum Err { None = 0, NoTpl, Few, NoTime, Cleaned, Shape } err = None;
     int n_all = 0;                            // одиночных с тишиной до +LPOST (Singles::lwins)

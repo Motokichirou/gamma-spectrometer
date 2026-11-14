@@ -2,6 +2,7 @@
 // Правила строк: кнопки глаголом; без «—» и «–», кроме диапазонов «3–5»; формат printf (%d, %s)
 // в ru и en одинаковый. Строки шагов мастера здесь короткие, полные тексты добавляет мастер.
 #include "i18n.h"
+#include <atomic>
 #include <cstring>
 #include <set>
 #include <unordered_map>
@@ -606,6 +607,10 @@ static const I18nEntry k_table[] = {
                             "The tail table is loaded, pile-up recovery is on." },
     { "tail.ok",            "одиночных %d из %d, время импульса %.2f…%.2f отсч. от максимума, остаток %.3f %% A (наибольший %.3f %%), шум %.2f кода; ниже нуля с +%d, минимум %.2f %%",
                             "%d of %d single pulses, pulse time %.2f…%.2f samples from the maximum, residual %.3f %% A (largest %.3f %%), noise %.2f codes; below zero from +%d, minimum %.2f %%" },
+    { "tpl.ok",             "импульсов %d, невязка (медиана) %.2f %%, ширина формы %.1f отсч., размах фотопика по фазам %.2f %% → %.2f %%",
+                            "%d pulses, residual (median) %.2f %%, shape width %.1f samples, photopeak spread over phases %.2f %% → %.2f %%" },
+    { "tpl.few",            "мало импульсов: %d (нужно ≥ %d)", "too few pulses: %d (need ≥ %d)" },
+    { "tpl.shape",          "форма не годится: максимум строки не на позиции 1", "the shape is unusable: the row maximum is not at position 1" },
     { "tail.no_tpl",        "нет эталона формы",              "no pulse template" },
     { "tail.few",           "мало одиночных импульсов с тишиной до +%d отсчётов: %d, нужно не меньше %d",
                             "too few single pulses with quiet up to +%d samples: %d, at least %d needed" },
@@ -754,7 +759,8 @@ static const I18nEntry k_table[] = {
     { "dev.lg.reading",     "читаю запись %zu из %zu…",       "reading record %zu of %zu…" },
 };
 
-static Lang g_lang = Lang::Ru;
+// язык читается атомарно; T() зовут только из потока UI (g_missing не защищён) — рабочие потоки хранят коды
+static std::atomic<Lang> g_lang{ Lang::Ru };
 static std::vector<std::string> g_missing;
 
 static const std::unordered_map<std::string, const I18nEntry*>& index_()
@@ -767,8 +773,8 @@ static const std::unordered_map<std::string, const I18nEntry*>& index_()
     return m;
 }
 
-void i18n_set(Lang l) { g_lang = l; }
-Lang i18n_get() { return g_lang; }
+void i18n_set(Lang l) { g_lang.store(l); }
+Lang i18n_get() { return g_lang.load(); }
 size_t i18n_count() { return sizeof k_table / sizeof k_table[0]; }
 const std::vector<std::string>& i18n_missing() { return g_missing; }
 
@@ -783,7 +789,7 @@ const char* T(const char* key)
         if (!seen) g_missing.emplace_back(key);
         return key;
     }
-    return g_lang == Lang::En ? it->second->en : it->second->ru;
+    return g_lang.load() == Lang::En ? it->second->en : it->second->ru;
 }
 
 static bool is_digit_(unsigned char c) { return c >= '0' && c <= '9'; }

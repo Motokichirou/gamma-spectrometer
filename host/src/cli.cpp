@@ -208,7 +208,7 @@ int run_cli(int argc, char** argv)
         printf("порций %d, σ шума %.2f кода; пересечений %d, одиночных %d, в 100…1200 кодов %d\n",
                s.blocks, s.sigma, s.cross, s.single, s.amp);
         tr = tpl::build(s);
-        printf("%s\n", tr.msg.c_str());
+        printf("%s\n", tpl::result_text(tr).c_str());
         if (!tr.ok) return 4;
         std::string out = opt(argc, argv, "--out");
         if (!out.empty()) {
@@ -217,7 +217,7 @@ int run_cli(int argc, char** argv)
         }
         // таблица хвоста (разбор наложений) — по тем же одиночным и новому эталону
         tt = tpl::build_tail(s, tr);
-        printf("таблица хвоста: %s\n", tt.msg.c_str());
+        printf("таблица хвоста: %s\n", tpl::tail_text(tt).c_str());
         if (tt.ok) {
             printf("строки (время от максимума, отсч. / масштаб):");
             for (int r = 0; r < tpl::TL_ROWS; r++) printf(" %.3f/%.4f", tt.t_row[r], tt.k_row[r]);

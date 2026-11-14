@@ -741,7 +741,7 @@ static void test_build_tail_synthetic()
     CHECK(r.ok);
     tpl::Tail t = tpl::build_tail(s, r);
     CHECK(t.ok);
-    if (!t.ok) { printf("  tail: %s\n", t.msg.c_str()); return; }
+    if (!t.ok) { printf("  tail: %s\n", tpl::tail_text(t).c_str()); return; }
     // форма: u50 — 50 % фронта, gmax — максимум
     double gmax = 0, u50 = 0;
     for (int i = 0; i <= 20000; i++) gmax = std::max(gmax, tail_g(i * 0.001));
@@ -920,6 +920,38 @@ static void test_tpl_load()
 }
 
 // текст итога таблицы хвоста — из таблицы строк, на обоих языках
+static void test_tpl_text()
+{
+    tpl::Result r;
+    for (auto e : { tpl::Result::Few, tpl::Result::Shape }) {
+        r.err = e; r.n_found = 77;
+        i18n_set(Lang::Ru); std::string ru = tpl::result_text(r);
+        i18n_set(Lang::En); std::string en = tpl::result_text(r);
+        CHECK(!ru.empty() && !en.empty() && ru != en);
+        CHECK(ru.find("tpl.") == std::string::npos && en.find("tpl.") == std::string::npos);
+    }
+    r.ok = true; r.err = tpl::Result::None; r.n = 1234;
+    i18n_set(Lang::Ru);
+    CHECK(tpl::result_text(r).find("1234") != std::string::npos);
+    r.ok = false; r.err = tpl::Result::Few; r.n_found = 77;
+    CHECK(tpl::result_text(r).find("77") != std::string::npos && tpl::result_text(r).find("640") != std::string::npos);
+}
+
+// очередь команд: фоновая телеметрия -gst не закрывает ожидание ответа, следующий "-err" засчитывается
+static void test_queue_reply()
+{
+    CHECK(ds::queue_reply_kind("-ok gst hv=1000 t=20") == 0);
+    CHECK(ds::queue_reply_kind("-ok") == 1 && ds::queue_reply_kind("-ok saved") == 1 && ds::queue_reply_kind("-ok tplw") == 1);
+    CHECK(ds::queue_reply_kind("-err dnl") == 2);
+    CHECK(ds::queue_reply_kind("GammaSpec") == 0);
+    bool wait = true; int errors = 0;
+    for (const char* l : { "-ok gst hv=1000", "-err dnl bad", "-ok gst hv=1000" }) {
+        int k = ds::queue_reply_kind(l);
+        if (wait && k) { wait = false; if (k == 2) errors++; }
+    }
+    CHECK(errors == 1 && !wait);
+}
+
 static void test_tail_text()
 {
     tpl::Tail t;
@@ -1176,6 +1208,8 @@ int main()
     test_save_tail_bin();
     test_tpl_load();
     test_tail_text();
+    test_tpl_text();
+    test_queue_reply();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();

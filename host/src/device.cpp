@@ -325,7 +325,7 @@ void Device::on_text(const std::string& t0)
         else { raw.bad++; if (t.find("acq") != std::string::npos) send_cmd("-sto", true); }
         return;
     }
-    if (q_wait_ && (starts(t, "-ok") || starts(t, "-err"))) {
+    if (q_wait_ && ds::queue_reply_kind(t) != 0) {
         q_wait_ = false;
         if (starts(t, "-err")) { queue_errors++; queue_last_err = t; }
         if (starts(t, "-ok tc")) {

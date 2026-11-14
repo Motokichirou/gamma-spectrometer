@@ -428,7 +428,7 @@ void WriteReport()
 
     // эталон формы
     if (w.tpl_phase == 4) {
-        fprintf(f, "Эталон формы: записан сейчас; %s", w.tpl_res.msg.c_str());
+        fprintf(f, "Эталон формы: записан сейчас; %s", tpl::result_text(w.tpl_res).c_str());
         if (w.tpl_partial) fprintf(f, " (одиночных %d из заданных %d: вышел предел времени)", w.tpl_n, w.tpl_target);
         fprintf(f, "\n");
         const char* ts = !w.tpl_tail.ok ? "не построена, разбор выключен; " :
@@ -757,10 +757,10 @@ void BodyTpl(bool primary)
         else if (w.tpl_load.tail_ok) PassLine(true, Fmt(T("wiz.tpl.tail_ok"), w.tpl_tail.rms_pct));
         else Small(c_warn, Fmt(T("wiz.tpl.tail_fail"), w.tpl_load.tail_err.c_str()).c_str());
     }
-    if (w.tpl_phase >= 3 && w.tpl_res.ok) Small(c_text_dim, w.tpl_res.msg.c_str());
+    if (w.tpl_phase >= 3 && w.tpl_res.ok) Small(c_text_dim, tpl::result_text(w.tpl_res).c_str());
     if (w.tpl_phase == 5) {
         if (w.tpl_few) Para(c_danger, Fmt(T("wiz.tpl.few"), w.tpl_n, MinSec(w.tpl_el).c_str()).c_str());
-        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg + (w.tpl_load.tpl_err.empty() ? "" : " " + w.tpl_load.tpl_err)).c_str()).c_str());
+        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + tpl::result_text(w.tpl_res) + (w.tpl_load.tpl_err.empty() ? "" : " " + w.tpl_load.tpl_err)).c_str()).c_str());
     }
     ImGui::Spacing();
     TplPulsePlots(w.tpl_phase >= 3 && w.tpl_res.ok ? &w.tpl_res : nullptr);

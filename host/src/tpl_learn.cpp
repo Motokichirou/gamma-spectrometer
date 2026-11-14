@@ -394,7 +394,7 @@ Result build(const Singles& s, int refine, bool pp, int pp_iters)
     Result R;
     R.sigma = s.sigma;
     const auto& wins = s.wins;
-    if ((int)wins.size() < NPH * 10) { R.msg = "мало импульсов: " + std::to_string(wins.size()) + " (нужно ≥ 640)"; return R; }
+    if ((int)wins.size() < NPH * 10) { R.err = Result::Few; R.n_found = (int)wins.size(); return R; }
     size_t n = wins.size();
     std::vector<double> key(n), E(n);
     for (size_t k = 0; k < n; k++) {
@@ -420,7 +420,7 @@ Result build(const Singles& s, int refine, bool pp, int pp_iters)
         if (it < refine) key = fit_tau(wins, f);
     }
     double r7[NPH][NS];
-    if (!rows_from_shape(f, r7)) { R.msg = "форма не годится: максимум строки не на позиции 1"; return R; }
+    if (!rows_from_shape(f, r7)) { R.err = Result::Shape; return R; }
     // ширина на половине высоты
     { double a = 1e300, b = -1e300; for (size_t g = 0; g < f.S.size(); g++) if (f.S[g] >= 0.5) { a = std::min(a, f.x[g]); b = std::max(b, f.x[g]); } R.fwhm50 = b - a; }
     // общая форма для экрана (каждый 4-й узел: шаг 1/16 отсчёта). Вплетённые 64 строки дают «пилу» с
@@ -457,11 +457,21 @@ Result build(const Singles& s, int refine, bool pp, int pp_iters)
     R.resid_med = 100.0 * median(res);
     R.n = (int)n;
     R.ok = true;
-    char b[200];
-    snprintf(b, sizeof b, "импульсов %d, невязка (медиана) %.2f %%, ширина формы %.1f отсч., размах фотопика по фазам %.2f %% → %.2f %%",
-             R.n, R.resid_med, R.fwhm50, R.spread_before, R.spread_after);
-    R.msg = b;
     return R;
+}
+
+std::string result_text(const Result& r)
+{
+    char b[300];
+    if (r.ok)
+        snprintf(b, sizeof b, T("tpl.ok"), r.n, r.resid_med, r.fwhm50, r.spread_before, r.spread_after);
+    else if (r.err == Result::Few)
+        snprintf(b, sizeof b, T("tpl.few"), r.n_found, NPH * 10);
+    else if (r.err == Result::Shape)
+        snprintf(b, sizeof b, "%s", T("tpl.shape"));
+    else
+        b[0] = 0;
+    return b;
 }
 
 std::string header(const Result& r, const char* name, const char* note)
@@ -567,7 +577,7 @@ Tail build_tail(const Singles& s, const Result& tpl)
     Tail T;
     const size_t n0 = s.lwins.size();
     T.n_all = (int)n0;
-    auto fail = [&](Tail::Err e) { T.err = e; T.ok = false; T.msg = tail_text(T); return T; };
+    auto fail = [&](Tail::Err e) { T.err = e; T.ok = false; return T; };
     if (!tpl.ok) return fail(Tail::NoTpl);
     if ((int)n0 < TL_MIN) return fail(Tail::Few);
     // A и фаза — подгонкой эталона по окну −1…+5 от максимума, как в детекторе
@@ -740,7 +750,6 @@ Tail build_tail(const Singles& s, const Result& tpl)
     int smin = 0;
     for (int j = 0; j < TL_LEN; j++) { int v = T.s[TL_ROWS / 2][j]; if (v < smin) smin = v; if (!T.jneg && v < 0) T.jneg = j + 1; }
     T.smin_pct = 100.0 * smin / 32768.0;
-    T.msg = tail_text(T);
     return T;
 }
 
