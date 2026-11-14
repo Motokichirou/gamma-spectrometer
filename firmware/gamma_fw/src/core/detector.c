@@ -276,6 +276,11 @@ static void pa_update(det_t *d)
 void det_set_tail(det_t *d, const det_tail_t *t)
 {
     d->tl = t;
+    d->tl_smin = 0;
+    if (t)
+        for (unsigned r = 0; r < DET_TL_ROWS; r++)
+            for (unsigned j = 0; j < DET_TL_LEN; j++)
+                if (t->s[r][j] < d->tl_smin) d->tl_smin = t->s[r][j];
     pa_update(d);
 }
 
@@ -634,6 +639,7 @@ typedef struct {
     uint32_t armed, stk_n;
     const uint16_t *rs;
     int carried, why;
+    uint32_t guard_left, dead;               /* guard_scan */
 } det_tsc_t;
 
 #define TS_BODY(PR) do {                                                     \
@@ -674,6 +680,72 @@ ts_out:
     return p;
 }
 #undef TS_BODY
+
+/* GUARD при разборе, пока список хвостов не пуст (после TAIL, после отбракованного импульса на хвосте):
+   взвод и триггер по остатку v − bint − pr с допуском |pr|/32, как TAIL/FRONT; мёртвые — невзведённые;
+   новейший хвост (последний в списке) ушёл за +DET_TL_LEN — список пуст, TS_DONE: этот отсчёт и дальше —
+   обычный GUARD по сырым. Пропуск спокойных (взведено, счёт ступеньки пуст, сырой ≤ bint + thr/2 − 1),
+   как в обычном GUARD, — только если хвосты не опускают остаток ниже thr: thr/2 − 1 + Pneg ≤ thr, где
+   Pneg ≥ −pr — граница по наименьшему отсчёту таблицы (tl_smin). Пропущенный отсчёт по поэлементной
+   проверке тоже дал бы сброс счёта ступеньки, без триггера и без смены взвода — поведение то же. */
+CCM_FUNC static const uint16_t *guard_scan(det_t *d, const uint16_t *s, const uint16_t *p, const uint16_t *pe,
+                                           const int32_t bint, const int32_t thr, const int32_t half,
+                                           const int32_t hl, det_tsc_t *c)
+{
+    uint32_t armed = c->armed, stk_n = c->stk_n, gl = c->guard_left, dead = c->dead;
+    const uint16_t *rs = c->rs;
+    int carried = c->carried;
+    int why = TS_END;
+    const unsigned nt = d->tl_n;
+    const uint32_t tlast = d->tl_t[nt - 1u];
+    const uint32_t q0 = d->pos0 + (uint32_t)(p - s);
+    /* отсчётов до конца хвостов: q ≤ tlast + DET_TL_LEN (q0 уже за ним — ноль) */
+    const uint32_t rem = (q0 - tlast <= DET_TL_LEN) ? tlast + DET_TL_LEN - q0 + 1u : 0u;
+    const uint16_t *const pend = ((size_t)(pe - p) > rem) ? p + rem : pe;
+    int64_t neg = 0;
+    if (d->tl_smin < 0)
+        for (unsigned k = 0; k < nt; k++) neg += (int64_t)d->tl_a[k] * -d->tl_smin;
+    const int32_t pneg = (int32_t)(neg >> 32) + 2;
+    const int32_t lq = bint + half - 1;
+    const uint32_t lqu = (uint32_t)(lq > 65535 ? 65535 : lq);
+    const int skip_ok = lq >= 0 && half - 1 + pneg <= thr;
+    const int one = nt == 1u;
+    const int32_t a = d->tl_a[0];
+    const int16_t *const r = d->tl_r[0];
+    uint32_t j = q0 - tlast - 1u;
+    while (p < pend) {
+        if (armed && stk_n == 0u && skip_ok && *p <= lqu) {
+            const uint16_t *const p1 = p;
+            do p++; while (p < pend && *p <= lqu);
+            const uint32_t k = (uint32_t)(p - p1);
+            rs = p;
+            gl = gl > k ? gl - k : 0u;
+            j += k;
+            continue;
+        }
+        int32_t pr;
+        if (one) pr = (j < DET_TL_LEN) ? (int32_t)((0x80000000LL + (int64_t)a * r[j]) >> 32) : 0;
+        else     pr = tl_pred(d, d->pos0 + (uint32_t)(p - s));
+        const int32_t tol = (pr < 0 ? -pr : pr) >> 5;
+        const int32_t v = *p;
+        const int32_t dev = v - bint - pr;
+        if (armed && dev > thr + tol) { why = TS_TRIG; goto gs_out; }
+        if (v - bint < hl) {
+            stk_n = 0; rs = p + 1; carried = 0;
+        } else if (++stk_n >= DET_BASE_N) {
+            why = TS_REBASE; goto gs_out;
+        }
+        p++; j++;
+        if (dev < half + tol) armed = 1;
+        if (!armed) dead++;
+        if (gl) gl--;
+    }
+    if (p < pe) { d->tl_n = 0; why = TS_DONE; }
+gs_out:
+    c->armed = armed; c->stk_n = stk_n; c->rs = rs; c->carried = carried; c->why = why;
+    c->guard_left = gl; c->dead = dead;
+    return p;
+}
 
 /* суммы счёта ступеньки в det_t: перенесённые (carried) + Σ(s − bint), Σ(s − bint)² по [a, b) */
 static inline void stk_flush(det_t *d, uint32_t n_, int carried, const uint16_t *a, const uint16_t *b,
@@ -1050,7 +1122,7 @@ front_ok:
 tail:                                        /* пока хвосты > thr/2: взвод и триггер по остатку, время живое */
     if (pa) {                                /* цикл — tail_scan (взвод r < thr/2 + pr/32, триггер r > thr + pr/32);
                                                 без разбора TAIL не бывает — вызов из slow выброшен */
-        det_tsc_t tc = { armed, stk_n, rs, carried, TS_END };
+        det_tsc_t tc = { armed, stk_n, rs, carried, TS_END, 0u, 0u };
         p = tail_scan(d, s, p, pe, bint, thr, half, hl, &tc);
         armed = tc.armed; stk_n = tc.stk_n; rs = tc.rs; carried = tc.carried;
         if (tc.why == TS_TRIG) goto trigger;
@@ -1101,25 +1173,17 @@ guard:
                 if (guard_left == 0u) goto idle;
                 if (p >= pe) break;
             }
+            if (pa && d->tl_n) {                 /* остаток хвоста ещё не вычтен — по остатку (guard_scan) */
+                det_tsc_t gc = { armed, stk_n, rs, carried, TS_END, guard_left, dead };
+                p = guard_scan(d, s, p, pe, bint, thr, half, hl, &gc);
+                armed = gc.armed; stk_n = gc.stk_n; rs = gc.rs; carried = gc.carried;
+                guard_left = gc.guard_left; dead = gc.dead;
+                if (gc.why == TS_TRIG) goto trigger;
+                if (gc.why == TS_REBASE) goto rebase;
+                continue;                        /* TS_DONE — список пуст, отсчёт *p — по сырым; TS_END — конец */
+            }
             v = *p;
             dev = v - bint;
-            if (pa && d->tl_n) {                 /* GUARD после TAIL и т. п.: остаток хвоста ещё не вычтен */
-                const uint32_t q = d->pos0 + (uint32_t)(p - s);
-                if (q - d->tl_t[d->tl_n - 1u] > DET_TL_LEN) {
-                    d->tl_n = 0;                 /* новейший хвост (последний) кончился — кончились все */
-                } else {
-                    const int32_t pr = tl_pred(d, q);
-                    const int32_t tol = (pr < 0 ? -pr : pr) >> 5;   /* допуск — как в TAIL и FRONT */
-                    dev -= pr;
-                    if (armed && dev > thr + tol) goto trigger;
-                    STUCK(v, p + 1);
-                    p++;
-                    if (dev < half + tol) armed = 1;
-                    if (!armed) dead++;
-                    if (guard_left) guard_left--;
-                    continue;                    /* в IDLE — только когда список пуст */
-                }
-            }
             if (armed && dev > thr) goto trigger;
             STUCK(v, p + 1);
             p++;

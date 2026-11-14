@@ -259,6 +259,7 @@ typedef struct {
     uint8_t   pend_rec;           /* ждущий проверки фронта импульс подогнан по остатку */
     uint16_t  pend_ch;            /* его канал */
     uint8_t   pend_ph;            /* его фаза эталона */
+    int16_t   tl_smin;            /* наименьший отсчёт таблицы (det_set_tail; граница пропуска в GUARD) */
     float     pend_a;             /* его A, коды */
     int32_t   tl_a[DET_TL_MAXACT];        /* A·2^17 (A ≤ 8191) */
     uint32_t  tl_t[DET_TL_MAXACT];        /* номер отсчёта максимума в потоке */
