@@ -94,7 +94,12 @@ struct Tail {
     int16_t s[TL_ROWS][TL_LEN] = {};
     uint8_t row[NPH] = {};
     double rms_pct = 0;                       // систематика: МНК-средний остаток одиночных по (строке, j), rms, % A
-    std::string msg;
+    std::string msg;                          // итог текстом на языке интерфейса (tail_text), для CLI и журнала
+    // причина, если не построена (текст — tail_text, через T()): 0 — построена
+    enum Err { None = 0, NoTpl, Few, NoTime, Cleaned, Shape } err = None;
+    int n_all = 0;                            // одиночных с тишиной до +LPOST (Singles::lwins)
+    double smax = 0;                          // максимум формы S (Shape: не ≈ 1)
+    int jneg = 0; double smin_pct = 0;        // средняя строка: первый j ниже нуля, минимум, % A
     // для сверки: время импульса (≈ 50 % фронта) от максимума у фаз эталона, отсчёты: диапазон (фазы делятся
     // на строки 16 равными шагами по нему) и время каждой строки
     double off_lo = 0, off_hi = 0;
@@ -110,6 +115,32 @@ struct Tail {
 Tail build_tail(const Singles& s, const Result& tpl);
 std::vector<std::string> tail_commands(const Tail& t);   // 64 × -tlw, 4 × -tlm, -tlok
 bool save_tail_bin(const Tail& t, const std::string& path);   // s (int16 LE) подряд, затем row: 2112 байт
+std::string tail_text(const Tail& t);       // итог или причина отказа на языке интерфейса (ключи tail.* в i18n.cpp)
+
+// Запись эталона и таблицы хвоста в прибор по шагам. Очередь Device после "-err" идёт дальше, поэтому всё
+// сразу слать нельзя: при ошибке -tplok в приборе остаётся старый эталон, и -tlok включил бы хвост под чужой
+// эталон (а -save записал бы это во флеш). Шаги: [-tplw ×64, -tplok] → только если без ошибок: таблица
+// (-tlw ×64, -tlm ×4, -tlok), если построена → -save, если просили (и после ошибки таблицы: эталон верный).
+// Ошибка таблицы (в т. ч. старая прошивка без -tlw: -err unknown) эталон не отменяет.
+// Использование: v = start(...); queue(v); когда очередь пуста — v = next(новых ошибок, последняя ошибка), queue(v);
+// пусто и done() — конец.
+class TplLoad {
+public:
+    enum Stage { Idle, Tpl, TailSt, Save, Done };
+    std::vector<std::string> start(const Result& r, const Tail& t, bool save);
+    std::vector<std::string> next(int errors, const std::string& last_err);
+    bool busy() const { return stage != Idle && stage != Done; }
+    bool done() const { return stage == Done; }
+    Stage stage = Idle;
+    bool tpl_ok = false;                      // -tplw/-tplok без ошибок
+    bool tail_sent = false, tail_ok = false;  // таблица отправлена / принята (-tlok без ошибок)
+    bool save_sent = false, save_ok = false;
+    std::string tpl_err, tail_err, save_err;  // последняя ошибка шага
+private:
+    std::vector<std::string> after_tail();
+    std::vector<std::string> tail_cmds_;
+    bool save_ = false;
+};
 
 // дописать порции в открытый файл (uint16 LE × BLK подряд, как raw.bin) и выбросить их из памяти:
 // сбор сотен тысяч порций не копится в ОЗУ и при сбое не теряется. Порции не длины BLK — пропускаются.

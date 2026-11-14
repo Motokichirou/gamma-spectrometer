@@ -61,11 +61,12 @@ struct Wiz {
     // эталон: 0 — нет, 1 — сбор, 2 — расчёт, 3 — загрузка, 4 — готово, 5 — ошибка.
     // Сбор идёт до tpl_target одиночных импульсов в рабочем окне амплитуд, не дольше tpl_timeout с;
     // одиночные считаются на лету по новым порциям (tpl::count_singles)
-    int tpl_phase = 0, tpl_err0 = 0;
+    int tpl_phase = 0;
     std::atomic<int> tpl_state{ 0 };           // расчёт в потоке: 1 — считаю, 2 — готово
     tpl::Result tpl_res;
     tpl::Tail tpl_tail;                        // таблица хвоста (разбор наложений), пишется следом за эталоном
-    std::string tpl_qerr;                      // ошибка записи в прибор (-err …), для фазы 5
+    tpl::TplLoad tpl_load;                     // запись по шагам: таблица — только после -tplok без ошибок
+    int tpl_load_e0 = 0;                       // queue_errors в начале текущего шага записи
     int tpl_target = 10000; float tpl_timeout = 900.0f;
     double tpl_t0 = 0, tpl_el = 0;
     size_t tpl_counted = 0; int tpl_n = 0;     // порций просчитано, одиночных в них
@@ -430,8 +431,10 @@ void WriteReport()
         fprintf(f, "Эталон формы: записан сейчас; %s", w.tpl_res.msg.c_str());
         if (w.tpl_partial) fprintf(f, " (одиночных %d из заданных %d: вышел предел времени)", w.tpl_n, w.tpl_target);
         fprintf(f, "\n");
-        fprintf(f, "Таблица хвоста (разбор наложений): %s%s\n", w.tpl_tail.ok ? "записана; " : "нет, разбор выключен; ",
-                w.tpl_tail.msg.c_str());
+        const char* ts = !w.tpl_tail.ok ? "не построена, разбор выключен; " :
+                         w.tpl_load.tail_ok ? "записана, разбор включён; " : "прибор не принял, разбор не включён; ";
+        fprintf(f, "Таблица хвоста (разбор наложений): %s%s%s\n", ts, tpl::tail_text(w.tpl_tail).c_str(),
+                w.tpl_tail.ok && !w.tpl_load.tail_ok ? ("; " + w.tpl_load.tail_err).c_str() : "");
     }
     else {
         std::string nr = NotRun(R.tpl_unix);
@@ -750,13 +753,14 @@ void BodyTpl(bool primary)
         if (w.tpl_partial) Small(c_warn, Fmt(T("wiz.tpl.partial"), w.tpl_n, w.tpl_target).c_str());
         PassLine(w.tpl_res.resid_med < 1.0 && w.tpl_res.spread_after < 1.0,
                  Fmt(T("wiz.tpl.quality"), w.tpl_res.resid_med, w.tpl_res.spread_after));
-        if (w.tpl_tail.ok) PassLine(true, Fmt(T("wiz.tpl.tail_ok"), w.tpl_tail.rms_pct));
-        else Small(c_warn, Fmt(T("wiz.tpl.tail_none"), w.tpl_tail.msg.c_str()).c_str());
+        if (!w.tpl_tail.ok) Small(c_warn, Fmt(T("wiz.tpl.tail_none"), tpl::tail_text(w.tpl_tail).c_str()).c_str());
+        else if (w.tpl_load.tail_ok) PassLine(true, Fmt(T("wiz.tpl.tail_ok"), w.tpl_tail.rms_pct));
+        else Small(c_warn, Fmt(T("wiz.tpl.tail_fail"), w.tpl_load.tail_err.c_str()).c_str());
     }
     if (w.tpl_phase >= 3 && w.tpl_res.ok) Small(c_text_dim, w.tpl_res.msg.c_str());
     if (w.tpl_phase == 5) {
         if (w.tpl_few) Para(c_danger, Fmt(T("wiz.tpl.few"), w.tpl_n, MinSec(w.tpl_el).c_str()).c_str());
-        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg + (w.tpl_qerr.empty() ? "" : " " + w.tpl_qerr)).c_str()).c_str());
+        else Para(c_danger, Fmt(T("wiz.tpl.failed"), (R.msg + " " + w.tpl_res.msg + (w.tpl_load.tpl_err.empty() ? "" : " " + w.tpl_load.tpl_err)).c_str()).c_str());
     }
     ImGui::Spacing();
     TplPulsePlots(w.tpl_phase >= 3 && w.tpl_res.ok ? &w.tpl_res : nullptr);
@@ -1459,18 +1463,22 @@ void WizTick()
     }
     if (w.tpl_phase == 2 && w.tpl_state == 2) {
         if (w.tpl_res.ok) {
-            // эталон, -tplok (снимает прежнюю таблицу хвоста), затем таблица хвоста к нему: -tlw ×64, -tlm ×4, -tlok
-            w.tpl_err0 = g_dev.queue_errors; w.tpl_qerr.clear();
-            g_dev.queue(tpl::commands(w.tpl_res)); g_dev.queue({ "-tplok" });
-            if (w.tpl_tail.ok) g_dev.queue(tpl::tail_commands(w.tpl_tail));
+            // эталон и -tplok (снимает прежнюю таблицу хвоста); таблица к нему — только если -tplok без ошибок
+            w.tpl_load_e0 = g_dev.queue_errors;
+            g_dev.queue(w.tpl_load.start(w.tpl_res, w.tpl_tail, false));
             w.tpl_phase = 3;
         }
         else w.tpl_phase = 5;
     }
     if (w.tpl_phase == 3 && !g_dev.queue_busy()) {
-        w.tpl_phase = g_dev.queue_errors == w.tpl_err0 ? 4 : 5;
-        if (w.tpl_phase == 5) w.tpl_qerr = g_dev.queue_last_err;     // например, -err tl от -tlok
-        if (w.tpl_phase == 4) Record(ds::Step::Tpl);
+        auto v = w.tpl_load.next(g_dev.queue_errors - w.tpl_load_e0, g_dev.queue_last_err);
+        w.tpl_load_e0 = g_dev.queue_errors;
+        g_dev.queue(v);
+        if (w.tpl_load.done()) {
+            // ошибка таблицы (в т. ч. старая прошивка без -tlw) шаг не валит: эталон записан, разбор не включён
+            w.tpl_phase = w.tpl_load.tpl_ok ? 4 : 5;
+            if (w.tpl_phase == 4) Record(ds::Step::Tpl);
+        }
     }
 
     // разрешение: набор до fw_count импульсов в окне фотопика; пик и окно раз в секунду по живому спектру

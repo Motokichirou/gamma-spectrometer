@@ -744,17 +744,37 @@ static void test_build_tail_synthetic()
     double gmax = 0, u50 = 0;
     for (int i = 0; i <= 20000; i++) gmax = std::max(gmax, tail_g(i * 0.001));
     for (int i = 0; i <= 20000; i++) if (tail_g(i * 0.001) >= 0.5 * gmax) { u50 = i * 0.001; break; }
-    // строка r: время импульса от максимума — t_row[r], отсчёт imax + j — g(j − t_row + c).
-    // Начало отсчёта времени у таблицы — 50 % фронта по двум отсчётам в среднем по фазам, поэтому c ≈ u50
-    // с точностью до общего сдвига ≤ 0.1 отсчёта: c подбирается одна на всю таблицу
-    double emax = 1e9, cbest = u50;
-    for (int q = -100; q <= 100; q++) {
-        double c = u50 + q * 0.001, e = 0;
-        for (int rr = 0; rr < tpl::TL_ROWS; rr++) {
-            double off = t.t_row[rr];
-            for (int j = 0; j < tpl::TL_LEN; j++) e = std::max(e, fabs(t.s[rr][j] / 32768.0 - tail_g(j + 1 - off + c) / gmax));
+    // Сверка с аналитической формой: отсчёт imax + j строки r должен быть κ_r·(g(j − t_row[r] + u50 + δ_r)/gmax + b0).
+    // Явно отделены три величины, которые не являются ошибкой формы и проверяются отдельно:
+    //  - κ_r — масштаб строки: A подгонки эталона у её фаз отличается от истинной высоты на доли процента;
+    //  - δ_r — время строки: фазы эталона сопоставлены истинному времени импульса со смещением до ~0.05
+    //    отсчёта (подгонка 7 отсчётов выбирает фазу по χ², а не по времени). Таблица следует тому, что видит
+    //    детектор, а не g: это проверено по данным (max_pct ниже). Разброс δ_r ограничен 0.1 отсчёта;
+    //  - b0 — общая постоянная: база детектора — среднее спокойных отсчётов, а в них выброс в минус предыдущих
+    //    импульсов (у синтетики ≈ −0.1 % A); база берётся так же, как в приборе, поэтому общая постоянная
+    //    допускается, |b0| ≤ 0.2 % A.
+    // После этого форма строки на j = 5…64 обязана совпасть с g ≤ 0.1 % A (бриф).
+    auto dev_at = [&](int rr, int j, double d, double b0) {     // j = 1…64
+        return fabs(t.s[rr][j - 1] / (32768.0 * t.k_row[rr]) - (tail_g(j - t.t_row[rr] + u50 + d) / gmax + b0));
+    };
+    double efar = 1e9, b0best = 0, dr[tpl::TL_ROWS] = {};
+    for (int qb = -20; qb <= 20; qb++) {
+        double b0 = qb * 0.0001, e = 0, dd[tpl::TL_ROWS];
+        for (int rr = 0; rr < tpl::TL_ROWS && e < efar; rr++) {
+            double be = 1e9;
+            for (int q = -75; q <= 75; q++) {
+                double d = q * 0.002, er = 0;
+                for (int j = 5; j <= tpl::TL_LEN && er < be; j++) er = std::max(er, dev_at(rr, j, d, b0));
+                if (er < be) { be = er; dd[rr] = d; }
+            }
+            e = std::max(e, be);
         }
-        if (e < emax) { emax = e; cbest = c; }
+        if (e < efar) { efar = e; b0best = b0; for (int rr = 0; rr < tpl::TL_ROWS; rr++) dr[rr] = dd[rr]; }
+    }
+    double dmin = 1e9, dmax = -1e9, enear = 0;
+    for (int rr = 0; rr < tpl::TL_ROWS; rr++) {
+        dmin = std::min(dmin, dr[rr]); dmax = std::max(dmax, dr[rr]);
+        for (int j = 1; j <= 4; j++) enear = std::max(enear, dev_at(rr, j, dr[rr], b0best));
     }
     for (int rr = 0; rr < tpl::TL_ROWS; rr++) {
         CHECK(t.t_row[rr] >= t.off_lo - 1e-9 && t.t_row[rr] <= t.off_hi + 1e-9);
@@ -762,12 +782,18 @@ static void test_build_tail_synthetic()
     }
     bool neg = false;
     for (int rr = 0; rr < tpl::TL_ROWS; rr++) for (int j = 0; j < tpl::TL_LEN; j++) if (t.s[rr][j] < 0) neg = true;
-    printf("  tail synthetic: max |s − g| = %.4f %% A (сдвиг начала %+.3f отсч.), off %.3f…%.3f, rms_pct %.4f, max_pct %.4f\n",
-           100 * emax, cbest - u50, t.off_lo, t.off_hi, t.rms_pct, t.max_pct);
-    // по аналитической форме — с точностью до смещения A эталона по фазам (до ±0.3 % у синтетики):
-    // строка таблицы следует тому, что видит детектор (A и фаза подгонкой эталона), а не идеальной g
-    CHECK(emax <= 0.005);
-    CHECK(fabs(cbest - u50) < 0.1);
+    printf("  tail synthetic: max |s/κ − g| j 5…64 = %.4f %% A, j 1…4 = %.4f %% A; b0 %+.3f %%, δ_r %+.3f…%+.3f отсч.; "
+           "off %.3f…%.3f, rms_pct %.4f, max_pct %.4f\n",
+           100 * efar, 100 * enear, 100 * b0best, dmin, dmax, t.off_lo, t.off_hi, t.rms_pct, t.max_pct);
+    CHECK(efar <= 0.001);                              // j = 5…64: ≤ 0.1 % A (бриф)
+    CHECK(fabs(b0best) <= 0.002);
+    CHECK(dmax - dmin <= 0.1 && dmin > -0.15 + 1e-9 && dmax < 0.15 - 1e-9);
+    // j = 1…4 (вершина): строка берёт поправку на средний остаток своих импульсов (у реального эталона форма у
+    // вершины по фазам расходится сильнее, чем общая S со сдвигом и масштабом: на cs_only до 0.6 % A на j = 1).
+    // Поправка следует за подгонкой эталона по окну −1…+5, где смещение A у вершины не сводится к масштабу κ_r.
+    // Допуск 0.5 % A: на Δ ≤ 4 второй импульс прибор не принимает (проверка фронта, мин. Δ ≈ 12), эти отсчёты
+    // хвоста на амплитуду второго не влияют; по данным поправка проверена через max_pct (≤ 0.1 % на всех j).
+    CHECK(enear <= 0.005);
     // главное: хвост по таблице совпадает с хвостами одиночных (A и фаза подгонкой эталона, как в приборе)
     // на всех j = 1…64 и во всех строках ≤ 0.1 % A
     CHECK(t.max_pct <= 0.1);
@@ -822,6 +848,74 @@ static void test_save_tail_bin()
     int16_t w = (int16_t)(b[2 * 64] | (b[2 * 64 + 1] << 8));         // s[1][0] = 100
     CHECK(w == 100);
     CHECK(b[2048] == 0 && b[2048 + 63] == 15);                       // row
+}
+
+// запись эталона и таблицы по шагам: хвост и -save — только после -tplok без ошибок
+static void test_tpl_load()
+{
+    tpl::Result r; r.ok = true;
+    tpl::Tail t; t.ok = true;
+    tpl::Tail none;                                   // таблица не построена
+    {   // всё принято: эталон → таблица → -save
+        tpl::TplLoad L;
+        auto v = L.start(r, t, true);
+        CHECK(v.size() == 65u && v.back() == "-tplok" && v[0].rfind("-tplw 0 ", 0) == 0);
+        CHECK(L.busy() && !L.done());
+        v = L.next(0, "");
+        CHECK(v.size() == 69u && v[0].rfind("-tlw ", 0) == 0 && v.back() == "-tlok");
+        CHECK(L.tpl_ok && L.tail_sent);
+        v = L.next(0, "");
+        CHECK(v.size() == 1u && v[0] == "-save");
+        v = L.next(0, "");
+        CHECK(v.empty() && L.done() && L.tpl_ok && L.tail_ok && L.save_ok);
+    }
+    {   // -tplok не прошёл (-err): ни таблицы, ни -save — в приборе старый эталон
+        tpl::TplLoad L;
+        L.start(r, t, true);
+        auto v = L.next(1, "-err tpl rows");
+        CHECK(v.empty() && L.done() && !L.tpl_ok && !L.tail_sent && !L.save_sent);
+        CHECK(L.tpl_err == "-err tpl rows");
+    }
+    {   // старая прошивка: 69 × -err unknown на таблицу — эталон записан, -save идёт (эталон верный)
+        tpl::TplLoad L;
+        L.start(r, t, true);
+        L.next(0, "");
+        auto v = L.next(69, "-err unknown");
+        CHECK(v.size() == 1u && v[0] == "-save");
+        CHECK(L.tpl_ok && L.tail_sent && !L.tail_ok && L.tail_err == "-err unknown");
+        v = L.next(0, "");
+        CHECK(v.empty() && L.done() && L.save_ok);
+    }
+    {   // таблицы нет, без -save: после эталона — конец
+        tpl::TplLoad L;
+        L.start(r, none, false);
+        auto v = L.next(0, "");
+        CHECK(v.empty() && L.done() && L.tpl_ok && !L.tail_sent && !L.save_sent);
+        CHECK(L.next(0, "").empty());                 // после конца — ничего
+    }
+    {   // -save не прошёл
+        tpl::TplLoad L;
+        L.start(r, none, true);
+        CHECK(L.next(0, "") == std::vector<std::string>{ "-save" });
+        L.next(1, "-err save");
+        CHECK(L.done() && !L.save_ok && L.save_err == "-err save");
+    }
+}
+
+// текст итога таблицы хвоста — из таблицы строк, на обоих языках
+static void test_tail_text()
+{
+    tpl::Tail t;
+    for (auto e : { tpl::Tail::None, tpl::Tail::NoTpl, tpl::Tail::Few, tpl::Tail::NoTime, tpl::Tail::Cleaned, tpl::Tail::Shape }) {
+        t.err = e;
+        i18n_set(Lang::Ru); std::string ru = tpl::tail_text(t);
+        i18n_set(Lang::En); std::string en = tpl::tail_text(t);
+        CHECK(!ru.empty() && !en.empty() && ru != en);
+        CHECK(ru.find("tail.") == std::string::npos && en.find("tail.") == std::string::npos);
+    }
+    i18n_set(Lang::Ru);
+    t.err = tpl::Tail::Few; t.n_all = 12;
+    CHECK(tpl::tail_text(t).find("12") != std::string::npos);
 }
 
 // отчёт: шаг не проводился в этот раз — дата из прибора или «нет данных»
@@ -914,6 +1008,8 @@ int main()
     test_build_tail_synthetic();
     test_tail_commands();
     test_save_tail_bin();
+    test_tpl_load();
+    test_tail_text();
     test_report_not_run();
     test_wizard_records();
     test_home_logic();

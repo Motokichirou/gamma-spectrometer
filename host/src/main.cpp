@@ -84,7 +84,17 @@ static tpl::Result g_tpl_res;
 static tpl::Tail g_tpl_tail;                   // таблица хвоста к эталону (разбор наложений)
 static std::string g_tpl_info;
 static bool   g_tpl_loaded = false;
-static int    g_tpl_load_err0 = 0;
+static tpl::TplLoad g_tpl_load;                // запись по шагам: таблица — только после -tplok без ошибок
+static int    g_tpl_load_e0 = 0;               // queue_errors в начале текущего шага записи
+
+// шаги записи эталона со страницы «Эталон» — каждый кадр, даже если страница закрыта
+static void TplLoadTick()
+{
+    if (!g_tpl_load.busy() || g_dev.queue_busy()) return;
+    auto v = g_tpl_load.next(g_dev.queue_errors - g_tpl_load_e0, g_dev.queue_last_err);
+    g_tpl_load_e0 = g_dev.queue_errors;
+    g_dev.queue(v);
+}
 // термокомпенсация
 static float  g_tc_t0 = 25.0f;
 static int    g_tc_order = 1;
@@ -806,22 +816,24 @@ void TabTemplate()
             }
             ImGui::TextDisabled("%s", T("adv.tpl.norm"));
             ImGui::PushStyleColor(ImGuiCol_Text, g_tpl_tail.ok ? c_ok : c_warn);
-            ImGui::TextWrapped(T(g_tpl_tail.ok ? "adv.tpl.tail" : "adv.tpl.tail_none"), g_tpl_tail.msg.c_str());
+            ImGui::TextWrapped(T(g_tpl_tail.ok ? "adv.tpl.tail" : "adv.tpl.tail_none"), tpl::tail_text(g_tpl_tail).c_str());
             ImGui::PopStyleColor();
-            ImGui::BeginDisabled(!conn || g_dev.queue_busy() || g_dev.acquiring);
+            ImGui::BeginDisabled(!conn || g_dev.queue_busy() || g_tpl_load.busy() || g_dev.acquiring);
             if (PrimaryButton(Lbl("adv.tpl.load", "tplload").c_str(), ImVec2(-1, 0))) {
-                g_tpl_load_err0 = g_dev.queue_errors;
-                g_dev.queue(tpl::commands(g_tpl_res));
-                g_dev.queue({ "-tplok" });            // снимает прежнюю таблицу хвоста; новая следом
-                if (g_tpl_tail.ok) g_dev.queue(tpl::tail_commands(g_tpl_tail));
+                g_tpl_load_e0 = g_dev.queue_errors;  // -tplok снимает прежнюю таблицу; новая — после его -ok
+                g_dev.queue(g_tpl_load.start(g_tpl_res, g_tpl_tail, false));
                 g_tpl_loaded = true;
             }
             if (ImGui::Button(Lbl("adv.tpl.save", "tplsave").c_str(), ImVec2(-1, 0))) g_dev.send_cmd("-save");
             ImGui::EndDisabled();
             if (g_tpl_loaded) {
-                if (g_dev.queue_busy()) ImGui::TextUnformatted(T("adv.tpl.loading"));
-                else if (g_dev.queue_errors > g_tpl_load_err0) { ImGui::PushStyleColor(ImGuiCol_Text, c_danger); ImGui::TextWrapped(T("adv.tpl.load_err"), g_dev.queue_last_err.c_str()); ImGui::PopStyleColor(); }
-                else { ImGui::PushStyleColor(ImGuiCol_Text, c_ok); ImGui::TextUnformatted(T("adv.tpl.loaded")); ImGui::PopStyleColor(); }
+                if (g_tpl_load.busy() || g_dev.queue_busy()) ImGui::TextUnformatted(T("adv.tpl.loading"));
+                else if (!g_tpl_load.tpl_ok) { ImGui::PushStyleColor(ImGuiCol_Text, c_danger); ImGui::TextWrapped(T("adv.tpl.load_err"), g_tpl_load.tpl_err.c_str()); ImGui::PopStyleColor(); }
+                else {
+                    ImGui::PushStyleColor(ImGuiCol_Text, c_ok); ImGui::TextUnformatted(T("adv.tpl.loaded")); ImGui::PopStyleColor();
+                    if (g_tpl_load.tail_ok) { ImGui::PushStyleColor(ImGuiCol_Text, c_ok); ImGui::TextUnformatted(T("adv.tpl.tail_loaded")); ImGui::PopStyleColor(); }
+                    else if (g_tpl_load.tail_sent) { ImGui::PushStyleColor(ImGuiCol_Text, c_warn); ImGui::TextWrapped(T("adv.tpl.tail_fail"), g_tpl_load.tail_err.c_str()); ImGui::PopStyleColor(); }
+                }
             }
         }
     }
@@ -1111,6 +1123,7 @@ static void DrawApp()
     else                          DrawAdvanced(area, asz);
 
     WizTick();
+    TplLoadTick();
     DrawHelp();
 }
 

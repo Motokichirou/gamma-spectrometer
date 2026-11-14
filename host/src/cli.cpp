@@ -138,7 +138,7 @@ int run_cli(int argc, char** argv)
         }
         // таблица хвоста (разбор наложений) — по тем же одиночным и новому эталону
         tt = tpl::build_tail(s, tr);
-        printf("%s\n", tt.msg.c_str());
+        printf("таблица хвоста: %s\n", tt.msg.c_str());
         if (tt.ok) {
             printf("строки (время от максимума, отсч. / масштаб):");
             for (int r = 0; r < tpl::TL_ROWS; r++) printf(" %.3f/%.4f", tt.t_row[r], tt.k_row[r]);
@@ -371,17 +371,25 @@ int run_cli(int argc, char** argv)
         else printf("для оценки k1 мало точек или нет разброса температуры\n");
         printf("в приборе возвращено: %s\n", dev.tc_reply.c_str());
     } else if (tpl_build) {
-        dev.queue(tpl::commands(tr));
-        dev.queue({ "-tplok" });                 // таблицу хвоста в приборе снимает; новая следом
-        if (tt.ok) dev.queue(tpl::tail_commands(tt));
-        else printf("таблицы хвоста нет: разбор наложений в приборе будет выключен (pile=-)\n");
+        // по шагам (tpl::TplLoad): таблица и -save — только после -tplok без ошибок
         bool save = false;
         for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--save") == 0) save = true;
-        if (save) dev.queue({ "-save" });
-        while (dev.queue_busy()) pump(dev, 0.05);
-        printf("загрузка эталона%s: ошибок %d%s%s\n", tt.ok ? " и таблицы хвоста" : "", dev.queue_errors, dev.queue_errors ? " — " : "", dev.queue_last_err.c_str());
+        if (!tt.ok) printf("таблицы хвоста нет: разбор наложений в приборе будет выключен (pile=-)\n");
+        tpl::TplLoad L;
+        int e0 = dev.queue_errors;
+        dev.queue(L.start(tr, tt, save));
+        while (!L.done()) {
+            while (dev.queue_busy()) pump(dev, 0.05);
+            auto v = L.next(dev.queue_errors - e0, dev.queue_last_err);
+            e0 = dev.queue_errors;
+            dev.queue(v);
+        }
+        if (!L.tpl_ok) printf("эталон не принят: %s; таблица хвоста и -save не отправлялись\n", L.tpl_err.c_str());
+        else printf("эталон принят\n");
+        if (L.tail_sent) printf("таблица хвоста: %s\n", L.tail_ok ? "принята, разбор наложений включён" : ("не принята, разбор наложений не включён: " + L.tail_err).c_str());
+        if (L.save_sent) printf("-save: %s\n", L.save_ok ? "ok" : L.save_err.c_str());
         printf("ответ: %s\n", dev.last_reply.c_str());
-        rc = dev.queue_errors ? 5 : 0;
+        rc = !L.tpl_ok || (L.save_sent && !L.save_ok) ? 5 : (L.tail_sent && !L.tail_ok) ? 6 : tail_rc;
     } else if (sub == "tpl" && argc >= 3 && std::string(argv[2]) == "collect") {
         int n = atoi(opt(argc, argv, "--n", "2000").c_str());
         std::string out = opt(argc, argv, "--out");

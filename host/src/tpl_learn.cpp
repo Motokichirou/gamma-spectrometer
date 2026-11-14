@@ -2,6 +2,7 @@
 // find_singles → build_rows (ранг признака f, затем refine × ранг времени τ по всей форме) →
 // rows_from_shape → поправка масштаба строк по фотопику (pp_scale × pp_iters) → Q14.
 #include "tpl_learn.h"
+#include "i18n.h"
 #include <algorithm>
 #include <numeric>
 #include <cmath>
@@ -490,11 +491,13 @@ std::vector<std::string> commands(const Result& r)
 }
 
 
-// ---- таблица хвоста (разбор наложений): порт tools/pileup/shape.py ----
-// одиночные с тишиной до +LPOST → A и фаза подгонкой эталона (как детектор) → время импульса по 50 % фронта
-// (CFD), off[фаза] = медиана (t_cfd − imax) → общая форма S(τ) на сетке 1/16 отсчёта (МНК по A, хвост
-// τ > 15 сглажен ±1 отсчёт) → чистка одиночных по остатку > 6σ (неотловленные импульсы на хвосте) →
-// строки: 16 равных шагов по диапазону off, s[r][j − 1] = S(j − off_r).
+// ---- таблица хвоста (разбор наложений): порт tools/pileup/shape.py с уточнениями ----
+// одиночные с тишиной до +LPOST (база — среднее спокойных отсчётов) → A и фаза подгонкой эталона (как детектор)
+// → время импульса по 50 % фронта (CFD), off[фаза] = медиана (t_cfd − imax) → общая форма S(τ) на сетке 1/16
+// отсчёта (МНК по A; хвост τ > 15 — квадратичный Савицкий-Голей по соседним целым отсчётам) → чистка одиночных
+// по остатку > 6σ → off[фаза] уточняется подгонкой к S (2 итерации) → строки: фазы делятся 16 равными шагами по
+// диапазону off; время строки t_r — среднее off её импульсов с весом A²; масштаб κ_r — МНК по её импульсам;
+// s[r][j − 1] = κ_r·S(j − t_r); у вершины (j ≤ 4) — поправка на средний остаток импульсов строки.
 static const int TL_MIN = 300;   // одиночных с тишиной до +LPOST, меньше — таблица не строится
 static const int TL_GRID = 16;   // шагов сетки S на отсчёт
 static const int TL_NEAR = 4;    // у вершины (j ≤ 4) строка берёт поправку по своим импульсам
@@ -562,13 +565,11 @@ static TailShape tail_shape(const std::vector<LWin>& lw, const std::vector<doubl
 Tail build_tail(const Singles& s, const Result& tpl)
 {
     Tail T;
-    if (!tpl.ok) { T.msg = "хвост: нет эталона"; return T; }
     const size_t n0 = s.lwins.size();
-    if ((int)n0 < TL_MIN) {
-        T.msg = "хвост: мало одиночных с тишиной до +" + std::to_string(LPOST) + ": " + std::to_string(n0) +
-                " (нужно ≥ " + std::to_string(TL_MIN) + ")";
-        return T;
-    }
+    T.n_all = (int)n0;
+    auto fail = [&](Tail::Err e) { T.err = e; T.ok = false; T.msg = tail_text(T); return T; };
+    if (!tpl.ok) return fail(Tail::NoTpl);
+    if ((int)n0 < TL_MIN) return fail(Tail::Few);
     // A и фаза — подгонкой эталона по окну −1…+5 от максимума, как в детекторе
     std::vector<Win> wins(n0);
     for (size_t k = 0; k < n0; k++) for (int i = 0; i < W; i++) wins[k][i] = s.lwins[k][LPRE - PRE + i];
@@ -604,7 +605,7 @@ Tail build_tail(const Singles& s, const Result& tpl)
         off[p] = v.size() > 5 ? median(v) : NaN;
         if (std::isfinite(off[p])) known.push_back(p);
     }
-    if (known.empty()) { T.msg = "хвост: не найдено время импульса ни для одной фазы"; return T; }
+    if (known.empty()) return fail(Tail::NoTime);
     fill_off(known);
     std::vector<double> tsp(n0, 0.0);
     std::vector<size_t> use;
@@ -655,15 +656,12 @@ Tail build_tail(const Singles& s, const Result& tpl)
         clean();
     }
     if ((int)keep.size() < TL_MIN) {
-        T.msg = "хвост: после чистки осталось " + std::to_string(keep.size()) + " одиночных (нужно ≥ " + std::to_string(TL_MIN) + ")";
-        return T;
+        T.n = (int)keep.size();
+        return fail(Tail::Cleaned);
     }
     f = tail_shape(s.lwins, A, tsp, keep);
-    double smax = *std::max_element(f.S.begin(), f.S.end());
-    if (!(smax > 0.8 && smax < 1.2)) {
-        char b[160]; snprintf(b, sizeof b, "хвост: максимум формы %.3f, а должен быть ≈ 1 (форма не сходится с эталоном)", smax);
-        T.msg = b; return T;
-    }
+    T.smax = *std::max_element(f.S.begin(), f.S.end());
+    if (!(T.smax > 0.8 && T.smax < 1.2)) return fail(Tail::Shape);
     // строки таблицы: фазы сгруппированы 16 равными шагами по диапазону off; время строки — среднее off её
     // импульсов (вес A², как у МНК), а не середина шага: фазы ложатся в шаг неравномерно (у эталона с
     // реального тракта бывают и пропуски), и середина шага дала бы лишнее смещение
@@ -739,13 +737,10 @@ Tail build_tail(const Singles& s, const Result& tpl)
     T.off_lo = lo; T.off_hi = hi;
     T.n = (int)keep.size();
     T.ok = true;
-    int jneg = 0, smin = 0;
-    for (int j = 0; j < TL_LEN; j++) { int v = T.s[TL_ROWS / 2][j]; if (v < smin) smin = v; if (!jneg && v < 0) jneg = j + 1; }
-    char b[320];
-    snprintf(b, sizeof b, "хвост: одиночных %d из %zu, время импульса %.2f…%.2f отсч. от максимума, "
-             "остаток %.3f %% A rms (наибольший %.3f %%), шум %.2f кода rms; ниже нуля с +%d, минимум %.2f %%",
-             T.n, n0, lo, hi, T.rms_pct, T.max_pct, T.noise_rms, jneg, 100.0 * smin / 32768.0);
-    T.msg = b;
+    int smin = 0;
+    for (int j = 0; j < TL_LEN; j++) { int v = T.s[TL_ROWS / 2][j]; if (v < smin) smin = v; if (!T.jneg && v < 0) T.jneg = j + 1; }
+    T.smin_pct = 100.0 * smin / 32768.0;
+    T.msg = tail_text(T);
     return T;
 }
 
@@ -781,6 +776,63 @@ bool save_tail_bin(const Tail& t, const std::string& path)
     bool ok = fwrite(buf, 1, n, f) == n;
     if (fclose(f) != 0) ok = false;
     return ok;
+}
+
+std::string tail_text(const Tail& t)
+{
+    char b[512];
+    switch (t.err) {
+    case Tail::None:
+        snprintf(b, sizeof b, T("tail.ok"), t.n, t.n_all, t.off_lo, t.off_hi, t.rms_pct, t.max_pct, t.noise_rms, t.jneg, t.smin_pct);
+        break;
+    case Tail::NoTpl:   snprintf(b, sizeof b, "%s", T("tail.no_tpl")); break;
+    case Tail::Few:     snprintf(b, sizeof b, T("tail.few"), LPOST, t.n_all, TL_MIN); break;
+    case Tail::NoTime:  snprintf(b, sizeof b, "%s", T("tail.no_time")); break;
+    case Tail::Cleaned: snprintf(b, sizeof b, T("tail.cleaned"), t.n, TL_MIN); break;
+    case Tail::Shape:   snprintf(b, sizeof b, T("tail.shape"), t.smax); break;
+    default:            b[0] = 0; break;
+    }
+    return b;
+}
+
+std::vector<std::string> TplLoad::start(const Result& r, const Tail& t, bool save)
+{
+    *this = TplLoad();
+    save_ = save;
+    if (t.ok) tail_cmds_ = tail_commands(t);
+    std::vector<std::string> v = commands(r);
+    v.push_back("-tplok");
+    stage = Tpl;
+    return v;
+}
+
+std::vector<std::string> TplLoad::after_tail()
+{
+    if (save_) { save_sent = true; stage = Save; return { "-save" }; }
+    stage = Done;
+    return {};
+}
+
+std::vector<std::string> TplLoad::next(int errors, const std::string& last_err)
+{
+    switch (stage) {
+    case Tpl:
+        if (errors) { tpl_err = last_err; stage = Done; return {}; }     // эталон не принят: ни хвоста, ни -save
+        tpl_ok = true;
+        if (!tail_cmds_.empty()) { tail_sent = true; stage = TailSt; return tail_cmds_; }
+        return after_tail();
+    case TailSt:
+        tail_ok = errors == 0;
+        if (errors) tail_err = last_err;
+        return after_tail();
+    case Save:
+        save_ok = errors == 0;
+        if (errors) save_err = last_err;
+        stage = Done;
+        return {};
+    default:
+        return {};
+    }
 }
 
 } // namespace tpl
