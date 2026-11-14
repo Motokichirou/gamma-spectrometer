@@ -11,7 +11,7 @@
 Ui g_ui;
 
 static const char* APP_NAME    = "gammapult";
-static const char* APP_VERSION = "v0.6.0";
+static const char* APP_VERSION = "v0.7.0";
 // высоты полос при 100 %; в пикселях — × theme::scale()
 static const float TOP_H_100 = 52.0f, STATUS_H_100 = 28.0f;
 
