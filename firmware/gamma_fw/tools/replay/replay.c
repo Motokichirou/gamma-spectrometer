@@ -16,6 +16,9 @@
 #include <string.h>
 #include "detector.h"
 
+#ifndef REPLAY_FITS_PILE              /* бюджет порции при разборе; /DREPLAY_FITS_PILE=95 — без среза для опытов */
+#define REPLAY_FITS_PILE DET_MAX_FITS_BOARD_PILE
+#endif
 #define BLK 8192u
 #define GAP (1u << 20)
 static uint32_t hist[DET_CHANNELS], hist_rec[DET_CHANNELS];
@@ -77,7 +80,7 @@ int main(int argc, char **argv)
     FILE *f = fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "не открыть %s\n", argv[1]); return 2; }
     det_cfg_t cfg = { (uint16_t)thr, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD,
-                      DET_MAX_FITS_BOARD_PILE };   /* как main.c */
+                      REPLAY_FITS_PILE };   /* как main.c */
     det_init(&d, &cfg, tpl_pmt, emit);
     det_set_gain(&d, gain);
     if (tail_path) det_set_tail(&d, &tl);
