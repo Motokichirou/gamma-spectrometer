@@ -1,5 +1,6 @@
 @echo off
 rem Сборка replay (MSVC). build.cmd путь\к\tpl_pmt.h  — эталон, с которым гонять детектор
+rem usage: out\replay.exe raw.bin out.csv [thr] [gain] [tail.bin] [ev.csv]
 setlocal
 set HERE=%~dp0
 set SRC=%HERE%..\..\src\core

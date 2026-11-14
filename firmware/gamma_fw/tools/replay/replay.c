@@ -1,49 +1,126 @@
 /* replay.c — прогон детектора прошивки (src/core/detector.c) по сырым порциям на ПК.
- * Сборка: tools\replay\build.cmd. Запуск: replay raw.bin out.csv [thr] [gain]
+ * Сборка: tools\replay\build.cmd. Запуск: replay raw.bin out.csv [thr] [gain] [tail.bin]
  *   raw.bin — порции uint16 × 8192 подряд (gammapult tpl collect); эталон — /FI заголовок tpl_pmt.h.
- *   Между порциями — разрыв во времени: детектор в GUARD без взвода (ждёт спада ниже thr/2).
- * Итог: спектр out.csv (channel,count) и статистика детектора. */
+ *   thr 0 (или не задан) — авто-порог, gain — 1.
+ *   tail.bin — таблица хвоста (gammapult tpl build … --tail-out, 2112 Б: s[16][64] int16 LE, row[64]):
+ *   задана — det_set_tail, разбор хвостовых наложений включён; нет (или «-») — прежний детектор.
+ *   Между порциями — разрыв во времени: det_add_lost (хвосты сбрасываются), детектор в GUARD без
+ *   взвода (ждёт спада ниже thr/2).
+ * Итог: спектр out.csv (channel,count), с разбором ещё out.csv → *_rec.csv (только восстановленные —
+ * принятые с вычетом хвоста предыдущего) и *_com.csv (остальные принятые); статистика детектора,
+ * живое время (отсчёты минус мёртвые, без искусственных разрывов между порциями).
+ * ev.csv (только с tail.bin) — принятые события: порция, отсчёт максимума в порции (из списка хвостов
+ * детектора, −1 — неизвестен), канал, восстановлен ли (для синтетических пар tools/pileup/synpairs.py). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "detector.h"
 
 #define BLK 8192u
-static uint32_t hist[DET_CHANNELS];
-static void emit(uint16_t ch) { hist[ch]++; }
+#define GAP (1u << 20)
+static uint32_t hist[DET_CHANNELS], hist_rec[DET_CHANNELS];
+static det_t d;
+static uint32_t rec_seen, blk_start, blk_no;
+static FILE *evf;
+static void emit(uint16_t ch)
+{
+    hist[ch]++;
+    const int rec = d.st.recovered != rec_seen;      /* recovered++ перед emit */
+    if (rec) { rec_seen = d.st.recovered; hist_rec[ch]++; }
+    if (evf) {   /* с разбором выдача — из front_accept: максимум импульса — последний хвост списка */
+        const long pos = d.tl_n ? (long)(d.tl_t[d.tl_n - 1u] - blk_start) : -1L;
+        fprintf(evf, "%u,%ld,%u,%d\n", blk_no, pos, ch, rec);
+    }
+}
+
+static int write_csv(const char *path, const uint32_t *h, const uint32_t *sub)
+{
+    FILE *o = fopen(path, "w");
+    if (!o) { fprintf(stderr, "не записать %s\n", path); return 0; }
+    fprintf(o, "channel,count\n");
+    for (unsigned i = 0; i < DET_CHANNELS; i++) fprintf(o, "%u,%u\n", i, h[i] - (sub ? sub[i] : 0u));
+    fclose(o);
+    return 1;
+}
+
+static void suffixed(char *dst, size_t n, const char *path, const char *suf)
+{
+    const char *dot = strrchr(path, '.');
+    size_t stem = dot ? (size_t)(dot - path) : strlen(path);
+    snprintf(dst, n, "%.*s%s%s", (int)stem, path, suf, dot ? dot : "");
+}
 
 int main(int argc, char **argv)
 {
-    if (argc < 3) { fprintf(stderr, "replay raw.bin out.csv [thr] [gain]\n"); return 1; }
+    if (argc < 3) { fprintf(stderr, "replay raw.bin out.csv [thr] [gain] [tail.bin] [ev.csv]\n"); return 1; }
     unsigned thr = argc > 3 ? (unsigned)atoi(argv[3]) : 0u;
     float gain = argc > 4 ? (float)atof(argv[4]) : 1.0f;
+    const char *tail_path = (argc > 5 && strcmp(argv[5], "-") != 0) ? argv[5] : NULL;
+    static det_tail_t tl;
+    if (tail_path) {
+        FILE *t = fopen(tail_path, "rb");
+        if (!t) { fprintf(stderr, "не открыть %s\n", tail_path); return 2; }
+        uint8_t raw[sizeof tl.s + sizeof tl.row];
+        size_t got = fread(raw, 1, sizeof raw, t);
+        int extra = fgetc(t) != EOF;
+        fclose(t);
+        if (got != sizeof raw || extra) { fprintf(stderr, "%s: нужно %u байт\n", tail_path, (unsigned)sizeof raw); return 2; }
+        for (unsigned r = 0; r < DET_TL_ROWS; r++)
+            for (unsigned j = 0; j < DET_TL_LEN; j++) {
+                const uint8_t *p = raw + 2u * (r * DET_TL_LEN + j);
+                tl.s[r][j] = (int16_t)(uint16_t)(p[0] | (p[1] << 8));
+            }
+        memcpy(tl.row, raw + sizeof tl.s, sizeof tl.row);
+        for (unsigned p = 0; p < DET_NPH; p++)
+            if (tl.row[p] >= DET_TL_ROWS) { fprintf(stderr, "%s: row[%u] = %u\n", tail_path, p, tl.row[p]); return 2; }
+    }
     FILE *f = fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "не открыть %s\n", argv[1]); return 2; }
-    static det_t d;
     det_cfg_t cfg = { (uint16_t)thr, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD };
     det_init(&d, &cfg, tpl_pmt, emit);
     det_set_gain(&d, gain);
+    if (tail_path) det_set_tail(&d, &tl);
+    if (tail_path && argc > 6) {
+        evf = fopen(argv[6], "w");
+        if (!evf) { fprintf(stderr, "не записать %s\n", argv[6]); return 3; }
+        fprintf(evf, "blk,pos,channel,rec\n");
+    }
     static uint16_t b[BLK];
     unsigned nb = 0;
     while (fread(b, 2, BLK, f) == BLK) {
         if (nb) {
-            det_add_lost(&d, 1u << 20);
+            det_add_lost(&d, GAP);
             d.state = 3; d.guard_left = DET_GUARD; d.armed = 0;   /* DET_S_GUARD, без взвода */
         }
+        blk_start = d.pos0; blk_no = nb;
         det_process_block(&d, b, BLK);
         nb++;
     }
     fclose(f);
+    if (evf) fclose(evf);
     det_stats_t st; det_get_stats(&d, &st);
-    printf("порций %u, база %.2f σ %.2f порог %u\n", nb, det_baseline(&d), det_sigma(&d), det_thr(&d));
+    printf("порций %u, база %.2f σ %.2f порог %u, разбор %s\n", nb, det_baseline(&d), det_sigma(&d), det_thr(&d),
+           det_pile_active(&d) ? "вкл" : "выкл");
     unsigned long long trig = (unsigned long long)st.accepted + st.rej_pileup + st.rej_shape + st.rej_width + st.rej_budget;
-    printf("принято %u, наложения %u, форма %u, ширина %u, бюджет %u (всего %llu, брак %.1f %%)\n",
-           st.accepted, st.rej_pileup, st.rej_shape, st.rej_width, st.rej_budget, trig,
+    printf("принято %u, наложения %u (фронт %u), форма %u, ширина %u, бюджет %u (всего %llu, брак %.2f %%)\n",
+           st.accepted, st.rej_pileup, st.rej_front, st.rej_shape, st.rej_width, st.rej_budget, trig,
            trig ? 100.0 * (double)(trig - st.accepted) / (double)trig : 0.0);
-    FILE *o = fopen(argv[2], "w");
-    if (!o) return 3;
-    fprintf(o, "channel,count\n");
-    for (unsigned i = 0; i < DET_CHANNELS; i++) fprintf(o, "%u,%u\n", i, hist[i]);
-    fclose(o);
+    const unsigned long long total = (unsigned long long)nb * BLK;
+    const unsigned long long dead = st.dead_samples - (unsigned long long)(nb ? nb - 1u : 0u) * GAP;
+    const double live_s = (double)(total - dead) / (double)DET_FS_HZ;
+    printf("восстановлено %u, мёртвых отсчётов %llu из %llu (%.2f %%), живое %.4f с из %.4f, принято/живое %.1f имп/с\n",
+           st.recovered, dead, total, total ? 100.0 * (double)dead / (double)total : 0.0,
+           live_s, (double)total / (double)DET_FS_HZ, live_s > 0 ? (double)st.accepted / live_s : 0.0);
+    printf("STAT acc=%u pile=%u front=%u shape=%u width=%u budget=%u rec=%u dead=%llu total=%llu live_s=%.6f thr=%u\n",
+           st.accepted, st.rej_pileup, st.rej_front, st.rej_shape, st.rej_width, st.rej_budget, st.recovered,
+           dead, total, live_s, det_thr(&d));
+    if (!write_csv(argv[2], hist, NULL)) return 3;
+    if (tail_path) {
+        char p[1024];
+        suffixed(p, sizeof p, argv[2], "_rec");
+        if (!write_csv(p, hist_rec, NULL)) return 3;
+        suffixed(p, sizeof p, argv[2], "_com");
+        if (!write_csv(p, hist, hist_rec)) return 3;
+    }
     return 0;
 }

@@ -8,6 +8,8 @@
 #   run.sh --only new|ref  только один вариант
 #   run.sh --equiv         сверка нового детектора со старым на ARM бит в бит (без подсчёта тактов)
 #   параметры: --rate 30000 --blocks 20 --seed 1 --kind cs|am|co|dac
+#   run.sh --raw порции.bin --tplh tpl.h --tail tail.bin [--thr 17] [--blocks 20] [--skip 0]
+#                          такты на записанных данных, разбор хвостов выкл и вкл (план 2026-11-13, задача 5)
 #
 # Модель тактов (ARM Cortex-M4 TRM r0p1, табл. 3-1; FPU — табл. 7-1), упрощённо:
 #   АЛУ, MUL/SMLA*/SMLAD/SMLAL/UMULL — 1; MLA/MLS — 2; SDIV/UDIV — 7 (худшее ≈ 12, типично 2…7);
@@ -61,12 +63,12 @@ FLAGS = ['-mcpu=cortex-m4', '-mthumb', '-mfpu=fpv4-sp-d16', '-mfloat-abi=hard',
          '-std=gnu11', '-O2', '-g', '-Wall', '-Wextra', '-fno-math-errno',
          '-ffunction-sections', '-fdata-sections', '-DSTM32G474xx']
 
-def build(variant, det_ram=False):
+def build(variant, det_ram=False, extra=(), tag_sfx=''):
     tc = toolchain()
     os.makedirs(OUT, exist_ok=True)
-    tag = variant + ('_ram' if det_ram else '')
+    tag = variant + ('_ram' if det_ram else '') + tag_sfx
     elf = os.path.join(OUT, tag + '.elf')
-    srcs, defs = [os.path.join(HERE, 'harness.c')], (['-DDET_IN_RAM'] if det_ram else [])
+    srcs, defs = [os.path.join(HERE, 'harness.c')], (['-DDET_IN_RAM'] if det_ram else []) + list(extra)
     if variant in ('new', 'both'):
         srcs.append(os.path.join(FW, 'src', 'core', 'detector.c')); defs.append('-DWITH_NEW')
     if variant in ('ref', 'both'):
@@ -415,6 +417,68 @@ def measure(variant, args):
              tot=tot, nblk=nblk, mem=emu.mem_pen / max(1, trig))
     return r
 
+def measure_raw(args):
+    """--raw: такты на записанных порциях (эталон --tplh, таблица хвоста --tail), разбор выкл и вкл,
+    тот же детектор (src/core/detector.c), DET_GUARD 40 и ширина 4…56, как на плате. Порции подряд,
+    без разрывов; первые две — разгон базы (не считаются)."""
+    tplh = os.path.abspath(args.tplh).replace(os.sep, '/')
+    elf, syms, funcs = build('new', True, ['-DDET_GUARD=40u', f'-DTPL_FILE="{tplh}"'], '_pmt')
+    tail = open(args.tail, 'rb').read()
+    assert len(tail) == 2112, 'таблица хвоста — 2112 байт'
+    raw = np.fromfile(args.raw, dtype='<u2', count=(args.blocks + 2) * BLK, offset=args.skip * BLK * 2)
+    nblk = len(raw) // BLK - 2
+    res = []
+    Emu.want_prof = bool(args.prof)
+    for on in (0, 1):
+        emu = Emu(elf, syms, funcs, count=True, memmodel=not args.no_mem)
+        emu.call('new_init_pmt', args.thr, 95, 4, 56)          # DET_MAX_FITS_BOARD, DET_MINW/MAXW_BOARD
+        emu.write('h_tail', tail)
+        emu.call('new_settail', on)
+        emu.write('h_buf', raw[:2 * BLK].tobytes())
+        for b in range(2):
+            emu.call('new_block', b * BLK, BLK)
+        st0 = stats_of(emu, 'new_')
+        rec0 = struct.unpack_from('<I', emu.read('new_out'), 24)[0]
+        emu.reset_counts()
+        data = raw[2 * BLK:]
+        for b0 in range(0, nblk, 16):
+            nb = min(16, nblk - b0)
+            emu.write('h_buf', data[b0 * BLK:(b0 + nb) * BLK].tobytes())
+            for b in range(nb):
+                emu.call('new_block', b * BLK, BLK)
+        st1 = stats_of(emu, 'new_')
+        rec1 = struct.unpack_from('<I', emu.read('new_out'), 24)[0]
+        if args.prof and on:                        # такты по адресам функции --prof (на порцию), разбор вкл
+            lo, hi = emu.func_range(args.prof)
+            dis = {}
+            for ln in open(os.path.join(OUT, 'new_ram_pmt.dis'), encoding='utf-8'):
+                m = re.match(r'\s*([0-9a-f]+):\s+(.*)', ln)
+                if m:
+                    dis[int(m.group(1), 16)] = m.group(2)
+            for a_ in sorted(k for k in emu.pcprof if lo <= k < hi):
+                print(f'{a_:08x} {emu.pcprof[a_] / nblk:9.1f}  {dis.get(a_, "")}')
+        d = {k: st1[k] - st0[k] for k in st1}
+        tot, fast = emu.cyc, emu.fcyc.get('fast_scan', 0)
+        fit = sum(v for k, v in emu.fcyc.items() if k in ('fit', 'fit_p'))
+        trig = d['accepted'] + d['rej_shape'] + d['rej_width'] + d['rej_pileup'] + d['rej_budget']
+        res.append(dict(on=on, tot=tot, fast=fast, fit=fit, trig=trig, acc=d['accepted'], rec=rec1 - rec0,
+                        budget=d['rej_budget'], fits=d['accepted'] + d['rej_shape'],
+                        top=sorted(emu.fcyc.items(), key=lambda kv: -kv[1])[:8]))
+    blk_cyc = BLK / FS * CPU
+    print(f"== {os.path.basename(args.raw)}: порций {nblk} (с {args.skip + 2}-й), порог {args.thr}, "
+          f"эталон {os.path.basename(args.tplh)}, таблица {os.path.basename(args.tail)}")
+    for r in res:
+        print(f"  разбор {'вкл ' if r['on'] else 'выкл'}: триггеров {r['trig']} (принято {r['acc']}, "
+              f"восстановлено {r['rec']}, бюджет {r['budget']}); всё {r['tot'] / nblk:.0f} тактов/порцию "
+              f"(ЦП {100 * r['tot'] / nblk / blk_cyc:.1f} %), вне fast_scan {(r['tot'] - r['fast']) / max(1, r['trig']):.0f} "
+              f"тактов/триггер, подгонка {r['fit'] / max(1, r['fits']):.0f}/подгонку")
+        print('    по функциям, тактов/порцию: ' + ', '.join(f"{k} {v / nblk:.0f}" for k, v in r['top']))
+    a, b = res
+    pa_ = (a['tot'] - a['fast']) / max(1, a['trig']); pb_ = (b['tot'] - b['fast']) / max(1, b['trig'])
+    print(f"  итог: на триггер {pa_:.0f} → {pb_:.0f} тактов ({100 * (pb_ / pa_ - 1):+.1f} %), "
+          f"на порцию {a['tot'] / nblk:.0f} → {b['tot'] / nblk:.0f} ({100 * (b['tot'] / a['tot'] - 1):+.1f} %)")
+    return 0
+
 def report(r):
     name = {'ref': 'ДО (tests/detector_ref.c)', 'new': 'ПОСЛЕ (src/core/detector.c)'}[r['variant']]
     print(f"== {name}")
@@ -531,8 +595,15 @@ def main():
     ap.add_argument('--blocks', type=int, default=20)
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--kind', default='cs', choices=('cs', 'am', 'co', 'dac'))
+    ap.add_argument('--raw', help='записанные порции uint16×8192: такты с разбором хвостов и без (с --tplh, --tail)')
+    ap.add_argument('--tplh', help='--raw: эталон (gammapult tpl build --out tpl.h)')
+    ap.add_argument('--tail', help='--raw: таблица хвоста (gammapult tpl build --tail-out tail.bin)')
+    ap.add_argument('--thr', type=int, default=17, help='--raw: порог, коды')
+    ap.add_argument('--skip', type=int, default=0, help='--raw: пропустить порций с начала файла')
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding='utf-8')
+    if args.raw:
+        return measure_raw(args)
     if args.equiv:
         return equiv(args)
     res = [measure(v, args) for v in ((args.only,) if args.only else ('ref', 'new'))]
