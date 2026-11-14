@@ -19,6 +19,9 @@ static int t_pass_, t_fail_;
 } while (0)
 
 /* сбой — и упавшие проверки, и ни одной проверки (тест, который ничего не проверил, — не зелёный) */
+/* то же без печати (для самопроверки фреймворка в test_smoke) */
+#define T_RESULT() ((t_fail_ || !t_pass_) ? 1 : 0)
+
 #define T_DONE() (printf("%d passed, %d failed%s\n", t_pass_, t_fail_, \
                          t_pass_ + t_fail_ ? "" : " — НИ ОДНОЙ ПРОВЕРКИ"), \
                   (t_fail_ || !t_pass_) ? 1 : 0)

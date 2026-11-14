@@ -42,14 +42,21 @@ for %%T in (%TESTS%) do (
         type "%OUT%\build_%%T.log"
         set FAILED=!FAILED! %%T
     ) else (
-        "%OUT%\test_%%T.exe"
-        if errorlevel 1 set FAILED=!FAILED! %%T
+        "%OUT%\test_%%T.exe" >"%OUT%\run_%%T.log" 2>&1
+        set RC=!errorlevel!
+        type "%OUT%\run_%%T.log"
+        if not "!RC!"=="0" set FAILED=!FAILED! %%T
+        rem страховка: строка "N failed" с N>0 или "  FAIL " в выводе — сбой даже при коде 0
+        findstr /r /c:"[1-9][0-9]* failed" /c:"^  FAIL " "%OUT%\run_%%T.log" >nul && set FAILED=!FAILED! %%T
     )
 )
 rem хостовый скрипт tools\gfw.py: кадры shproto, разбор, команда прошивки (без COM-порта)
 echo === test_gfw.py ===
-python -I "%HERE%test_gfw.py"
-if errorlevel 1 set FAILED=!FAILED! gfw.py
+python -I "%HERE%test_gfw.py" >"%OUT%\run_gfw.log" 2>&1
+set RC=!errorlevel!
+type "%OUT%\run_gfw.log"
+if not "!RC!"=="0" set FAILED=!FAILED! gfw.py
+findstr /r /c:"[1-9][0-9]* failed" /c:"^  FAIL " "%OUT%\run_gfw.log" >nul && set FAILED=!FAILED! gfw.py
 
 if defined FAILED (
     echo FAILED:%FAILED%

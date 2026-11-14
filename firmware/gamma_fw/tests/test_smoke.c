@@ -3,12 +3,12 @@
 
 int main(void)
 {
-    /* T_DONE: ни одной проверки — сбой; только прошедшие — успех; есть упавшая — сбой */
-    int r0 = T_DONE();
+    /* T_RESULT (как T_DONE, но без печати): ни одной проверки — сбой; только прошедшие — успех; есть упавшая — сбой */
+    int r0 = T_RESULT();
     t_pass_ = 3;
-    int r1 = T_DONE();
+    int r1 = T_RESULT();
     t_fail_ = 1;
-    int r2 = T_DONE();
+    int r2 = T_RESULT();
     t_pass_ = t_fail_ = 0;
     CHECK(r0 == 1);
     CHECK(r1 == 0);

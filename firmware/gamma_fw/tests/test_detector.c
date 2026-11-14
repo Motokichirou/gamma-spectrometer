@@ -912,7 +912,7 @@ static float  lp_a[2 * LP_NPMAX];
 typedef struct {
     int    both, one, zero, more;                    /* пар с 2 / 1 / 0 / >2 каналами */
     double e1, e2;                                   /* средняя ошибка A (коды) у пар, где оба */
-    uint32_t rec, acc, pile, front, wid;             /* приращения счётчиков */
+    uint32_t rec, acc, pile, front, wid, shape;           /* приращения счётчиков */
     uint64_t dead;
 } lp_res_t;
 
@@ -955,6 +955,7 @@ static lp_res_t lp_pairs(int pile, int npair, float a1, float a2, double dlt, ui
     r.pile = s1.rej_pileup - s0.rej_pileup;
     r.front = s1.rej_front - s0.rej_front;
     r.wid = s1.rej_width - s0.rej_width;
+    r.shape = s1.rej_shape - s0.rej_shape;
     r.dead = s1.dead_samples - s0.dead_samples;
     return r;
 }
@@ -1110,11 +1111,11 @@ static void test_guard_after_tail(void)
     uint32_t wid = 0, shp = 0;
     for (int dlt = 30; dlt <= 49; dlt++) {
         lp_res_t r = lp_pairs(1, 100, 1500.0f, 100.0f, dlt, 9100u + dlt, 1);
-        const uint32_t rej = det.st.rej_shape + r.pile + r.wid;   /* det после lp_pairs — этот прогон */
+        const uint32_t rej = r.shape + r.pile + r.wid;   /* приращения за прогон (без прогрева) */
         silent += 100 - r.both - r.more - (int)rej;
         extra += r.more;
         wid += r.wid;
-        shp += det.st.rej_shape;
+        shp += r.shape;
         if (fabs(r.e2) > 0.005 * 100.0 + 2.0) { printf("  [Δ %d: ошибка A2 %+.2f]", dlt, r.e2); CHECK(0); }
     }
     printf("  пары 1500 + 100, Δ 30…49 (по 100): потеряно без брака %d, лишних %d, брак по ширине %u, "

@@ -66,6 +66,32 @@ typedef struct {
 } settings_v3_t;
 typedef char chk_v3_size[(sizeof(settings_v3_t) == 3160u) ? 1 : -1];     /* как прошивки v3 в поле */
 typedef char chk_v3_prefix[(offsetof(settings_v3_t, pile_on) == offsetof(settings_t, pile_on)) ? 1 : -1];
+/* Любая перестановка полей v4 до pile_on (и v3/v2 внутри общего префикса) ломает сборку: перенос v3/v2 — memcpy префикса */
+#define SAME_OFF(T, f) typedef char chk_off_##T##_##f[(offsetof(T, f) == offsetof(settings_t, f)) ? 1 : -1]
+SAME_OFF(settings_v3_t, hv_mon_zero_mv);
+SAME_OFF(settings_v3_t, hv_setpoint_v);
+SAME_OFF(settings_v3_t, pt_rpu_ohm);
+SAME_OFF(settings_v3_t, tc_t0_c);
+SAME_OFF(settings_v3_t, thr_codes);
+SAME_OFF(settings_v3_t, becq_words);
+SAME_OFF(settings_v3_t, becq_valid);
+SAME_OFF(settings_v3_t, tpl);
+SAME_OFF(settings_v3_t, tpl_valid);
+SAME_OFF(settings_v3_t, setup);
+SAME_OFF(settings_v3_t, tail);
+SAME_OFF(settings_v3_t, tail_valid);
+SAME_OFF(settings_v3_t, pile_on);
+/* v2: общий с v4 префикс — до конца setup включительно */
+SAME_OFF(settings_v2_t, hv_mon_zero_mv);
+SAME_OFF(settings_v2_t, hv_setpoint_v);
+SAME_OFF(settings_v2_t, pt_rpu_ohm);
+SAME_OFF(settings_v2_t, tc_t0_c);
+SAME_OFF(settings_v2_t, thr_codes);
+SAME_OFF(settings_v2_t, becq_words);
+SAME_OFF(settings_v2_t, becq_valid);
+SAME_OFF(settings_v2_t, tpl);
+SAME_OFF(settings_v2_t, tpl_valid);
+SAME_OFF(settings_v2_t, setup);
 
 uint32_t crc32_zip(const uint8_t *p, size_t n)
 {

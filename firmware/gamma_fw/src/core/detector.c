@@ -1229,6 +1229,11 @@ tail:                                        /* пока хвосты > thr/2: �
         if (tc.why == TS_TRIG) goto trigger;
         if (tc.why == TS_DONE) goto tail_end;
         if (tc.why == TS_REBASE) goto rebase;
+    } else {                                 /* !pa: недостижимо (tl_reset переводит TAIL в GUARD при выключенном разборе);
+                                                страховка — обычный GUARD, а не зависание в TAIL без разбора */
+        state = DET_S_GUARD;
+        guard_left = DET_GUARD;
+        goto guard;
     }
     goto out;
 tail_end:                                    /* дальше — обычный GUARD (хвост не идёт в базу) */
