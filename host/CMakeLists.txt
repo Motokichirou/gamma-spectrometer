@@ -55,6 +55,7 @@ set(GAMMA_CORE
   src/shproto.cpp
   src/serial_win.cpp
   src/tpl_learn.cpp
+  src/adc_dnl.cpp
   src/stm32boot.cpp
   src/fwflash.cpp
   src/peakfit.cpp
@@ -118,6 +119,7 @@ add_executable(gammapult_tests
   src/devstate.cpp
   src/peakfit.cpp
   src/tpl_learn.cpp
+  src/adc_dnl.cpp
   src/theme_tokens.cpp
   src/i18n.cpp
   src/appcfg.cpp)

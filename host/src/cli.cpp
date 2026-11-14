@@ -13,10 +13,14 @@
 //                          поднять скорость UART на время сбора, после — обратно 600000)
 //   gammapult tpl build raw.bin [--out tpl.h] [--tail-out tail.bin] [--load --port COMx [--save]]
 //                         (эталон и таблица хвоста для разбора наложений; --load пишет оба: -tplw/-tplok, -tlw/-tlm/-tlok)
+//   gammapult adc dnl raw.bin [raw2.bin ...] [--out dnl.txt] [--load --port COMx [--save]]
+//                         (таблица поправки DNL АЦП по плотности кодов сырых порций, adc_dnl.h; вместо raw — готовый
+//                          dnl.txt; --load: -dnl clr, -dnl пары, [-save])
 //   gammapult log status|on P [D]|off|start|stop|time|erase --yes --port COMx   (регистратор, SPEC_logger.md)
 //   gammapult log dump --port COMx --out <папка> [--session N] [--lo 300 --hi 6000] [--thermo] [--sum]
 #include "device.h"
 #include "tpl_learn.h"
+#include "adc_dnl.h"
 #include "fwflash.h"
 #include "peakfit.h"
 #include "host_app.h"
@@ -75,6 +79,8 @@ static void usage()
            "  gammapult tc      --port COMx [--secs 120] [--points N] [--lo 300] [--hi 6000]\n"
            "  gammapult tpl collect --port COMx [--n 2000] --out raw.bin [--baud 3000000]   (пишет по ходу)\n"
            "  gammapult tpl build raw.bin [--out tpl.h] [--tail-out tail.bin] [--load --port COMx [--save]]\n"
+           "  gammapult adc dnl raw.bin [raw2.bin ...] [--out dnl.txt] [--load --port COMx [--save]]\n"
+           "                        (поправка DNL АЦП по плотности кодов; вместо raw — готовый dnl.txt для --load)\n"
            "  gammapult log status|off|start|stop|time --port COMx      (регистратор: состояние/управление)\n"
            "  gammapult log on <период_с> [выдержка_с] --port COMx     (автозапуск регистратора)\n"
            "  gammapult log erase --yes --port COMx                   (стереть журнал)\n"
@@ -111,6 +117,68 @@ int run_cli(int argc, char** argv)
         char cmds[11][40]; peakfit::becq_cal_commands(c, cmds);
         for (auto& s : cmds) printf("%s\n", s);
         return 0;
+    }
+
+    // таблица поправки DNL АЦП по сырым порциям (или готовый .txt) — без прибора (с --load нужен порт)
+    std::vector<std::pair<int, int>> dnl_tab;
+    bool adc_dnl_cmd = (sub == "adc" && argc >= 4 && std::string(argv[2]) == "dnl");
+    if (adc_dnl_cmd) {
+        std::vector<std::string> files;
+        for (int i = 3; i < argc; i++) {
+            std::string a = argv[i];
+            if (a == "--out" || a == "--port") { i++; continue; }
+            if (a.rfind("--", 0) == 0) continue;
+            files.push_back(a);
+        }
+        if (files.empty()) { printf("нужен хотя бы один raw.bin (или таблица .txt)\n"); return 1; }
+        bool from_txt = files.size() == 1 && files[0].size() > 4 && files[0].compare(files[0].size() - 4, 4, ".txt") == 0;
+        if (from_txt) {                         // готовая таблица (--out прошлого прогона): только --load
+            FILE* f = fopen(files[0].c_str(), "rb");
+            if (!f) { printf("не открыть %s\n", files[0].c_str()); return 2; }
+            std::string txt; char b[4096]; size_t n;
+            while ((n = fread(b, 1, sizeof b, f)) > 0) txt.append(b, n);
+            fclose(f);
+            std::string err;
+            if (!adc_dnl::parse_table(txt, dnl_tab, err)) { printf("%s: %s\n", files[0].c_str(), err.c_str()); return 2; }
+            printf("таблица %s: %zu пар\n", files[0].c_str(), dnl_tab.size());
+        } else {
+            std::vector<uint64_t> hist(adc_dnl::CODES, 0);
+            uint64_t over = 0, total = 0;
+            std::vector<uint16_t> buf(1u << 20);
+            for (auto& fn : files) {
+                FILE* f = fopen(fn.c_str(), "rb");
+                if (!f) { printf("не открыть %s\n", fn.c_str()); return 2; }
+                uint64_t n0 = total;
+                size_t got;
+                while ((got = fread(buf.data(), 2, buf.size(), f)) > 0) { adc_dnl::add_samples(hist, buf.data(), got, &over); total += got; }
+                fclose(f);
+                printf("%s: %llu отсчётов\n", fn.c_str(), (unsigned long long)(total - n0));
+            }
+            if (over) printf("внимание: %llu отсчётов вне 0…4095 (не сырые порции АЦП?)\n", (unsigned long long)over);
+            adc_dnl::Result r = adc_dnl::compute(hist);
+            printf("%s\n", r.msg.c_str());
+            if (!r.ok) return 4;
+            for (auto& e : r.table)
+                printf("  код %4d: ширина %6.2f LSB, сдвиг центра %+6.2f LSB (%+d/16), отсчётов %llu, норма %.1f\n",
+                       e.code, e.width, e.off, e.off16, (unsigned long long)e.count, e.norm);
+            if (r.candidates.size() > r.table.size())
+                printf("  ещё %zu кодов не вошли: предел %d пар, взяты с наибольшим |сдвигом|\n",
+                       r.candidates.size() - r.table.size(), adc_dnl::MAX_PAIRS);
+            std::string out = opt(argc, argv, "--out");
+            if (!out.empty()) {
+                std::string cm = "сырые порции:";
+                for (auto& fn : files) cm += " " + std::filesystem::path(fn).filename().string();
+                std::string t = adc_dnl::format_table(r, cm);
+                FILE* h = fopen(out.c_str(), "wb");
+                if (!h) { printf("не записать %s\n", out.c_str()); return 2; }
+                fwrite(t.data(), 1, t.size(), h); fclose(h);
+                printf("таблица -> %s\n", out.c_str());
+            }
+            for (auto& e : r.table) dnl_tab.push_back({ e.code, e.off16 });
+        }
+        bool load = false;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--load") == 0) load = true;
+        if (!load) return 0;
     }
 
     // эталон из файла — без прибора (с --load нужен порт)
@@ -390,6 +458,30 @@ int run_cli(int argc, char** argv)
         if (L.save_sent) printf("-save: %s\n", L.save_ok ? "ok" : L.save_err.c_str());
         printf("ответ: %s\n", dev.last_reply.c_str());
         rc = !L.tpl_ok || (L.save_sent && !L.save_ok) ? 5 : (L.tail_sent && !L.tail_ok) ? 6 : tail_rc;
+    } else if (adc_dnl_cmd) {
+        // -dnl clr, затем пары одной командой; -save — только если оба приняты
+        bool save = false;
+        for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--save") == 0) save = true;
+        auto cmds = adc_dnl::load_commands(dnl_tab, false);
+        int e0 = dev.queue_errors;
+        for (auto& c : cmds) {
+            dev.queue({ c });
+            while (dev.queue_busy()) pump(dev, 0.05);
+            if (dev.queue_errors != e0) break;
+        }
+        bool ok = dev.queue_errors == e0;
+        if (!ok) printf("таблица не принята: %s%s\n", dev.queue_last_err.c_str(),
+                        dev.queue_last_err.rfind("-err unknown", 0) == 0 ? " (прошивка без -dnl)" : "");
+        else printf("таблица принята: %zu пар (действует сразу)\n", dnl_tab.size());
+        printf("ответ: %s\n", dev.last_reply.c_str());
+        rc = ok ? 0 : 5;
+        if (ok && save) {
+            dev.queue({ "-save" });
+            while (dev.queue_busy()) pump(dev, 0.05);
+            bool sv = dev.queue_errors == e0;
+            printf("-save: %s\n", sv ? dev.last_reply.c_str() : dev.queue_last_err.c_str());
+            if (!sv) rc = 5;
+        }
     } else if (sub == "tpl" && argc >= 3 && std::string(argv[2]) == "collect") {
         int n = atoi(opt(argc, argv, "--n", "2000").c_str());
         std::string out = opt(argc, argv, "--out");

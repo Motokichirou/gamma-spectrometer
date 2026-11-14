@@ -7,6 +7,8 @@
 #include "appcfg.h"
 #include "peakfit.h"
 #include "tpl_learn.h"
+#include "adc_dnl.h"
+#include <random>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -1012,8 +1014,157 @@ static void test_append_blocks()
     CHECK(tpl::append_blocks(nullptr, b, ok) == 0 && !ok && b.empty());
 }
 
+// ---- таблица DNL АЦП (adc_dnl) ----
+// Синтетический АЦП: границы кодов edge[c] (код c — отрезок [edge[c], edge[c+1])), спектр — горб базы у 620
+// (σ 4) и спад exp(−x/1500) с плавным началом у 700 и концом у 3600 (как у настоящего спектра — без ступенек),
+// гистограмма = ожидание по отрезку кода + шум Пуассона.
+static std::vector<uint64_t> dnl_hist(const std::vector<double>& edge, double per_code, uint32_t seed)
+{
+    std::mt19937 rng(seed);
+    auto dens = [&](double x) {           // отсчётов на LSB
+        double v = 0;
+        v += per_code * std::exp(-(x - 2047.0) / 1500.0) / (1.0 + std::exp(-(x - 700.0) / 20.0))
+                      / (1.0 + std::exp((x - 3600.0) / 20.0));
+        v += 2e6 * std::exp(-0.5 * (x - 620.0) * (x - 620.0) / 16.0);
+        return v;
+    };
+    std::vector<uint64_t> H(adc_dnl::CODES, 0);
+    for (int c = 0; c < adc_dnl::CODES; c++) {
+        double a = edge[c], b = edge[c + 1];
+        if (b <= a) continue;
+        double mu = 0;
+        const int K = 16;
+        for (int k = 0; k < K; k++) mu += dens(a + (b - a) * (k + 0.5) / K) * (b - a) / K;
+        if (mu <= 0) continue;
+        if (mu > 1e5) H[c] = (uint64_t)std::llround(std::max(0.0, mu + std::sqrt(mu) * std::normal_distribution<double>(0, 1)(rng)));
+        else H[c] = std::poisson_distribution<uint64_t>(mu)(rng);
+    }
+    return H;
+}
+
+static std::vector<double> dnl_edges_nominal(double noise, uint32_t seed)
+{
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> u(-noise, noise);
+    std::vector<double> e(adc_dnl::CODES + 1);
+    for (int c = 0; c <= adc_dnl::CODES; c++) e[c] = c - 0.5 + ((c > 0 && c < adc_dnl::CODES) ? u(rng) : 0.0);
+    return e;
+}
+
+static const adc_dnl::Entry* dnl_find(const adc_dnl::Result& r, int code)
+{
+    for (auto& e : r.table) if (e.code == code) return &e;
+    return nullptr;
+}
+
+static void test_adc_dnl_gap()
+{
+    // DNL ±0.1 LSB на всех кодах + пропуск 15 кодов: 2048…2061 не выдаются, всё — в 2047 ([2046.5, 2061.5),
+    // центр 2054, сдвиг +7 LSB = 112/16); умеренный DNL у 1791/1792/1793 (ширины 2.4/0.3/0.3)
+    std::vector<double> e = dnl_edges_nominal(0.1, 11);
+    for (int c = 2048; c <= 2062; c++) e[c] = 2061.5;          // коды 2048…2061 — нулевой ширины
+    e[2047] = 2046.5;
+    e[1791] = 1790.5; e[1792] = 1792.9; e[1793] = 1793.2; e[1794] = 1793.5;
+    auto H = dnl_hist(e, 300.0, 5);
+    CHECK(H[2047] > 3000 && H[2050] == 0);
+    auto r = adc_dnl::compute(H);
+    CHECK(r.ok);
+    printf("  adc dnl (пропуск 15 кодов): %s;", r.msg.c_str());
+    for (auto& t : r.table) printf(" %d:%d", t.code, t.off16);
+    printf("\n");
+    const adc_dnl::Entry* g = dnl_find(r, 2047);
+    CHECK(g != nullptr);
+    if (g) {
+        CHECK(std::abs(g->off16 - 112) <= 8);                  // ±0.5 LSB
+        CHECK_NEAR(g->width, 15.0, 0.8);
+    }
+    for (int c = 2048; c <= 2061; c++) CHECK(dnl_find(r, c) == nullptr);   // не встречаются
+    const adc_dnl::Entry* a = dnl_find(r, 1791);
+    const adc_dnl::Entry* b = dnl_find(r, 1792);
+    CHECK(a && std::abs(a->off16 - 11) <= 5);                  // центр 1791.7: +0.7 LSB
+    CHECK(b && std::abs(b->off16 - 17) <= 6);                  // центр 1793.05: +1.05 LSB
+    int base_hits = 0, other = 0;
+    for (auto& t : r.table) {
+        if (t.code < 700) base_hits++;                         // горб базы — норма не годится
+        else if (t.code != 2047 && t.code != 2062 && (t.code < 1791 || t.code > 1793)) other++;
+    }
+    CHECK(base_hits == 0);
+    CHECK(other == 0);                                         // шум DNL ±0.1 в таблицу не попадает
+    CHECK(r.table.size() <= (size_t)adc_dnl::MAX_PAIRS);
+    for (size_t i = 1; i < r.table.size(); i++) CHECK(r.table[i - 1].code < r.table[i].code);
+
+    // без дефектов — таблица пуста
+    auto r0 = adc_dnl::compute(dnl_hist(dnl_edges_nominal(0.1, 12), 300.0, 6));
+    CHECK(r0.ok && r0.table.empty());
+    for (auto& t : r0.table) printf("  лишнее: %d:%d (ширина %.2f, норма %.1f)\n", t.code, t.off16, t.width, t.norm);
+}
+
+static void test_adc_dnl_top16()
+{
+    // 20 широких кодов (ширина 1 + d, за ним — пропущенные и узкий код): в таблицу 16 с наибольшим сдвигом
+    std::vector<double> e = dnl_edges_nominal(0.0, 1);
+    for (int k = 0; k < 20; k++) {
+        int c = 900 + 100 * k;
+        double d = 1.2 + 0.1 * k;                              // сдвиг центра c: d/2 (0.6…1.55 LSB)
+        for (int j = 1; j <= 4; j++) e[c + j] = std::max(e[c + j], c + 0.5 + d);   // следом — пропуск и узкий
+    }
+    auto r = adc_dnl::compute(dnl_hist(e, 2000.0, 7));
+    CHECK(r.ok && r.table.size() == (size_t)adc_dnl::MAX_PAIRS);
+    CHECK(r.candidates.size() >= 20);
+    int small = 0;
+    for (auto& t : r.table) if (t.code < 900 + 100 * 4) small++;   // 4 наименьших (k 0…3) — за бортом
+    if (small) { for (auto& t : r.candidates) printf(" %d:%d", t.code, t.off16); printf("\n"); }
+    CHECK(small == 0);
+
+    // пропуск в группе с узким кодом ниже 0.1 LSB: такой код не берётся
+    std::vector<double> e2 = dnl_edges_nominal(0.0, 1);
+    e2[1501] = 1503.45; e2[1502] = 1503.48;                    // 1500 — ширина 2.95, 1501 — 0.03
+    auto r2 = adc_dnl::compute(dnl_hist(e2, 2000.0, 8));
+    CHECK(dnl_find(r2, 1500) != nullptr);
+    CHECK(dnl_find(r2, 1501) == nullptr);
+}
+
+static void test_adc_dnl_file()
+{
+    adc_dnl::Result r;
+    r.ok = true; r.msg = "проба";
+    adc_dnl::Entry a; a.code = 767; a.off16 = 8; a.off = 0.5; a.width = 2.0; a.count = 46865; a.norm = 23000;
+    adc_dnl::Entry b; b.code = 2047; b.off16 = 127; b.off = 7.93; b.width = 16.86; b.count = 2209; b.norm = 131;
+    r.table = { a, b };
+    std::string txt = adc_dnl::format_table(r, "файлы: mix_1.bin\nвторая строка");
+    std::vector<std::pair<int, int>> t;
+    std::string err;
+    CHECK(adc_dnl::parse_table(txt, t, err));
+    CHECK(t.size() == 2 && t[0].first == 767 && t[0].second == 8 && t[1].first == 2047 && t[1].second == 127);
+    CHECK(!adc_dnl::parse_table("2047 112 5\n", t, err));
+    CHECK(!adc_dnl::parse_table("4096 1\n", t, err));
+    CHECK(!adc_dnl::parse_table("100 0\n", t, err));
+    CHECK(!adc_dnl::parse_table("100 1025\n", t, err));
+    CHECK(!adc_dnl::parse_table("100 5\n100 6\n", t, err));
+    CHECK(!adc_dnl::parse_table("abc\n", t, err));
+    CHECK(adc_dnl::parse_table("# пусто\n\n", t, err) && t.empty());
+    std::string many;
+    for (int k = 0; k < 17; k++) many += std::to_string(100 + k) + " 3\n";
+    CHECK(!adc_dnl::parse_table(many, t, err));
+    auto v = adc_dnl::load_commands({ { 767, 8 }, { 2047, 127 } }, true);
+    CHECK(v.size() == 3 && v[0] == "-dnl clr" && v[1] == "-dnl 767 8 2047 127" && v[2] == "-save");
+    auto v0 = adc_dnl::load_commands({}, false);
+    CHECK(v0.size() == 1 && v0[0] == "-dnl clr");
+    std::vector<std::pair<int, int>> full;
+    for (int k = 0; k < 16; k++) full.push_back({ 4095 - k, -1024 });
+    CHECK(adc_dnl::load_commands(full, false)[1].size() <= 250);   // кадр прибора — 256 байт
+    std::vector<uint64_t> h;
+    uint16_t smp[4] = { 5, 4095, 4096, 5 };
+    uint64_t over = 0;
+    adc_dnl::add_samples(h, smp, 4, &over);
+    CHECK(h.size() == 4096 && h[5] == 2 && h[4095] == 1 && over == 1);
+}
+
 int main()
 {
+    test_adc_dnl_gap();
+    test_adc_dnl_top16();
+    test_adc_dnl_file();
     test_baud();
     test_append_blocks();
     test_peak_count();
