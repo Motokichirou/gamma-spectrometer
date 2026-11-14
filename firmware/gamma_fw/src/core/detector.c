@@ -261,18 +261,25 @@ static void tl_reset(det_t *d)
     }
 }
 
-/* разбор включился: импульс, начатый без него, бросается (номер buf[0] — bpos — не записан) */
-static void pa_update(det_t *d)
+/* Начатый импульс (PULSE/POST) бросается без учёта, остаток — в обычный GUARD без взвода. */
+static void pulse_drop(det_t *d)
 {
-    const uint8_t was = d->pa;
-    d->pa = (d->tl != NULL && d->pile_on) ? 1u : 0u;
-    d->max_fits = d->pa ? d->max_fits_p : d->max_fits_np;   /* бюджет — с ближайшей порции */
-    if (d->pa && !was && (d->state == DET_S_PULSE || d->state == DET_S_POST)) {
+    if (d->state == DET_S_PULSE || d->state == DET_S_POST) {
         d->state = DET_S_GUARD;
         d->guard_left = DET_GUARD;
         d->armed = 0;
         d->cap_on = 0;
     }
+}
+
+/* Разбор включился или выключился: импульс, начатый в другом режиме, бросается — при включении номер
+   buf[0] (bpos) не записан, при выключении в буфере отсчёты с вычтенным хвостом (подгонка по смеси). */
+static void pa_update(det_t *d)
+{
+    const uint8_t was = d->pa;
+    d->pa = (d->tl != NULL && d->pile_on) ? 1u : 0u;
+    d->max_fits = d->pa ? d->max_fits_p : d->max_fits_np;   /* бюджет — с ближайшей порции */
+    if (d->pa != was) pulse_drop(d);
     tl_reset(d);
 }
 
@@ -300,6 +307,7 @@ void det_add_lost(det_t *d, uint32_t n)
     d->st.dead_samples += n;
     d->pos0 += n;
     d->cap_on = 0;                    /* окно с дырой не годится */
+    if (d->pa) pulse_drop(d);         /* bpos начатого — в старой нумерации: хвост лёг бы на n раньше */
     tl_reset(d);                      /* хвосты до дыры к потоку после неё не относятся */
 }
 
@@ -390,7 +398,9 @@ static void rebase_stuck(det_t *d)
     d->var  = (v > 0.0f) ? v : 0.0f;
     d->bint = iround(d->base);
     d->qn = 0; d->qsum = 0; d->qsq = 0;
-    d->state = DET_S_IDLE;            /* начатый (и ждущий проверки фронта) импульс бросается */
+    if (d->state == DET_S_FRONT)      /* подогнан по прежней базе — выдаётся, как при сбросе списка */
+        front_accept(d);
+    d->state = DET_S_IDLE;            /* начатый импульс бросается */
     d->armed = 1;
     d->guard_left = 0;
     d->st.base_jumps++;

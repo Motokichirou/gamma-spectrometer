@@ -1209,6 +1209,65 @@ static void test_tail_reset_on_lost(void)
     CHECK(abs(ch[0] - ch[1]) <= 2);
 }
 
+/* Потеря посреди импульса при разборе: поток на самом деле непрерывен, но детектор думает, что пропало
+   n отсчётов (pos0 += n). Импульс 1 стоит на стыке порций (PULSE) — его bpos в старой нумерации, хвост
+   лёг бы на n отсчётов раньше и проверка фронта по нему дала бы ложный брак (rej_front += 2). Начатый
+   импульс бросается, как при включении разбора; импульс 2 через 200 — как в чистом потоке. */
+static void test_lost_mid_pulse(void)
+{
+    int ch[2] = { -1, -1 }, nc[2] = { 0, 0 };
+    det_stats_t st = { 0 };
+    for (int v = 0; v < 2; v++) {                    /* v = 0: с потерей и импульсом 1; v = 1: только импульс 2 */
+        int np = 0;
+        if (v == 0) { lp_t[np] = 3.0 * BLK - 6.0; lp_a[np++] = 800.0f; }   /* вершина ≈ 3·BLK − 2 */
+        lp_t[np] = 3.0 * BLK + 200.0; lp_a[np++] = 600.0f;
+        lp_stream(4 * BLK, lp_t, lp_a, np, 9091u);
+        reset_long(1);
+        feed(3 * BLK, BLK);
+        if (v == 0) {
+            CHECK(det.state == 1u /* PULSE */);
+            det_add_lost(&det, 10);
+        }
+        det_process_block(&det, sbuf + 3 * BLK, BLK);
+        nc[v] = nch;
+        if (nch >= 1) ch[v] = chans[nch - 1];
+        if (v == 0) det_get_stats(&det, &st);
+    }
+    printf("  потеря посреди импульса: каналов %d (чистый %d), второй %d / %d, rej_front %u, rej_pileup %u\n",
+           nc[0], nc[1], ch[0], ch[1], st.rej_front, st.rej_pileup);
+    CHECK(st.rej_front == 0u);
+    CHECK(nc[0] == 1 && nc[1] == 1);                 /* импульс 1 брошен, лишнего события нет */
+    CHECK(ch[0] >= 0 && abs(ch[0] - ch[1]) <= 2);
+}
+
+/* Разбор выключился посреди импульса: импульс бросается (буфер — с вычтенным хвостом), следующий — как
+   в чистом потоке */
+static void test_pile_off_mid_pulse(void)
+{
+    int ch[2] = { -1, -1 }, nc[2] = { 0, 0 };
+    for (int v = 0; v < 2; v++) {
+        int np = 0;
+        if (v == 0) { lp_t[np] = 3.0 * BLK - 6.0; lp_a[np++] = 800.0f; }
+        lp_t[np] = 3.0 * BLK + 200.0; lp_a[np++] = 600.0f;
+        lp_stream(4 * BLK, lp_t, lp_a, np, 9092u);
+        reset_long(1);
+        feed(3 * BLK, BLK);
+        if (v == 0) {
+            CHECK(det.state == 1u /* PULSE */);
+            det_set_pile(&det, 0);
+            CHECK(det.state == 3u /* GUARD */);
+        } else {
+            det_set_pile(&det, 0);
+        }
+        det_process_block(&det, sbuf + 3 * BLK, BLK);
+        nc[v] = nch;
+        if (nch >= 1) ch[v] = chans[nch - 1];
+    }
+    printf("  выкл разбора посреди импульса: каналов %d (чистый %d), второй %d / %d\n", nc[0], nc[1], ch[0], ch[1]);
+    CHECK(nc[0] == 1 && nc[1] == 1);
+    CHECK(ch[0] >= 0 && abs(ch[0] - ch[1]) <= 2);
+}
+
 static void test_no_tail_after_reject(void)
 {
     /* зашкал: 5000 кодов при базе 620 — срезан на 4095, отбраковка по форме; через 40 — импульс 300 */
@@ -1305,6 +1364,8 @@ int main(void)
     test_pile_budget();
     test_tail_across_blocks();
     test_tail_reset_on_lost();
+    test_lost_mid_pulse();
+    test_pile_off_mid_pulse();
     test_no_tail_after_reject();
     test_dead_time_peel();
     return T_DONE();
