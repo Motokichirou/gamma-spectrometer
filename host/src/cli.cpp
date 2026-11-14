@@ -131,7 +131,15 @@ int run_cli(int argc, char** argv)
             files.push_back(a);
         }
         if (files.empty()) { printf("нужен хотя бы один raw.bin (или таблица .txt)\n"); return 1; }
-        bool from_txt = files.size() == 1 && files[0].size() > 4 && files[0].compare(files[0].size() - 4, 4, ".txt") == 0;
+        auto is_txt = [](const std::string& f) {
+            std::string e = std::filesystem::path(f).extension().string();
+            for (auto& c : e) c = (char)tolower((unsigned char)c);
+            return e == ".txt" || e == ".tsv";
+        };
+        size_t ntxt = 0;
+        for (auto& f : files) if (is_txt(f)) ntxt++;
+        if (ntxt && (ntxt != 1 || files.size() != 1)) { printf("таблица .txt — только одна и без сырых порций\n"); return 1; }
+        bool from_txt = ntxt == 1;
         if (from_txt) {                         // готовая таблица (--out прошлого прогона): только --load
             FILE* f = fopen(files[0].c_str(), "rb");
             if (!f) { printf("не открыть %s\n", files[0].c_str()); return 2; }
@@ -155,6 +163,7 @@ int run_cli(int argc, char** argv)
                 printf("%s: %llu отсчётов\n", fn.c_str(), (unsigned long long)(total - n0));
             }
             if (over) printf("внимание: %llu отсчётов вне 0…4095 (не сырые порции АЦП?)\n", (unsigned long long)over);
+            if (over * 100 > total) { printf("больше 1 %% отсчётов вне шкалы — это не сырые порции, таблицу не считаю\n"); return 4; }
             adc_dnl::Result r = adc_dnl::compute(hist);
             printf("%s\n", r.msg.c_str());
             if (!r.ok) return 4;
@@ -179,6 +188,8 @@ int run_cli(int argc, char** argv)
         bool load = false;
         for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--load") == 0) load = true;
         if (!load) return 0;
+        // пустая таблица не грузится: иначе -dnl clr молча сотрёт таблицу прибора (очистка — явной командой -dnl clr)
+        if (dnl_tab.empty()) { printf("таблица пустая — в прибор не пишу (очистить: cmd --send \"-dnl clr\")\n"); return 4; }
     }
 
     // эталон из файла — без прибора (с --load нужен порт)
