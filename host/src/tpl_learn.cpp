@@ -813,6 +813,14 @@ std::vector<std::string> TplLoad::after_tail()
     return {};
 }
 
+void TplLoad::abort(const std::string& err)
+{
+    if (!busy()) return;
+    tpl_ok = tail_ok = save_ok = false;
+    tpl_err = err;
+    stage = Done;
+}
+
 std::vector<std::string> TplLoad::next(int errors, const std::string& last_err)
 {
     switch (stage) {

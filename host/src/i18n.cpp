@@ -614,6 +614,7 @@ static const I18nEntry k_table[] = {
     { "adv.tpl.save",       "4. Сохранить во флеш (-save)",   "4. Save to flash (-save)" },
     { "adv.tpl.loading",    "Загружаю…",                      "Loading…" },
     { "adv.tpl.load_err",   "! Ошибка загрузки: %s",          "! Load error: %s" },
+    { "adv.tpl.no_link",    "нет связи с прибором",           "no connection to the device" },
     { "adv.tpl.loaded",     "Загружено, действует сразу (до -save только в ОЗУ)", "Loaded and active now (in RAM until -save)" },
     { "adv.tpl.clear",      "Вернуть вшитую форму (-tplclr)", "Restore the built-in shape (-tplclr)" },
 

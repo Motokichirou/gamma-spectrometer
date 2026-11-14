@@ -129,6 +129,8 @@ public:
     enum Stage { Idle, Tpl, TailSt, Save, Done };
     std::vector<std::string> start(const Result& r, const Tail& t, bool save);
     std::vector<std::string> next(int errors, const std::string& last_err);
+    // связь пропала посреди записи: конец, ничего не принято (что дошло до прибора — неизвестно)
+    void abort(const std::string& err);
     bool busy() const { return stage != Idle && stage != Done; }
     bool done() const { return stage == Done; }
     Stage stage = Idle;

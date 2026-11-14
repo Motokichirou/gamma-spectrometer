@@ -90,7 +90,9 @@ static int    g_tpl_load_e0 = 0;               // queue_errors в начале �
 // шаги записи эталона со страницы «Эталон» — каждый кадр, даже если страница закрыта
 static void TplLoadTick()
 {
-    if (!g_tpl_load.busy() || g_dev.queue_busy()) return;
+    if (!g_tpl_load.busy()) return;
+    if (!g_dev.connected()) { g_tpl_load.abort(T("adv.tpl.no_link")); return; }   // очередь сброшена без -err
+    if (g_dev.queue_busy()) return;
     auto v = g_tpl_load.next(g_dev.queue_errors - g_tpl_load_e0, g_dev.queue_last_err);
     g_tpl_load_e0 = g_dev.queue_errors;
     g_dev.queue(v);

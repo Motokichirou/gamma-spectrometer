@@ -893,6 +893,21 @@ static void test_tpl_load()
         CHECK(v.empty() && L.done() && L.tpl_ok && !L.tail_sent && !L.save_sent);
         CHECK(L.next(0, "").empty());                 // после конца — ничего
     }
+    {   // связь пропала посреди таблицы: конец, ни эталон, ни таблица не считаются принятыми
+        tpl::TplLoad L;
+        L.start(r, t, true);
+        L.next(0, "");
+        CHECK(L.busy() && L.tpl_ok && L.tail_sent);
+        L.abort("no link");
+        CHECK(!L.busy() && L.done() && !L.tpl_ok && !L.tail_ok && !L.save_ok && !L.save_sent);
+        CHECK(L.tpl_err == "no link");
+        CHECK(L.next(0, "").empty());
+        L.abort("x");                                 // после конца — без изменений
+        CHECK(L.tpl_err == "no link");
+        tpl::TplLoad I;                               // не начата — не трогается
+        I.abort("x");
+        CHECK(I.stage == tpl::TplLoad::Idle && I.tpl_err.empty());
+    }
     {   // -save не прошёл
         tpl::TplLoad L;
         L.start(r, none, true);
