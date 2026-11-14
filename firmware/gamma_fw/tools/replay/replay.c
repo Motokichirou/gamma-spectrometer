@@ -1,5 +1,5 @@
 /* replay.c — прогон детектора прошивки (src/core/detector.c) по сырым порциям на ПК.
- * Сборка: tools\replay\build.cmd. Запуск: replay raw.bin out.csv [thr] [gain] [tail.bin]
+ * Сборка: tools\replay\build.cmd. Запуск: replay raw.bin out.csv [thr] [gain] [tail.bin|-] [ev.csv|-] [dnl.txt]
  *   raw.bin — порции uint16 × 8192 подряд (gammapult tpl collect); эталон — /FI заголовок tpl_pmt.h.
  *   thr 0 (или не задан) — авто-порог, gain — 1.
  *   tail.bin — таблица хвоста (gammapult tpl build … --tail-out, 2112 Б: s[16][64] int16 LE, row[64]):
@@ -10,7 +10,10 @@
  * принятые с вычетом хвоста предыдущего) и *_com.csv (остальные принятые); статистика детектора,
  * живое время (отсчёты минус мёртвые, без искусственных разрывов между порциями).
  * ev.csv (только с tail.bin) — принятые события: порция, отсчёт максимума в порции (из списка хвостов
- * детектора, −1 — неизвестен), канал, восстановлен ли (для синтетических пар tools/pileup/synpairs.py). */
+ * детектора, −1 — неизвестен), канал, восстановлен ли (для синтетических пар tools/pileup/synpairs.py);
+ *   «-» — не писать.
+ * dnl.txt — таблица поправки DNL АЦП (gammapult adc dnl … --out dnl.txt): строки «код сдвиг» (сдвиг центра кода в
+ *   1/16 LSB), # — комментарий; задана — det_set_dnl, как -dnl в приборе; нет (или «-») — без поправки. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +49,35 @@ static int write_csv(const char *path, const uint32_t *h, const uint32_t *sub)
     return 1;
 }
 
+/* таблица DNL: «код сдвиг» построчно, # — комментарий; 0 — ошибка (сообщение уже выведено) */
+static int load_dnl(const char *path, det_dnl_t *t, unsigned *n)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) { fprintf(stderr, "не открыть %s\n", path); return 0; }
+    char ln[256];
+    unsigned m = 0, no = 0;
+    while (fgets(ln, sizeof ln, f)) {
+        no++;
+        char *h = strchr(ln, '#');
+        if (h) *h = 0;
+        long c, o;
+        char rest[8];
+        int k = sscanf(ln, "%ld %ld %7s", &c, &o, rest);
+        if (k <= 0) continue;                        /* пустая строка */
+        if (k != 2 || c < 0 || c >= (long)DET_DNL_CODES || o < -DET_DNL_OFF_MAX || o > DET_DNL_OFF_MAX || o == 0
+            || m >= DET_DNL_MAX) {
+            fprintf(stderr, "%s:%u: нужно «код 0…4095 сдвиг ±1…%d», не больше %u строк\n", path, no,
+                    DET_DNL_OFF_MAX, DET_DNL_MAX);
+            fclose(f);
+            return 0;
+        }
+        t[m].code = (uint16_t)c; t[m].off = (int16_t)o; m++;
+    }
+    fclose(f);
+    *n = m;
+    return 1;
+}
+
 static void suffixed(char *dst, size_t n, const char *path, const char *suf)
 {
     const char *dot = strrchr(path, '.');
@@ -55,7 +87,7 @@ static void suffixed(char *dst, size_t n, const char *path, const char *suf)
 
 int main(int argc, char **argv)
 {
-    if (argc < 3) { fprintf(stderr, "replay raw.bin out.csv [thr] [gain] [tail.bin] [ev.csv]\n"); return 1; }
+    if (argc < 3) { fprintf(stderr, "replay raw.bin out.csv [thr] [gain] [tail.bin|-] [ev.csv|-] [dnl.txt]\n"); return 1; }
     unsigned thr = argc > 3 ? (unsigned)atoi(argv[3]) : 0u;
     float gain = argc > 4 ? (float)atof(argv[4]) : 1.0f;
     const char *tail_path = (argc > 5 && strcmp(argv[5], "-") != 0) ? argv[5] : NULL;
@@ -77,6 +109,11 @@ int main(int argc, char **argv)
         for (unsigned p = 0; p < DET_NPH; p++)
             if (tl.row[p] >= DET_TL_ROWS) { fprintf(stderr, "%s: row[%u] = %u\n", tail_path, p, tl.row[p]); return 2; }
     }
+    static det_dnl_t dnl[DET_DNL_MAX];
+    static uint32_t dnl_map[DET_DNL_WORDS];
+    unsigned dnl_n = 0;
+    const char *dnl_path = (argc > 7 && strcmp(argv[7], "-") != 0) ? argv[7] : NULL;
+    if (dnl_path && !load_dnl(dnl_path, dnl, &dnl_n)) return 2;
     FILE *f = fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "не открыть %s\n", argv[1]); return 2; }
     det_cfg_t cfg = { (uint16_t)thr, DET_MINW_BOARD, DET_MAXW_BOARD, 0.0f, DET_MAX_FITS_BOARD,
@@ -84,7 +121,8 @@ int main(int argc, char **argv)
     det_init(&d, &cfg, tpl_pmt, emit);
     det_set_gain(&d, gain);
     if (tail_path) det_set_tail(&d, &tl);
-    if (tail_path && argc > 6) {
+    if (dnl_n) det_set_dnl(&d, dnl, dnl_n, dnl_map);
+    if (tail_path && argc > 6 && strcmp(argv[6], "-") != 0) {
         evf = fopen(argv[6], "w");
         if (!evf) { fprintf(stderr, "не записать %s\n", argv[6]); return 3; }
         fprintf(evf, "blk,pos,channel,rec\n");
@@ -103,8 +141,8 @@ int main(int argc, char **argv)
     fclose(f);
     if (evf) fclose(evf);
     det_stats_t st; det_get_stats(&d, &st);
-    printf("порций %u, база %.2f σ %.2f порог %u, разбор %s\n", nb, det_baseline(&d), det_sigma(&d), det_thr(&d),
-           det_pile_active(&d) ? "вкл" : "выкл");
+    printf("порций %u, база %.2f σ %.2f порог %u, разбор %s, DNL %u пар\n", nb, det_baseline(&d), det_sigma(&d),
+           det_thr(&d), det_pile_active(&d) ? "вкл" : "выкл", dnl_n);
     unsigned long long trig = (unsigned long long)st.accepted + st.rej_pileup + st.rej_shape + st.rej_width + st.rej_budget;
     printf("принято %u, наложения %u (фронт %u), форма %u, ширина %u, бюджет %u (всего %llu, брак %.2f %%)\n",
            st.accepted, st.rej_pileup, st.rej_front, st.rej_shape, st.rej_width, st.rej_budget, trig,

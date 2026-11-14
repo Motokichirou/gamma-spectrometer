@@ -8,6 +8,7 @@
 #   run.sh --only new|ref  только один вариант
 #   run.sh --equiv         сверка нового детектора со старым на ARM бит в бит (без подсчёта тактов)
 #   параметры: --rate 30000 --blocks 20 --seed 1 --kind cs|am|co|dac
+#   run.sh --dnl КОД       ПОСЛЕ с таблицей DNL на 16 кодах КОД…КОД+15 (такты поправки DNL; с --raw тоже)
 #   run.sh --raw порции.bin --tplh tpl.h --tail tail.bin [--thr 17] [--blocks 20] [--skip 0]
 #                          такты на записанных данных, разбор хвостов выкл и вкл (план 2026-11-13, задача 5)
 #
@@ -356,7 +357,8 @@ def stats_of(emu, p):
 
 def measure(variant, args):
     det_ram = args.det_place == 'ram' or (args.det_place == 'fw' and variant == 'new')
-    elf, syms, funcs = build(variant, det_ram)
+    dnl = ['-DCYC_DNL=%d' % args.dnl] if args.dnl is not None and variant == 'new' else []
+    elf, syms, funcs = build(variant, det_ram, dnl, '_dnl' if dnl else '')
     p = variant + '_'
     Emu.want_prof = bool(args.prof)
     emu = Emu(elf, syms, funcs, count=True, memmodel=not args.no_mem)
@@ -422,7 +424,8 @@ def measure_raw(args):
     тот же детектор (src/core/detector.c), DET_GUARD 40 и ширина 4…56, как на плате. Порции подряд,
     без разрывов; первые две — разгон базы (не считаются)."""
     tplh = os.path.abspath(args.tplh).replace(os.sep, '/')
-    elf, syms, funcs = build('new', True, ['-DDET_GUARD=40u', f'-DTPL_FILE="{tplh}"'], '_pmt')
+    dnl = ['-DCYC_DNL=%d' % args.dnl] if args.dnl is not None else []
+    elf, syms, funcs = build('new', True, ['-DDET_GUARD=40u', f'-DTPL_FILE="{tplh}"'] + dnl, '_pmt' + ('_dnl' if dnl else ''))
     tail = open(args.tail, 'rb').read()
     assert len(tail) == 2112, 'таблица хвоста — 2112 байт'
     raw = np.fromfile(args.raw, dtype='<u2', count=(args.blocks + 2) * BLK, offset=args.skip * BLK * 2)
@@ -600,6 +603,8 @@ def main():
     ap.add_argument('--tail', help='--raw: таблица хвоста (gammapult tpl build --tail-out tail.bin)')
     ap.add_argument('--thr', type=int, default=17, help='--raw: порог, коды')
     ap.add_argument('--skip', type=int, default=0, help='--raw: пропустить порций с начала файла')
+    ap.add_argument('--dnl', type=int, metavar='КОД', help='ПОСЛЕ с поправкой DNL: 16 пар на кодах КОД…КОД+15 '
+                    '(сдвиги 8…83/16 LSB), карта и список в CCM, как в main.c; КОД ниже базы — таблица мимо окна')
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding='utf-8')
     if args.raw:

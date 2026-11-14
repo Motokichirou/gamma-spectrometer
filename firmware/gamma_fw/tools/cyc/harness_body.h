@@ -41,6 +41,9 @@ void P(init)(uint32_t thr, uint32_t max_fits, uint32_t tpl_dac_sel, uint32_t min
     c.chi2_max = 0.0f;
     c.max_fits = (uint16_t)max_fits;
     T(init)(&P(det), &c, tpl_dac_sel ? tpl_dac : tpl_3467k, P(emit));
+#ifdef CYC_DNL_INIT
+    CYC_DNL_INIT(&P(det));
+#endif
     P(nch) = 0;
 }
 
