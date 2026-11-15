@@ -91,7 +91,7 @@ NaI(Tl) + R1307             Divider board                 MCU board
  PMT at ~565 V    ADA4817 TIA, Zt=2.7 kΩ       →  PGA ×4 (OPAMP3)
                                                    V_ADC = 0.394 V baseline
                                                    ADC3_IN1, 3.47 Msps
-                                                   pulse: 5–6-sample rise, 3.6 µs FWHM
+                                                   pulse: 5–6-sample rise, 4.0 µs FWHM
                                                    amplitude by shape template (64 phases)
                                                    8192-ch histogram → USB
 ```

@@ -48,7 +48,7 @@ There are no connectors in the stack — everything is soldered.
 NaI(Tl)+PMT → ADA4817 TIA (Zt=2.7 kΩ) → coax → integrator (OPAMP1) → integrator (OPAMP2) → PGA×4 (OPAMP3) → ADC3
 [divider board] ±5V_A                           τ≈1 µs              τ≈1.8 µs             base 0.394 V      3.467 MS/s
 anode ≈ 0 V (virtual ground)                         [MCU board — G474]
-ADC pulse: rise time 5–6 samples, FWHM 3.6 µs
+ADC pulse: rise time 5–6 samples, FWHM 4.0 µs
 ```
 
 **Polarity:** The pulse at the ADC goes *up* from the 0.394 V baseline (the PMT anode sinks current,

@@ -18,7 +18,7 @@ Compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra via 
 | Signal ADC | ADC3_IN1 (PB1), 12-bit, **3.467 MS/s**, 2.5-cycle sampling, continuous via DMA in chunks of 8192 samples |
 | Shaper | Built-in OPAMP1 and OPAMP2 — integrators (τ ≈ 1 and ≈ 1.8 µs), OPAMP3 — PGA ×4 |
 | ADC Baseline | ≈0.394 V (≈640 codes; sags to ≈620 under load); pulses are positive: `amplitude = sample − baseline` |
-| Pulse | 10% rise time to peak 5–6 samples, FWHM ≈14 samples (3.6 µs) |
+| Pulse | 10% rise time to peak 5–6 samples, FWHM ≈14 samples (4.0 µs) |
 | Spectrum | 8192 channels, channel = 2 × amplitude in ADC codes |
 | Service ADCs | HV monitor (ADC2), VREFINT (reference), Pt1000 via OPAMP6 ×8 (ADC4), +3.3V_D |
 
