@@ -21,8 +21,10 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md)
 
 <p align="center">
-  <img src="docs/img/stack.jpg" width="520" alt="Board stack">
-  <br><sub>Stack of four Ø45 mm boards, top to bottom: USB/power, HV, MCU with ADC, PMT divider with TIA</sub>
+  <img src="docs/img/device.jpg" width="32%" alt="Instrument in its housing">
+  <img src="docs/img/disassembled.jpg" width="32%" alt="Instrument disassembled">
+  <img src="docs/img/stack_side.jpg" width="32%" alt="Board stack on the PMT">
+  <br><sub>The instrument in a БДЭГ-01Р detector unit housing · disassembled: tube, detector with PMT and stack, inner housing · stack of four Ø45 mm boards on the PMT leads</sub>
 </p>
 
 > ✅ **November 2026: the instrument is assembled and works with BecqMoni** on the standard NaI(Tl) Ø63×63 + R1307
@@ -177,6 +179,17 @@ the electronics contribute at most ≈0.9 % FWHM (an upper bound; the template f
 the 6.7–6.9 % about 6.7 % comes from the crystal and PMT. Resolution is limited by the detector, not by the
 chain (on the 40×40 crystal an HV scan showed the same: a ≈ 7.0 %, noise ≈0.8 %). Resolution is compared in energy only: on chains with a nonlinear scale
 the per-channel percentage looks better than it really is. Details — [`firmware/board_g474cb/SPEC.md`](firmware/board_g474cb/SPEC.md) §10 (Russian).
+
+---
+
+## Photos
+
+<p align="center">
+  <img src="docs/img/detector_stack.jpg" width="32%" alt="Detector: crystal, PMT, stack">
+  <img src="docs/img/stack_shield.jpg" width="32%" alt="Shield between the HV and MCU boards">
+  <img src="docs/img/stack.jpg" width="32%" alt="Board stack in hand">
+  <br><sub>NaI(Tl) 63×63 crystal, R1307 PMT and the stack · top to bottom: USB/power, HV, shield, MCU with ADC, PMT divider with TIA · the stack for scale</sub>
+</p>
 
 ---
 
