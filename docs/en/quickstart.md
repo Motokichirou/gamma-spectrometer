@@ -19,6 +19,40 @@ From an assembled instrument to the first spectrum in BecqMoni, in about half an
 > In gammapult, the red **"Turn off HV"** button in the top bar switches HV off at any time.
 > The firmware turns HV off by itself before jumping to the bootloader.
 
+## 0. Before assembly: known issues of the v1 boards
+
+> ⚠️ **The v1 boards in this repository cannot be built as is.** Below is what had to be reworked on the first unit
+> and what has not yet been carried into KiCad. The full checklist for the next revision is
+> [`docs/revision_todo.md`](../revision_todo.md) (Russian).
+
+### Rework during assembly
+
+| Board | Problem | v1 workaround |
+|---|---|---|
+| USB/power | In `gerbers.zip` the GND island under pin 4 of U104 (TPS60400) has no via: the charge pump has no ground, −5V_A reads +2.3 V instead of −5 V | Jumper from U104 pin 4 to the GND pad of C113. Already fixed in `.kicad_pcb` — you can re-export the Gerbers |
+| MCU | No capacitor on NRST — the MCU resets by itself | 100 nF from NRST (pin 7) to GND, hand-soldered |
+| MCU | BOOT0 (PB8, pin 45) is not brought out | Wire from pin 45 through 10 kΩ: to +3.3 V — bootloader, to GND — normal run |
+| MCU | No SWD pads, and SWD never worked on v1 | Flash over USB through the bootloader only (gammapult wizard) |
+| MCU | Pt1000 has no ground: `TP_TSENS301` carries only TSENS_PWR and TSENS_IN | Bridge the pads, take the second Pt1000 lead to GND |
+| MCU | **The schematic has the old shaper values** | Rework to V2: remove C315, add C323 100 pF C0G across R305, C316 220 pF C0G, R306 8.2 kΩ, R310 220 kΩ, R311 9.1 kΩ |
+| Divider | R417 is 499 Ω in the schematic | Fit 2.7 kΩ |
+| Stack | 257 kHz pickup from the HV multiplier into the shaper (spikes, baseline noise ×3) | A grounded shield between the HV and MCU boards (insulated foil or copper tape is enough) |
+
+The BOM differs from the schematic too: **C209** is 100 V (`CC0603KRX7R0BB103`), not 50 V; **crystal Y301** is
+`KSE-7U16000M9Z143ZA3`; **C301/C302** are 10 pF, not 18. Manufacturer part numbers sit in the `PN` field, not `MPN`.
+
+### What to fix in KiCad (next revision)
+
+- **Schematic:** shaper V2 values, R417, C209, Y301, C301/C302; move part numbers from `PN` to `MPN`; re-export the
+  netlist and BOM.
+- **MCU board:** 100 nF on NRST; an emergency BOOT0 slide switch at the board edge (SPDT, e.g. C&K PCM12SMTR); SWD pads
+  (pins 37 / 38 / 7, GND, 3.3 V); a GND pad for the Pt1000; solid ground under the shaper on the side facing the HV board.
+- **HV → MCU:** a SYNC trace from the MAX1847 (pin 16, now tied to GND) through the stack bus to an MCU timer, so the ADC
+  samples in sync with the converter; a direct MCU ↔ USB-board ground that bypasses the HV board.
+- **Stack:** a proper shield between the HV and MCU boards, with mounting and a ground connection.
+- **USB/power:** re-export the Gerbers (the U104 fix exists only in `.kicad_pcb`).
+- After the edits: DRC with the HV rules and a hole count check per board.
+
 ## 1. Connect
 
 1. Plug the instrument in. Device Manager → "Ports (COM & LPT)" shows **USB Serial Port (COMx)** (FTDI FT231X bridge).
