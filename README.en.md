@@ -18,6 +18,11 @@ Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal a
 
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md)
 
+<p align="center">
+  <img src="docs/img/stack.jpg" width="520" alt="Board stack">
+  <br><sub>Stack of four Ø45 mm boards, top to bottom: USB/power, HV, MCU with ADC, PMT divider with TIA</sub>
+</p>
+
 > ✅ **November 2026: the instrument is assembled and works with BecqMoni** on the standard NaI(Tl) Ø63×63 + R1307
 > detector (PMT at ~565 V): **Cs-137 6.7–6.9 % FWHM**. Tail pile-up peeling in the firmware: on a ~20 kcps mix about
 > 17 400 cps are accepted without loss of resolution; ADC code nonlinearity (DNL) correction. Details — findings log
