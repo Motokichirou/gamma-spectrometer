@@ -9,6 +9,7 @@ For the project overview, see the root [README](../../README.en.md).
 
 | Document | Contents |
 |---|---|
+| [quickstart.md](quickstart.md) | Quick start: connecting, setup wizard, working in BecqMoni |
 | [hardware.md](hardware.md) | Board stack, signal chain, and a summary of all four boards |
 | [firmware.md](firmware.md) | Production firmware `firmware/gamma_fw`: ADC chain, shape-template detector, HV, commands, build and update |
 | [protocol.md](protocol.md) | shproto / AtomSpectra serial protocol reference |

@@ -16,6 +16,8 @@
 
 Portable cylindrical gamma spectrometer based on a NaI(Tl) Ø63×63 mm crystal and Hamamatsu R1307 PMT, with a USB-C interface compatible with [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (shproto protocol).
 
+> 🚀 **[Quick start](docs/en/quickstart.md)** — from an assembled instrument to the first spectrum in BecqMoni
+>
 > 📚 **Documentation:** [hardware overview](docs/en/hardware.md) · [firmware](docs/en/firmware.md) · [shproto protocol](docs/en/protocol.md) · [PC software](host/README.md)
 
 <p align="center">

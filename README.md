@@ -16,6 +16,8 @@
 
 Портативный цилиндрический гамма-спектрометр на кристалле NaI(Tl) Ø63×63 мм и ФЭУ Hamamatsu R1307, с интерфейсом USB-C, совместимым с [BecqMoni](https://github.com/Am6er/BecqMoni) / AtomSpectra (протокол shproto).
 
+> 🚀 **[Быстрый старт](docs/ru/quickstart.md)** — от собранного прибора до первого спектра в BecqMoni
+>
 > 📚 **Документация:** [обзор аппаратной части](docs/ru/hardware.md) · [прошивка](docs/ru/firmware.md) · [протокол shproto](docs/ru/protocol.md) · [ПО на PC](host/README.md)
 
 <p align="center">

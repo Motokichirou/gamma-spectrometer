@@ -9,6 +9,7 @@
 
 | Документ | Содержание |
 |---|---|
+| [quickstart.md](quickstart.md) | Быстрый старт: подключение, мастер настройки, работа в BecqMoni |
 | [hardware.md](hardware.md) | Стек плат, цепь сигнала и обзор всех четырёх плат |
 | [firmware.md](firmware.md) | Боевая прошивка `firmware/gamma_fw`: тракт АЦП, детектор по эталону формы, ВВ, команды, сборка и обновление |
 | [protocol.md](protocol.md) | Справочник по последовательному протоколу shproto / AtomSpectra |
